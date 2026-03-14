@@ -1,0 +1,266 @@
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { 
+  Plus, 
+  Trash2, 
+  Edit2, 
+  ChevronRight, 
+  Layout, 
+  X,
+  Check,
+  FileText
+} from 'lucide-react';
+import { Deck } from '../types';
+import { cn, getColorBg } from '../lib/utils';
+
+interface DeckListProps {
+  decks: Deck[];
+  onSelectDeck: (deckId: string) => void;
+  onCreateDeck: (name: string) => void;
+  onDeleteDeck: (deckId: string) => void;
+  onRenameDeck: (deckId: string, newName: string) => void;
+  onClose: () => void;
+  autoStartCreate?: boolean;
+}
+
+export const DeckList: React.FC<DeckListProps> = ({
+  decks,
+  onSelectDeck,
+  onCreateDeck,
+  onDeleteDeck,
+  onRenameDeck,
+  onClose,
+  autoStartCreate = false
+}) => {
+  const [isCreating, setIsCreating] = useState(autoStartCreate);
+  const [newDeckName, setNewDeckName] = useState("");
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const handleCreate = () => {
+    if (newDeckName.trim()) {
+      onCreateDeck(newDeckName.trim());
+      setNewDeckName("");
+      setIsCreating(false);
+    }
+  };
+
+  const handleRename = (deckId: string) => {
+    if (editName.trim()) {
+      onRenameDeck(deckId, editName.trim());
+      setEditingDeckId(null);
+      setEditName("");
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmId) {
+      onDeleteDeck(deleteConfirmId);
+      setDeleteConfirmId(null);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-[#F5F5F0] flex flex-col min-h-0"
+    >
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-xs bg-white rounded-3xl p-6 shadow-2xl space-y-6"
+          >
+            <div className="space-y-2 text-center">
+              <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="font-bold text-lg">Delete Deck?</h3>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                Are you sure you wish to delete this deck? This action cannot be undone.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setDeleteConfirmId(null)}
+                className="py-3 px-4 bg-stone-100 text-stone-600 rounded-xl font-bold text-sm hover:bg-stone-200 transition-colors"
+              >
+                No
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="py-3 px-4 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Yes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      {/* Header */}
+      <header className="bg-white border-b border-stone-200 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+            <ChevronRight className="rotate-180" size={24} />
+          </button>
+          <h2 className="font-bold text-lg tracking-tight">My Decks</h2>
+        </div>
+        <button 
+          onClick={() => setIsCreating(true)}
+          className="p-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg shadow-black/10 active:scale-95"
+        >
+          <Plus size={20} />
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
+        {isCreating && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-3"
+          >
+            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Deck Name</h3>
+            <div className="flex gap-2">
+              <input 
+                autoFocus
+                type="text"
+                value={newDeckName}
+                onChange={(e) => setNewDeckName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                placeholder="Enter deck name..."
+                className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+              />
+              <button 
+                onClick={handleCreate}
+                className="p-2 bg-[#141414] text-white rounded-xl hover:bg-stone-800 transition-colors"
+              >
+                <Check size={20} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {decks.length === 0 && !isCreating ? (
+          <div className="py-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto text-stone-300">
+              <FileText size={32} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-stone-600">No decks found</h3>
+              <p className="text-sm text-stone-400">Create your first deck to start building.</p>
+            </div>
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="px-6 py-3 bg-[#141414] text-white rounded-full font-bold text-sm shadow-lg shadow-black/10 active:scale-95 transition-transform"
+            >
+              Create New Deck
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {decks.map((deck) => {
+              const colors = Array.from(new Set(deck.items.map(i => i.card.color)));
+              
+              return (
+                <motion.div 
+                  key={deck.id}
+                  layout
+                  className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden"
+                >
+                  {/* Color Indicator Bar */}
+                  <div className="flex h-1 w-full">
+                    {colors.length >= 3 ? (
+                      <div 
+                        className="w-full h-full" 
+                        style={{ background: 'linear-gradient(to right, #3b82f6, #ef4444, #a855f7, #ffffff, #10b981)' }} 
+                      />
+                    ) : colors.length === 2 ? (
+                      <>
+                        <div className={cn("flex-1 h-full", getColorBg(colors[0]))} />
+                        <div className={cn("flex-1 h-full", getColorBg(colors[1]))} />
+                      </>
+                    ) : colors.length === 1 ? (
+                      <div className={cn("w-full h-full", getColorBg(colors[0]))} />
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-stretch">
+                    <div 
+                      onClick={() => onSelectDeck(deck.id)}
+                      className="flex-1 p-4 flex items-center gap-4 cursor-pointer hover:bg-stone-50/50 transition-colors"
+                    >
+                      <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400">
+                        <Layout size={24} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {editingDeckId === deck.id ? (
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              autoFocus
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleRename(deck.id)}
+                              className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none"
+                            />
+                            <button onClick={() => handleRename(deck.id)} className="text-green-600"><Check size={18} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-sm truncate">{deck.name}</h3>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingDeckId(deck.id);
+                                  setEditName(deck.name);
+                                }}
+                                className="p-1 text-stone-300 hover:text-[#141414] transition-colors"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-wider">
+                              {deck.items.reduce((sum, item) => sum + item.count, 0)} / 50 Cards
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {editingDeckId !== deck.id && (
+                      <div className="flex items-stretch gap-0">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(deck.id);
+                          }}
+                          className="px-3 text-stone-300 hover:text-red-500 transition-colors flex items-center justify-center"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => onSelectDeck(deck.id)}
+                          className="w-14 bg-stone-50 border-l border-stone-100 flex items-center justify-center text-stone-300 hover:text-[#141414] hover:bg-stone-100 transition-all active:bg-stone-200"
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+              </motion.div>
+            );
+          })}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
