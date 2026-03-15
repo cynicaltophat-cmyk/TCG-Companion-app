@@ -1,6 +1,6 @@
 {
-  "name": "TCG Companion app Ver0.1",
-  "description": "A mobile-first Gundam TCG companion app with a card scanner to translate and identify non-English cards.",
+  "name": "Gundam TCG Companion - Vercel Deployment (Clone)",
+  "description": "A mobile-first Gundam TCG companion app with a card scanner, deck builder, and price tracker.",
   "requestFramePermissions": [
     "camera"
   ]

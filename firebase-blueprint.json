@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Deck": {
+      "title": "Deck",
+      "description": "A collection of cards representing a player's deck.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "uid": { "type": "string", "description": "The owner's user ID" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "card": { "type": "object" },
+              "count": { "type": "integer" },
+              "artType": { "type": "string" }
+            }
+          }
+        },
+        "lastModified": { "type": "integer" }
+      },
+      "required": ["id", "name", "uid", "items", "lastModified"]
+    },
+    "MatchEntry": {
+      "title": "MatchEntry",
+      "description": "A record of a TCG match session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "nature": { "type": "string" },
+        "shopName": { "type": "string" },
+        "date": { "type": "string" },
+        "rounds": { "type": "array" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "uid", "nature", "shopName", "date", "rounds", "createdAt"]
+    }
+  },
+  "firestore": {
+    "decks/{deckId}": {
+      "schema": "Deck",
+      "description": "User created decks"
+    },
+    "matches/{matchId}": {
+      "schema": "MatchEntry",
+      "description": "User match history"
+    }
+  }
+}

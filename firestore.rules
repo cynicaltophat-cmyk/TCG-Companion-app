@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: decks
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, 1-100 chars)
+    //   - uid: string (required, immutable)
+    //   - items: list (required, max 100 items)
+    //   - lastModified: int (required)
+    //
+    // Collection: matches
+    // Fields:
+    //   - id: string (required)
+    //   - uid: string (required, immutable)
+    //   - nature: string (required)
+    //   - shopName: string (required)
+    //   - date: string (required)
+    //   - rounds: list (required)
+    //   - createdAt: int (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          ((request.auth.token.email == "inkytophat@gmail.com" || request.auth.token.email == "cynicaltophat@gmail.com") && request.auth.token.email_verified == true)); // Default admins
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidDeck(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'uid', 'items', 'lastModified']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.uid == request.auth.uid &&
+             data.items is list && data.items.size() <= 100 &&
+             data.lastModified is int;
+    }
+
+    function isValidMatch(data) {
+      return hasOnlyAllowedFields(['id', 'uid', 'nature', 'shopName', 'date', 'rounds', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.nature is string &&
+             data.shopName is string &&
+             data.date is string &&
+             data.rounds is list &&
+             data.createdAt is int;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /decks/{deckId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidDeck(request.resource.data);
+      allow update: if isDocOwner() && isValidDeck(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /matches/{matchId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidMatch(request.resource.data);
+      allow update: if isDocOwner() && isValidMatch(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

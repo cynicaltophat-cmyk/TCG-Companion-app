@@ -29,7 +29,10 @@ import {
   MapPin,
   Tag,
   ChevronRight as ChevronRightIcon,
-  Swords
+  Swords,
+  LogIn,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 import { GUNDAM_CARDS, GundamCard, ArtVariantType, ALL_SETS } from './data/cards';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -38,6 +41,20 @@ import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { DeckList } from './components/DeckList';
 import { PlayScreen } from './components/PlayScreen';
 import { Deck, DeckItem, MatchEntry, MatchRound, MatchNature } from './types';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
+import { 
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  query, 
+  where,
+  orderBy, 
+  getDocFromServer,
+  writeBatch
+} from 'firebase/firestore';
 
 const VARIANTS: ArtVariantType[] = ["Base art", "Parallel", "Beta", "Beta Parallel", "Premium", "Championship"];
 const RARITIES = ["C", "U", "R", "LR"];
@@ -399,15 +416,57 @@ export default function App() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
   const [isDeckInPlayMode, setIsDeckInPlayMode] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'play'>('cards');
-  const [matches, setMatches] = useState<MatchEntry[]>(() => {
-    const saved = localStorage.getItem('gundam-matches');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'play' | 'profile'>('cards');
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [matches, setMatches] = useState<MatchEntry[]>([]);
 
+  // Auth Listener
   useEffect(() => {
-    localStorage.setItem('gundam-matches', JSON.stringify(matches));
-  }, [matches]);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Firestore Connection Test
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
+
+  // Matches Listener
+  useEffect(() => {
+    if (!user) {
+      setMatches([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'matches'),
+      where('uid', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const matchesData = snapshot.docs.map(doc => doc.data() as MatchEntry);
+      setMatches(matchesData);
+    }, (error) => {
+      console.error("Matches listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const deckEditorRef = useRef<DeckEditorHandle>(null);
   
   // Filter State
@@ -420,10 +479,31 @@ export default function App() {
   });
   
   // Deck Management
-  const [decks, setDecks] = useState<Deck[]>(() => {
-    const saved = localStorage.getItem('gundam-decks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [decks, setDecks] = useState<Deck[]>([]);
+
+  // Decks Listener
+  useEffect(() => {
+    if (!user) {
+      setDecks([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'decks'),
+      where('uid', '==', user.uid),
+      orderBy('lastModified', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const decksData = snapshot.docs.map(doc => doc.data() as Deck);
+      setDecks(decksData);
+    }, (error) => {
+      console.error("Decks listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [showDeckList, setShowDeckList] = useState(false);
   const [isDeckEditorOpen, setIsDeckEditorOpen] = useState(false);
@@ -443,10 +523,7 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Persistence
-  useEffect(() => {
-    localStorage.setItem('gundam-decks', JSON.stringify(decks));
-  }, [decks]);
+  // Persistence Removed - Handled by Firestore Listeners
 
   useEffect(() => {
     if (selectedCard || isScanning || showDeckList || (isDeckEditorOpen && currentTab === 'decks') || isFilterOpen) {
@@ -459,47 +536,135 @@ export default function App() {
     };
   }, [selectedCard, isScanning, showDeckList, isDeckEditorOpen, isFilterOpen, currentTab]);
 
-  const createDeck = (name: string) => {
-    const newDeck: Deck = {
-      id: Math.random().toString(36).substr(2, 9),
+  const login = async () => {
+    const provider = new GoogleAuthProvider();
+    // Force select account to avoid auto-login issues
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    try {
+      console.log("Starting login process...");
+      const result = await signInWithPopup(auth, provider);
+      console.log("Login successful:", result.user.email);
+      showToast("Signed in successfully!");
+    } catch (error: any) {
+      console.error("Login error details:", error);
+      
+      let message = "Login failed. Please try again.";
+      if (error.code === 'auth/popup-blocked') {
+        message = "Popup blocked! Please allow popups for this site.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        message = "Domain not authorized! Add this domain to Firebase Console.";
+      } else if (error.message) {
+        message = `Login error: ${error.message}`;
+      }
+      
+      alert(message); // Using alert here because it's a critical setup issue
+      showToast(message);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  const createDeck = async (name: string) => {
+    if (!user) return;
+    const deckId = Math.random().toString(36).substr(2, 9);
+    const newDeck: Deck & { uid: string } = {
+      id: deckId,
+      uid: user.uid,
       name,
       items: [],
       lastModified: Date.now()
     };
-    setDecks(prev => [newDeck, ...prev]);
-  };
-
-  const deleteDeck = (id: string) => {
-    setDecks(prev => prev.filter(d => d.id !== id));
-    if (activeDeckId === id) {
-      setActiveDeckId(null);
-      setIsDeckEditorOpen(false);
+    try {
+      await setDoc(doc(db, 'decks', deckId), newDeck);
+    } catch (error) {
+      console.error("Error creating deck:", error);
     }
   };
 
-  const addMatch = (match: MatchEntry) => {
-    setMatches(prev => [...prev, match]);
+  const deleteDeck = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'decks', id));
+      if (activeDeckId === id) {
+        setActiveDeckId(null);
+        setIsDeckEditorOpen(false);
+      }
+    } catch (error) {
+      console.error("Error deleting deck:", error);
+    }
   };
 
-  const updateMatch = (match: MatchEntry) => {
-    setMatches(prev => prev.map(m => m.id === match.id ? match : m));
+  const addMatch = async (match: MatchEntry) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid });
+    } catch (error) {
+      console.error("Error adding match:", error);
+    }
   };
 
-  const deleteMatch = (id: string) => {
-    setMatches(prev => prev.filter(m => m.id !== id));
+  const updateMatch = async (match: MatchEntry) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid }, { merge: true });
+    } catch (error) {
+      console.error("Error updating match:", error);
+    }
   };
 
-  const resetDeckHistory = (deckId: string) => {
-    setMatches(prev => {
-      return prev.map(match => ({
-        ...match,
-        rounds: match.rounds.filter(round => round.myDeckSnapshot.id !== deckId)
-      })).filter(match => match.rounds.length > 0);
+  const deleteMatch = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'matches', id));
+    } catch (error) {
+      console.error("Error deleting match:", error);
+    }
+  };
+
+  const resetDeckHistory = async (deckId: string) => {
+    if (!user) return;
+    const batch = writeBatch(db);
+    let hasChanges = false;
+
+    matches.forEach(match => {
+      const filteredRounds = match.rounds.filter(round => round.myDeckSnapshot.id !== deckId);
+      if (filteredRounds.length !== match.rounds.length) {
+        hasChanges = true;
+        const matchRef = doc(db, 'matches', match.id);
+        if (filteredRounds.length === 0) {
+          batch.delete(matchRef);
+        } else {
+          batch.update(matchRef, { rounds: filteredRounds });
+        }
+      }
     });
+
+    if (hasChanges) {
+      try {
+        await batch.commit();
+      } catch (error) {
+        console.error("Error resetting deck history:", error);
+      }
+    }
   };
 
-  const renameDeck = (id: string, newName: string) => {
-    setDecks(prev => prev.map(d => d.id === id ? { ...d, name: newName, lastModified: Date.now() } : d));
+  const renameDeck = async (id: string, newName: string) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'decks', id), { 
+        name: newName, 
+        lastModified: Date.now() 
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error renaming deck:", error);
+    }
   };
 
   const showToast = (message: string) => {
@@ -507,75 +672,92 @@ export default function App() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const addToDeck = (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
-    let success = true;
-    setDecks(prev => prev.map(deck => {
-      if (deck.id !== deckId) return deck;
+  const addToDeck = async (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
+    if (!user) return false;
+    const deck = decks.find(d => d.id === deckId);
+    if (!deck) return false;
 
-      const totalCount = deck.items
-        .filter(item => item.card.id === card.id)
-        .reduce((sum, item) => sum + item.count, 0);
+    const totalCount = deck.items
+      .filter(item => item.card.id === card.id)
+      .reduce((sum, item) => sum + item.count, 0);
 
-      if (totalCount >= 4) {
-        alert(`Maximum 4 copies of ${card.name} allowed.`);
-        success = false;
-        return deck;
-      }
+    if (totalCount >= 4) {
+      alert(`Maximum 4 copies of ${card.name} allowed.`);
+      return false;
+    }
 
-      const existing = deck.items.find(item => item.card.id === card.id && item.artType === artType);
-      let newItems;
-      if (existing) {
-        newItems = deck.items.map(item => 
-          (item.card.id === card.id && item.artType === artType) ? { ...item, count: item.count + 1 } : item
-        );
-      } else {
-        newItems = [...deck.items, { card, count: 1, artType }];
-      }
+    const existing = deck.items.find(item => item.card.id === card.id && item.artType === artType);
+    let newItems;
+    if (existing) {
+      newItems = deck.items.map(item => 
+        (item.card.id === card.id && item.artType === artType) ? { ...item, count: item.count + 1 } : item
+      );
+    } else {
+      newItems = [...deck.items, { card, count: 1, artType }];
+    }
 
-      return { ...deck, items: newItems, lastModified: Date.now() };
-    }));
-    return success;
+    try {
+      await setDoc(doc(db, 'decks', deckId), { 
+        items: newItems, 
+        lastModified: Date.now() 
+      }, { merge: true });
+      return true;
+    } catch (error) {
+      console.error("Error adding to deck:", error);
+      return false;
+    }
   };
 
-  const removeFromDeck = (deckId: string, cardId: string, artType: ArtVariantType) => {
-    setDecks(prev => prev.map(deck => {
-      if (deck.id !== deckId) return deck;
-      return {
-        ...deck,
-        items: deck.items.filter(item => !(item.card.id === cardId && item.artType === artType)),
-        lastModified: Date.now()
-      };
-    }));
+  const removeFromDeck = async (deckId: string, cardId: string, artType: ArtVariantType) => {
+    if (!user) return;
+    const deck = decks.find(d => d.id === deckId);
+    if (!deck) return;
+
+    const newItems = deck.items.filter(item => !(item.card.id === cardId && item.artType === artType));
+    
+    try {
+      await setDoc(doc(db, 'decks', deckId), { 
+        items: newItems, 
+        lastModified: Date.now() 
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error removing from deck:", error);
+    }
   };
 
-  const updateDeckCount = (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => {
-    setDecks(prev => prev.map(deck => {
-      if (deck.id !== deckId) return deck;
+  const updateDeckCount = async (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => {
+    if (!user) return;
+    const deck = decks.find(d => d.id === deckId);
+    if (!deck) return;
 
-      const totalCount = deck.items
-        .filter(item => item.card.id === cardId)
-        .reduce((sum, item) => sum + item.count, 0);
+    const totalCount = deck.items
+      .filter(item => item.card.id === cardId)
+      .reduce((sum, item) => sum + item.count, 0);
 
-      const newItems = deck.items.map(item => {
-        if (item.card.id === cardId && item.artType === artType) {
-          if (delta > 0 && totalCount >= 4) {
-            alert("Maximum 4 copies of a card allowed.");
-            return item;
-          }
-          const newCount = Math.max(1, Math.min(4, item.count + delta));
-          return { ...item, count: newCount };
+    const newItems = deck.items.map(item => {
+      if (item.card.id === cardId && item.artType === artType) {
+        if (delta > 0 && totalCount >= 4) {
+          alert("Maximum 4 copies of a card allowed.");
+          return item;
         }
-        return item;
-      });
+        const newCount = Math.max(1, Math.min(4, item.count + delta));
+        return { ...item, count: newCount };
+      }
+      return item;
+    });
 
-      return { ...deck, items: newItems, lastModified: Date.now() };
-    }));
+    try {
+      await setDoc(doc(db, 'decks', deckId), { 
+        items: newItems, 
+        lastModified: Date.now() 
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error updating deck count:", error);
+    }
   };
 
   const activeDeck = decks.find(d => d.id === activeDeckId);
-  const totalDeckSize = decks.reduce((sum, d) => sum + d.items.reduce((s, i) => s + i.count, 0), 0); // This is just for the badge, maybe show active deck size instead?
-  // Let's show the size of the most recently modified deck or just 0 if none.
-  const displayDeckSize = activeDeck ? activeDeck.items.reduce((s, i) => s + i.count, 0) : (decks[0]?.items.reduce((s, i) => s + i.count, 0) || 0);
+  const displayDeckSize = activeDeck ? activeDeck.items.reduce((s, i) => s + i.count, 0) : 0;
 
   // Prefetch prices for cards in all decks
   useEffect(() => {
@@ -852,7 +1034,7 @@ export default function App() {
         currentTab === 'play' && "flex flex-col h-screen"
       )}>
       {/* Header */}
-      {currentTab !== 'play' && (
+      {currentTab === 'cards' && (
         <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#141414]/10 px-4 py-2">
           <div className="max-w-md mx-auto flex items-center gap-2">
             <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
@@ -891,9 +1073,6 @@ export default function App() {
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full border-2 border-white" />
                 )}
               </button>
-              <button className="p-2 hover:bg-stone-100 rounded-lg text-stone-500 transition-colors active:scale-95">
-                <ArrowUpDown size={18} />
-              </button>
             </div>
           </div>
         </header>
@@ -910,9 +1089,60 @@ export default function App() {
         />
       )}
 
+      {/* Profile Screen */}
+      {currentTab === 'profile' && user && (
+        <div className="flex-1 flex flex-col bg-[#F5F5F0] min-h-screen">
+          <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#141414]/10 px-4 py-4">
+            <div className="max-w-md mx-auto flex items-center justify-center">
+              <h1 className="text-xl font-black text-[#141414] tracking-tight uppercase">Profile</h1>
+            </div>
+          </header>
+
+          <div className="max-w-md mx-auto w-full p-6 pb-32 flex flex-col items-center gap-6">
+            <div className="w-24 h-24 rounded-3xl border-4 border-white shadow-xl overflow-hidden bg-stone-200 rotate-3">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-stone-400">
+                  <UserIcon size={48} />
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-[#141414] tracking-tight">{user.displayName || 'User'}</h2>
+              <p className="text-stone-500 font-medium">{user.email}</p>
+            </div>
+
+            <div className="w-full space-y-4 mt-4">
+              <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Account Status</p>
+                <p className="text-sm font-bold text-emerald-600 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  Synced & Secured
+                </p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  logout();
+                  setCurrentTab('cards');
+                }}
+                className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-3 border border-red-100 active:scale-95 transition-all hover:bg-red-100"
+              >
+                <LogOut size={20} />
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className={cn("max-w-md mx-auto px-4 pt-4", currentTab !== 'cards' && "hidden")}>
         {/* Filters */}
-        <div className="mb-6 space-y-4">
+        {currentTab === 'cards' && (
+          <>
+            <div className="mb-6 space-y-4">
           {/* Active Filter Tags */}
           {(activeFilterList.length > 0 || debouncedSearchQuery) && (
             <div className="flex flex-wrap gap-2 mb-2">
@@ -1043,7 +1273,9 @@ export default function App() {
             )}
           />
         )}
-      </main>
+      </>
+    )}
+  </main>
 
       {/* Sticky Deck Builder Bar */}
       <AnimatePresence>
@@ -1281,10 +1513,45 @@ export default function App() {
               currentTab === 'scan' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
             )}>Scan</span>
           </button>
+
+          <button 
+            onClick={() => {
+              if (user) {
+                setCurrentTab('profile');
+                setIsScanning(false);
+                setShowDeckList(false);
+                setIsDeckEditorOpen(false);
+                if (currentTab === 'scan') stopCamera();
+              } else {
+                login();
+              }
+            }}
+            className="flex flex-col items-center gap-0 group transition-all active:scale-95"
+          >
+            <div className={cn(
+              "p-1 rounded-lg transition-colors",
+              (user && currentTab === 'profile') ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+            )}>
+              {user ? (
+                user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-4 h-4 rounded-full" referrerPolicy="no-referrer" />
+                ) : (
+                  <UserIcon size={16} className={cn(currentTab === 'profile' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]")} />
+                )
+              ) : (
+                <LogIn size={16} className="text-stone-500 group-hover:text-[#141414]" />
+              )}
+            </div>
+            <span className={cn(
+              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+              (user && currentTab === 'profile') ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+            )}>
+              {user ? "Profile" : "Login"}
+            </span>
+          </button>
         </div>
       </div>
 
-      {/* Toast Notification */}
       <AnimatePresence>
         {toast && (
           <motion.div
