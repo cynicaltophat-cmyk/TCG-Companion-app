@@ -571,6 +571,22 @@ registerSet("ST 05", [
     ability: "",
     imageUrl: "/img/ST05/ST05-004.webp"
   },
+   {
+    id: "st05-006",
+    name: "Hyakuren",
+    cardNumber: "ST05-006",
+    type: "Unit",
+    color: "Purple",
+    rarity: "C",
+    cost: 2,
+    level: 3,
+    ap: 4,
+    hp: 3,
+    traits: ["Tekkadan"],
+    link: "",
+    ability: "",
+    imageUrl: "/img/ST05/ST05-006.webp"
+  },
   {
     id: "st05-010",
     name: "Mikazuki Augus",
