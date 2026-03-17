@@ -1,5 +1,5 @@
 {
-  "name": "Gundam TCG Companion - Vercel Deployment (Clone)",
+  "name": "Gundam TCG Companion - Vercel Deployment (Actual)",
   "description": "A mobile-first Gundam TCG companion app with a card scanner, deck builder, and price tracker.",
   "requestFramePermissions": [
     "camera"

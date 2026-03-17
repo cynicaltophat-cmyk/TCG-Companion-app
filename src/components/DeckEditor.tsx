@@ -99,7 +99,7 @@ const CardGridItem = React.memo(({
     layout
     className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-200 flex flex-col"
   >
-    <div className="relative aspect-[2/3] bg-stone-100">
+    <div className="relative aspect-[2/3] bg-stone-100 flex items-center justify-center">
       <img 
         src={
           item.card.variants 
@@ -109,8 +109,21 @@ const CardGridItem = React.memo(({
         alt={item.card.name}
         className="w-full h-full object-cover cursor-pointer"
         onClick={() => onPreviewCard(item.card)}
-        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
         loading="lazy"
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = 'none';
+          const parent = target.parentElement;
+          if (parent) {
+            const errorMsg = document.createElement('div');
+            errorMsg.className = "text-[8px] text-red-500 font-bold text-center p-2";
+            const src = target.src;
+            const path = new URL(src).pathname;
+            errorMsg.innerText = `Failed: ${path}`;
+            parent.appendChild(errorMsg);
+          }
+        }}
       />
       
       {/* Count Controls Overlay */}
@@ -980,22 +993,40 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     exit={{ opacity: 0, x: -20 }}
                     className="flex-1 flex flex-col items-center justify-center text-center space-y-8 py-12"
                   >
-                    <div className="flex gap-4">
-                      {diceResults ? (
-                        diceResults.map((val, i) => (
-                          <motion.div 
-                            key={i}
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            className="w-16 h-16 bg-white border-2 border-stone-200 rounded-2xl flex items-center justify-center shadow-sm"
-                          >
-                            <span className="text-2xl font-black text-[#141414]">{val}</span>
-                          </motion.div>
-                        ))
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                          <Dices size={40} />
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-4">
+                        {diceResults ? (
+                          diceResults.map((val, i) => (
+                            <motion.div 
+                              key={i}
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              className="w-16 h-16 bg-white border-2 border-stone-200 rounded-2xl flex items-center justify-center shadow-sm"
+                            >
+                              <span className="text-2xl font-black text-[#141414]">{val}</span>
+                            </motion.div>
+                          ))
+                        ) : (
+                          <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                            <Dices size={40} />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {diceResults && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          onClick={() => {
+                            const r1 = Math.floor(Math.random() * 6) + 1;
+                            const r2 = Math.floor(Math.random() * 6) + 1;
+                            setDiceResults([r1, r2]);
+                          }}
+                          className="p-3 bg-stone-100 text-stone-600 rounded-full hover:bg-stone-200 transition-colors active:scale-90 shadow-sm"
+                          title="Reroll"
+                        >
+                          <RotateCcw size={20} />
+                        </motion.button>
                       )}
                     </div>
 
@@ -1129,7 +1160,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                   src={item.card.imageUrl} 
                                   alt={item.card.name}
                                   className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
                                 />
                               </div>
                               <p className="text-[8px] font-bold mt-1 truncate">{item.card.name}</p>
@@ -1164,7 +1195,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                   src={item.card.imageUrl} 
                                   alt={item.card.name}
                                   className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
                                 />
                               </div>
                               <p className="text-[8px] font-bold mt-1 truncate">{item.card.name}</p>
@@ -1547,7 +1578,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                         } 
                                         alt={item.card.name}
                                         className="w-full h-full object-cover"
-                                        referrerPolicy="no-referrer"
+                                        crossOrigin="anonymous"
                                       />
                                     </div>
                                   </div>
@@ -1725,7 +1756,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                                 src={group.pilot.imageUrl} 
                                                 alt={group.pilot.name}
                                                 className="w-full h-full object-cover"
-                                                referrerPolicy="no-referrer"
+                                                crossOrigin="anonymous"
                                               />
                                             ) : (
                                               <div className="w-full h-full bg-stone-100 flex items-center justify-center">
@@ -1763,7 +1794,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                                   src={unit.imageUrl} 
                                                   alt={unit.name}
                                                   className="w-full h-full object-cover"
-                                                  referrerPolicy="no-referrer"
+                                                  crossOrigin="anonymous"
                                                 />
                                               </div>
                                               <span className={cn(
@@ -1955,7 +1986,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                             } 
                             alt={item.card.name}
                             className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
+                            crossOrigin="anonymous"
                           />
                           <AnimatePresence>
                             {addedItems[`${item.card.id}-${item.artType}`] && (

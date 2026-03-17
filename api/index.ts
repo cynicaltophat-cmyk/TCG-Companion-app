@@ -14,14 +14,54 @@ app.get("/api/yuyutei-price", async (req, res) => {
   try {
     console.log(`[Price Fetch] Searching for ${cardNumber} (${artType})`);
     const searchUrl = `https://yuyu-tei.jp/sell/gcg/s/search?search_word=${encodeURIComponent(cardNumber as string)}`;
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://yuyu-tei.jp/'
+    
+    // Enhanced headers to look more like a real browser
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Referer': 'https://yuyu-tei.jp/',
+      'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Connection': 'keep-alive'
+    };
+
+    let response = await fetch(searchUrl, { headers });
+    
+    // If 403, try a different approach - maybe fetching the home page first to get cookies
+    if (response.status === 403) {
+      console.warn(`[Price Fetch] 403 Forbidden on first attempt, trying with home page session...`);
+      // Small delay to seem more human
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const homeResponse = await fetch('https://yuyu-tei.jp/', { headers });
+      const cookies = homeResponse.headers.get('set-cookie');
+      
+      if (cookies) {
+        console.log(`[Price Fetch] Got cookies, retrying search...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        response = await fetch(searchUrl, { 
+          headers: { 
+            ...headers, 
+            'Cookie': cookies.split(';')[0] 
+          } 
+        });
+      } else {
+        // Try a different search URL structure as a last resort
+        console.log(`[Price Fetch] No cookies found, trying alternative search URL...`);
+        const altSearchUrl = `https://yuyu-tei.jp/sell/gcg/s/search?search_word=${encodeURIComponent(cardNumber as string)}&sort=price_asc`;
+        response = await fetch(altSearchUrl, { headers });
       }
-    });
+    }
     
     if (!response.ok) {
       console.error(`[Price Fetch] Yuyu-tei error: ${response.status} ${response.statusText}`);

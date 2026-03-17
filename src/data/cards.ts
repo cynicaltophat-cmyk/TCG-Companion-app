@@ -70,12 +70,12 @@ registerSet("ST 01", [
     traits: ["Earth Federation", "White Base Team"],
     link: "Amuro Ray",
     ability: "[Repair 2] (At the end of your turn, this Unit recovers the specified number of HP.)\n[During Pair] During your turn, all your Units get AP+1.",
-    imageUrl: "/images/ST01/ST01-001.png",
+    imageUrl: "/img/ST01/ST01-001.png",
     variants: [
-      { type: "Base art", imageUrl: "/images/ST01/ST01-001.png" },
-      { type: "Parallel", imageUrl: "/images/ST01/ST01-001_p1.webp" },
-      { type: "Beta", imageUrl: "/images/ST01/ST01-001_p2.webp" },
-      { type: "Beta Parallel", imageUrl: "/images/ST01/ST01-001_p3.webp" },
+      { type: "Base art", imageUrl: "/img/ST01/ST01-001.png" },
+      { type: "Parallel", imageUrl: "/img/ST01/ST01-001_p1.webp" },
+      { type: "Beta", imageUrl: "/img/ST01/ST01-001_p2.webp" },
+      { type: "Beta Parallel", imageUrl: "/img/ST01/ST01-001_p3.webp" },
     ]
   },
   {
@@ -92,7 +92,7 @@ registerSet("ST 01", [
     traits: ["Earth Federation", "White Base Team"],
     link: "Amuro Ray",
     ability: "When Paired･(White Base Team) Pilot Draw 1.",
-    imageUrl: "/images/ST01/ST01-002.webp"
+    imageUrl: "/img/ST01/ST01-002.webp"
   },
   {
     id: "st01-003",
@@ -108,7 +108,7 @@ registerSet("ST 01", [
     traits: ["Earth Federation", "White Base Team"],
     link: "",
     ability: "",
-    imageUrl: "/images/ST01/ST01-003.webp"
+    imageUrl: "/img/ST01/ST01-003.webp"
   },
   {
     id: "st01-004",
@@ -123,7 +123,7 @@ registerSet("ST 01", [
     hp: 3,
     ability: "DeployChoose 1 enemy Unit with 2 or less HP. Rest it.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-004.webp"
+    imageUrl: "/img/ST01/ST01-004.webp"
   },
   {
     id: "st01-005",
@@ -138,7 +138,7 @@ registerSet("ST 01", [
     hp: 2,
     ability: "",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-005.webp"
+    imageUrl: "/img/ST01/ST01-005.webp"
   },
   {
     id: "st01-006",
@@ -154,7 +154,7 @@ registerSet("ST 01", [
     link: "Suletta Mercury",
     ability: "[When Paired] Choose 1 enemy Unit that is Lv.5 or lower. It gets AP-3 during this turn.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-006.webp"
+    imageUrl: "/img/ST01/ST01-006.webp"
   },
   {
     id: "st01-007",
@@ -169,7 +169,7 @@ registerSet("ST 01", [
     hp: 4,
     ability: "",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-007.webp"
+    imageUrl: "/img/ST01/ST01-007.webp"
   },
   {
     id: "st01-008",
@@ -184,7 +184,7 @@ registerSet("ST 01", [
     hp: 1,
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-008.webp"
+    imageUrl: "/img/ST01/ST01-008.webp"
   },
   {
     id: "st01-009",
@@ -199,7 +199,7 @@ registerSet("ST 01", [
     hp: 2,
     ability: "<Blocker> (Rest this Unit to change the attack target to it.) This Unit can't choose the enemy player as its attack target.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-009.webp"
+    imageUrl: "/img/ST01/ST01-009.webp"
   },
   {
     id: "st01-010",
@@ -212,7 +212,7 @@ registerSet("ST 01", [
     level: 4,
     ability: "[Permanent] While this pilot is on a 'Gundam' unit, that unit gains [Double Strike].",
     flavorText: "Amuro, Ray! Gundam, ikimasu!",
-    imageUrl: "/images/ST01/ST01-010.webp"
+    imageUrl: "/img/ST01/ST01-010.webp"
   },
   {
     id: "st01-011",
@@ -225,7 +225,7 @@ registerSet("ST 01", [
     level: 4,
     ability: "[Burst] Add this card to your hand. [Attack] Once per TurnChoose 1 of your Resources. Set it as active.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-011.webp"
+    imageUrl: "/img/ST01/ST01-011.webp"
   },
   {
     id: "st01-012",
@@ -238,7 +238,7 @@ registerSet("ST 01", [
     level: 3,
     ability: "[Main] Choose 1 rested enemy Unit. Deal 1 damage to it.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-012.webp"
+    imageUrl: "/img/ST01/ST01-012.webp"
   },
   {
     id: "st01-013",
@@ -251,7 +251,7 @@ registerSet("ST 01", [
     level: 3,
     ability: "[Main] Choose 1 friendly Unit. It recovers 3 HP.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-013.webp"
+    imageUrl: "/img/ST01/ST01-013.webp"
   },
    {
     id: "st01-014",
@@ -264,7 +264,7 @@ registerSet("ST 01", [
     level: 3,
     ability: "[Burst] Activate this card's Main. Main/【Action】Choose 1 enemy Unit. It gets AP-3 during this turn.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-014.webp"
+    imageUrl: "/img/ST01/ST01-014.webp"
   },
    {
     id: "st01-015",
@@ -277,7 +277,7 @@ registerSet("ST 01", [
     level: 3,
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. [Activate･Main] [Once per Turn] [2] Deploy 1 [Gundam]((White Base Team)･AP3･HP3) Unit token if you have no Units in play, deploy 1 [Guncannon]((White Base Team)･AP2･HP2) Unit token if you have only 1 Unit in play, or deploy 1 [Guntank]((White Base Team)･AP1･HP1) Unit token if you have 2 or more Units in play.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-015.webp"
+    imageUrl: "/img/ST01/ST01-015.webp"
   },
    {
     id: "st01-016",
@@ -290,7 +290,7 @@ registerSet("ST 01", [
     level: 2,
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. [Activate･Main] Rest this Base: All friendly Link Units get AP+1 during this turn.",
     flavorText: "",
-    imageUrl: "/images/ST01/ST01-016.webp"
+    imageUrl: "/img/ST01/ST01-016.webp"
   },
 ]);
 
@@ -309,7 +309,7 @@ registerSet("ST02", [
     hp: 5,
     link: "Heero Yuy",
     ability: "<Breach 5> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.) This Unit may choose an active enemy Unit that is Lv.4 or lower as its attack target.",
-    imageUrl: "/images/ST02/ST02-001.webp"
+    imageUrl: "/img/ST02/ST02-001.webp"
   },
   {
     id: "ST02-002",
@@ -325,7 +325,7 @@ registerSet("ST02", [
     traits: ["Operation Meteor"],
     link: "Heero Yuy",
     ability: "[Deploy] Place 1 EX Resource.",
-    imageUrl: "/images/ST02/ST02-002.webp"
+    imageUrl: "/img/ST02/ST02-002.webp"
   },
   {
     id: "ST02-010",
@@ -338,13 +338,13 @@ registerSet("ST02", [
     cost: 1,
     level: 4,
     ability: "[Burst] Add this card to your hand. [During Link] This Unit gets AP+1 and HP+1.",
-    imageUrl: "/images/ST02/ST02-010.webp",
+    imageUrl: "/img/ST02/ST02-010.webp",
     variants: [
-      { type: "Base art", imageUrl: "/images/ST02/ST02-010.webp" },
-      { type: "Parallel", imageUrl: "/images/ST02/ST02-010_p1.webp" },
-      { type: "Beta", imageUrl: "/images/ST02/ST02-010_p2.webp" },
-      { type: "Championship", imageUrl: "/images/ST02/ST02-010_p3.webp" },
-      { type: "Premium", imageUrl: "/images/ST02/ST02-010_p4.webp" }
+      { type: "Base art", imageUrl: "/img/ST02/ST02-010.webp" },
+      { type: "Parallel", imageUrl: "/img/ST02/ST02-010_p1.webp" },
+      { type: "Beta", imageUrl: "/img/ST02/ST02-010_p2.webp" },
+      { type: "Championship", imageUrl: "/img/ST02/ST02-010_p3.webp" },
+      { type: "Premium", imageUrl: "/img/ST02/ST02-010_p4.webp" }
     ]
   },
   {
@@ -359,7 +359,7 @@ registerSet("ST02", [
     hp: 5,
     traits: ["OZ", "Stronghold"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. Then, if it is your turn, deploy 1 [Tallgeese] ((OZ) AP4 HP2) Unit token. If it is your turn and a card with \"Corsica Base\" in its card name is in your trash, deploy 2 [Leo] ((OZ) AP1 HP1) Unit tokens instead.",
-    imageUrl: "/images/ST02/ST02-016.webp"
+    imageUrl: "/img/ST02/ST02-016.webp"
   }
 ]);
 
@@ -380,11 +380,11 @@ registerSet("ST03", [
     link: "Full Frontal",
     ability: "[During Pair] This Unit gains <High-Maneuver>. (This Unit can't be blocked.)\nDuring your turn, when this Unit destroys an enemy shield area card with battle damage, choose 1 enemy Unit. Deal 2 damage to it.",
     flavorText: "[Full Frontal]",
-    imageUrl: "/images/ST03/ST03-001.webp",
-    altImageUrl: "/images/ST03/ST03-001_p1.webp",
+    imageUrl: "/img/ST03/ST03-001.webp",
+    altImageUrl: "/img/ST03/ST03-001_p1.webp",
     variants: [
-      { type: "Base art", imageUrl: "/images/ST03/ST03-001.webp" },
-      { type: "Parallel", imageUrl: "/images/ST03/ST03-001_p1.webp" }
+      { type: "Base art", imageUrl: "/img/ST03/ST03-001.webp" },
+      { type: "Parallel", imageUrl: "/img/ST03/ST03-001_p1.webp" }
     ]
   },
   {
@@ -402,7 +402,7 @@ registerSet("ST03", [
     link: "Char Aznable",
     ability: "[Destroyed] Look at the top 3 cards of your deck. You may reveal 1 (Zeon)/(Neo Zeon) Unit card among them and add it to your hand. Return the remaining cards randomly to the bottom of your deck.",
     flavorText: "Three times faster than a normal Zaku.",
-    imageUrl: "/images/ST03/ST03-006.webp"
+    imageUrl: "/img/ST03/ST03-006.webp"
   },
   {
     id: "ST03-008",
@@ -417,7 +417,7 @@ registerSet("ST03", [
     hp: 2,
     traits: ["Zeon"],
     ability: "[Attack] This Unit gets AP+2 during this turn.",
-    imageUrl: "/images/ST03/ST03-008.webp"
+    imageUrl: "/img/ST03/ST03-008.webp"
   },
   {
     id: "ST03-011",
@@ -430,7 +430,7 @@ registerSet("ST03", [
     level: 3,
     ability: "[Burst] Add this card to your hand. [Attack] During this turn, this Unit gets AP+1 and, if it is a Link Unit, it gains <High-Maneuver>. (This Unit can't be blocked.)",
     flavorText: "I came here to laugh at you.",
-    imageUrl: "/images/ST03/ST03-011.webp"
+    imageUrl: "/img/ST03/ST03-011.webp"
   },
   {
     id: "ST03-013",
@@ -442,7 +442,7 @@ registerSet("ST03", [
     cost: 2,
     level: 2,
     ability: "[Burst] Activate this card's Main.\n[Main] / [Action] Choose 1 enemy Unit. Deal 2 damage to it.",
-    imageUrl: "/images/ST03/ST03-013.webp"
+    imageUrl: "/img/ST03/ST03-013.webp"
   },
   {
     id: "ST03-016",
@@ -456,7 +456,7 @@ registerSet("ST03", [
     hp: 5,
     traits: ["Zeon", "Warship"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. Then, if it is your turn, deploy 1 rested [Char's Zaku II] ((Zeon) AP3 HP1) Unit token.",
-    imageUrl: "/images/ST03/ST03-016.webp"
+    imageUrl: "/img/ST03/ST03-016.webp"
   }
 ]);
 
@@ -476,7 +476,7 @@ registerSet("ST 04", [
     traits: ["Earth Alliance", "Space", "Earth"],
     link: "Kira Yamato",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)\n[When Paired] Lv.4 or Higher Pilot: Choose 1 enemy Unit with 4 or less HP. Return it to its owner's hand.",
-    imageUrl: "/images/ST04/ST04-001.webp"
+    imageUrl: "/img/ST04/ST04-001.webp"
   },
   {
     id: "st04-010",
@@ -491,7 +491,7 @@ registerSet("ST 04", [
     hp: 1,
     traits: ["Earth Alliance", "Coordinator"],
     ability: "[Burst] Add this card to your hand.\n[Attack] Choose 1 enemy Unit. It gets AP-2 during this battle.",
-    imageUrl: "/images/ST04/ST04-010.webp"
+    imageUrl: "/img/ST04/ST04-010.webp"
   },
   {
     id: "st04-011",
@@ -506,7 +506,7 @@ registerSet("ST 04", [
     hp: 2,
     traits: ["ZAFT", "Coordinator"],
     ability: "[Burst] Add this card to your hand.\n[When Linked] During this turn, this Unit may choose an active enemy Unit that is Lv.5 or lower as its attack target.",
-    imageUrl: "/images/ST04/ST04-011.webp"
+    imageUrl: "/img/ST04/ST04-011.webp"
   },
   {
     id: "st04-015",
@@ -520,7 +520,7 @@ registerSet("ST 04", [
     hp: 5,
     traits: ["Earth Alliance", "Warship"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. [Activate･Main] [Once per Turn] [2] Choose 1 friendly Unit with Blocker. Set it as active. It can't attack during this turn.",
-    imageUrl: "/images/ST04/ST04-015.webp"
+    imageUrl: "/img/ST04/ST04-015.webp"
   }
 ]);
 registerSet("ST 05", [
@@ -538,7 +538,7 @@ registerSet("ST 05", [
     traits: ["Tekkadan", "Gundam Frame"],
     link: "Mikazuki Augus",
     ability: "[Deploy] Choose 1 of your other Units. Deal 1 damage to it. It gets AP+1 during this turn.\nWhile this is damaged, it gains <Suppression> (Damage to Shields by an attack is dealt to the first 2 cards simultaneously.)",
-    imageUrl: "/images/ST05/ST05-001.webp"
+    imageUrl: "/img/ST05/ST05-001.webp"
   },
   {
     id: "st05-002",
@@ -554,7 +554,7 @@ registerSet("ST 05", [
     traits: ["Tekkadan", "Gundam Frame"],
     link: "Mikazuki Augus",
     ability: "While this Unit is damaged, it gets AP+2.",
-    imageUrl: "/images/ST05/ST05-002.webp"
+    imageUrl: "/img/ST05/ST05-002.webp"
   },
   {
     id: "st05-004",
@@ -569,7 +569,7 @@ registerSet("ST 05", [
     hp: 2,
     traits: ["Tekkadan"],
     ability: "",
-    imageUrl: "/images/ST05/ST05-004.webp"
+    imageUrl: "/img/ST05/ST05-004.webp"
   },
   {
     id: "st05-010",
@@ -582,7 +582,7 @@ registerSet("ST 05", [
     level: 4,
     traits: ["Tekkadan", "Alaya-Vijnana"],
     ability: "[Burst] Add this card to your hand. [When Paired] Choose 1 of your Units and 1 enemy Unit. Deal 1 damage to them.",
-    imageUrl: "/images/ST05/ST05-010.webp"
+    imageUrl: "/img/ST05/ST05-010.webp"
   },
   {
     id: "st05-013",
@@ -594,7 +594,7 @@ registerSet("ST 05", [
     cost: 1,
     level: 2,
     ability: "[Main] / [Action] Choose 1 of your Units. Deal 1 damage to it. It gets AP+3 during this turn.",
-    imageUrl: "/images/ST05/ST05-013.webp"
+    imageUrl: "/img/ST05/ST05-013.webp"
   },
   {
     id: "st05-014",
@@ -606,7 +606,7 @@ registerSet("ST 05", [
     cost: 2,
     level: 4,
     ability: "[Burst] Choose 1 enemy Unit. Deal 1 damage to it. [Main] Choose 1 enemy Unit that is Lv.3 or lower. Destroy it.",
-    imageUrl: "/images/ST05/ST05-014.webp"
+    imageUrl: "/img/ST05/ST05-014.webp"
   },
   {
     id: "st05-015",
@@ -620,7 +620,7 @@ registerSet("ST 05", [
     hp: 5,
     traits: ["Tekkadan", "Warship"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. [Activate･Main] Rest this Base: Choose 1 of your damaged Units. It gets AP+2 during this turn.",
-    imageUrl: "/images/ST05/ST05-015.webp"
+    imageUrl: "/img/ST05/ST05-015.webp"
   }
 ]);
 registerSet("ST 06", []);
@@ -639,7 +639,7 @@ registerSet("ST 07", [
     traits: ["CB", "GN Drive"],
     link: "Lockon Stratos",
     ability: "During your turn, when this Unit destroys an enemy Unit with battle damage, this Unit recovers 2 HP. [During Link] This Unit gets AP+2.",
-    imageUrl: "/images/ST07/ST07-005.webp"
+    imageUrl: "/img/ST07/ST07-005.webp"
   },
   {
     id: "st07-011",
@@ -652,7 +652,7 @@ registerSet("ST 07", [
     level: 4,
     traits: ["CB"],
     ability: "[Burst] Add this card to your hand. [When Paired] If this is a (CB) Unit, it may choose an active enemy Unit whose Lv. is equal to or lower than this Unit as its attack target during this turn.",
-    imageUrl: "/images/ST07/ST07-011.webp"
+    imageUrl: "/img/ST07/ST07-011.webp"
   }
 ]);
 registerSet("ST 08", [
@@ -670,7 +670,7 @@ registerSet("ST 08", [
     traits: ["Mafty"],
     link: "Hathaway Noa",
     ability: "While you have no Units that are Lv.6 or higher in play, this card in your hand gets Lv. -1 and cost -1 for each enemy Unit in play. [When Paired] Choose 1 enemy Unit with the highest Lv. Deal 3 damage to it.",
-    imageUrl: "/images/ST08/ST08-001.webp"
+    imageUrl: "/img/ST08/ST08-001.webp"
   },
   {
     id: "st08-002",
@@ -686,7 +686,7 @@ registerSet("ST 08", [
     traits: ["Mafty"],
     link: "Hathaway Noa",
     ability: "[Deploy] Choose 1 enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/ST08/ST08-002.webp"
+    imageUrl: "/img/ST08/ST08-002.webp"
   },
   {
     id: "st08-005",
@@ -701,7 +701,7 @@ registerSet("ST 08", [
     hp: 3,
     traits: ["Mafty"],
     ability: "",
-    imageUrl: "/images/ST08/ST08-005.webp"
+    imageUrl: "/img/ST08/ST08-005.webp"
   },
   {
     id: "st08-006",
@@ -717,7 +717,7 @@ registerSet("ST 08", [
     traits: ["Earth Federation"],
     link: "Lane Aim",
     ability: "[During Pair] [Attack] [Once per Turn] If this Unit is attacking the enemy player, reveal 1 (Earth Federation) Unit card from your hand. Return it to the bottom of your deck. If you do, draw 2.",
-    imageUrl: "/images/ST08/ST08-006.webp"
+    imageUrl: "/img/ST08/ST08-006.webp"
   },
   {
     id: "st08-008",
@@ -732,7 +732,7 @@ registerSet("ST 08", [
     hp: 4,
     traits: ["Earth Federation"],
     ability: "While 3 or more enemy Units are in play, this Unit gains <Blocker>. (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/ST08/ST08-008.webp"
+    imageUrl: "/img/ST08/ST08-008.webp"
   },
   {
     id: "st08-010",
@@ -745,7 +745,7 @@ registerSet("ST 08", [
     level: 4,
     traits: ["Mafty", "Newtype"],
     ability: "[Burst] Add this card to your hand. [When Paired] If this is a (Mafty) Unit, choose 1 of your (Mafty) Units. During this turn, it may choose a damaged active enemy Unit as its attack target.",
-    imageUrl: "/images/ST08/ST08-010.webp"
+    imageUrl: "/img/ST08/ST08-010.webp"
   },
   {
     id: "st08-015",
@@ -759,7 +759,7 @@ registerSet("ST 08", [
     hp: 5,
     traits: ["Earth Federation", "Stronghold"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. [Activate･Main] [Once per Turn] [2] Choose 1 of your Units. It recovers 2 HP.",
-    imageUrl: "/images/ST08/ST08-015.webp"
+    imageUrl: "/img/ST08/ST08-015.webp"
   }
 ]);
 registerSet("ST0 9", []);
@@ -778,7 +778,7 @@ registerSet("GD 01", [
     traits: ["Civilian"],
     link: "Banagher Links",
     ability: "When playing this card from your hand, you may destroy 1 of your Link Units with \"Unicorn Mode\" in its card name that is Lv.5. If you do, play this card as if it has 0 Lv. and cost. [Attack] Choose 1 enemy Unit. Rest it.",
-    imageUrl: "/images/GD01/GD01-002.webp"
+    imageUrl: "/img/GD01/GD01-002.webp"
   },
   {
     id: "gd01-003",
@@ -794,7 +794,7 @@ registerSet("GD 01", [
     traits: ["Earth Federation"],
     link: "Marida Cruz",
     ability: "[During Link] [Attack] Choose 12 cards from your trash. Return them to their owner's deck and shuffle it. If you do, set this Unit as active. It gains <First Strike> during this turn. (While this Unit is attacking, it deals damage before the enemy Unit.)",
-    imageUrl: "/images/GD01/GD01-003.webp"
+    imageUrl: "/img/GD01/GD01-003.webp"
   },
   {
     id: "gd01-005",
@@ -810,7 +810,7 @@ registerSet("GD 01", [
     traits: ["Civilian"],
     link: "Banagher Links",
     ability: "[During Link] [Destroyed] Return this Unit's paired Pilot to its owner's hand. Then, discard 1.",
-    imageUrl: "/images/GD01/GD01-005.webp"
+    imageUrl: "/img/GD01/GD01-005.webp"
   },
   {
     id: "gd01-008",
@@ -825,7 +825,7 @@ registerSet("GD 01", [
     hp: 2,
     traits: ["Earth Federation", "White Base Team"],
     ability: "[Deploy] Choose 1 rested enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD01/GD01-008.webp"
+    imageUrl: "/img/GD01/GD01-008.webp"
   },
   {
     id: "gd01-010",
@@ -841,7 +841,7 @@ registerSet("GD 01", [
     traits: ["Earth Federation"],
     link: "Marida Cruz",
     ability: "[When Paired] Choose 1 enemy Unit with 3 or less HP. Rest it.",
-    imageUrl: "/images/GD01/GD01-010.webp"
+    imageUrl: "/img/GD01/GD01-010.webp"
   },
   {
     id: "gd01-020",
@@ -856,7 +856,7 @@ registerSet("GD 01", [
     hp: 3,
     traits: ["Earth Federation"],
     ability: "[Deploy] Choose 1 rested enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD01/GD01-020.webp"
+    imageUrl: "/img/GD01/GD01-020.webp"
   },
   {
     id: "gd01-024",
@@ -872,7 +872,7 @@ registerSet("GD 01", [
     traits: ["G Team"],
     link: "Heero Yuy",
     ability: "<High-Maneuver> (This Unit can't be blocked.) [Deploy] Deal 3 damage to all Units that are Lv.5 or lower.",
-    imageUrl: "/images/GD01/GD01-024.webp"
+    imageUrl: "/img/GD01/GD01-024.webp"
   },
   {
     id: "gd01-025",
@@ -888,7 +888,7 @@ registerSet("GD 01", [
     traits: ["Operation Meteor"],
     link: "Duo Maxwell",
     ability: "[When Paired] (Operation Meteor) Pilot: Place 1 rested Resource. Then, this Unit gains <First Strike> during this turn. (While this Unit is attacking, it deals damage before the enemy Unit.)",
-    imageUrl: "/images/GD01/GD01-025.webp"
+    imageUrl: "/img/GD01/GD01-025.webp"
   },
   {
     id: "gd01-026",
@@ -904,7 +904,7 @@ registerSet("GD 01", [
     traits: ["Zeon"],
     link: "Char Aznable",
     ability: "[During Pair] [Destroyed] Deploy 1 rested [Char's Zaku II] ((Zeon) AP3 HP1) Unit token.",
-    imageUrl: "/images/GD01/GD01-026.webp"
+    imageUrl: "/img/GD01/GD01-026.webp"
   },
   {
     id: "gd01-029",
@@ -920,7 +920,7 @@ registerSet("GD 01", [
     traits: ["Operation Meteor"],
     link: "Chang Wufei",
     ability: "<Breach 4> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.) [Attack] Choose 1 enemy Unit with <Blocker> that is Lv.3 or lower. Destroy it.",
-    imageUrl: "/images/GD01/GD01-029.webp"
+    imageUrl: "/img/GD01/GD01-029.webp"
   },
   {
     id: "gd01-030",
@@ -935,7 +935,7 @@ registerSet("GD 01", [
     hp: 3,
     traits: ["Zeon"],
     ability: "<Breach 2> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
-    imageUrl: "/images/GD01/GD01-030.webp"
+    imageUrl: "/img/GD01/GD01-030.webp"
   },
   {
     id: "gd01-035",
@@ -950,7 +950,7 @@ registerSet("GD 01", [
     hp: 2,
     traits: ["Zeon"],
     ability: "",
-    imageUrl: "/images/GD01/GD01-035.webp"
+    imageUrl: "/img/GD01/GD01-035.webp"
   },
   {
     id: "gd01-041",
@@ -966,7 +966,7 @@ registerSet("GD 01", [
     traits: ["Operation Meteor"],
     link: "Chang Wufei",
     ability: "<Breach 3> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
-    imageUrl: "/images/GD01/GD01-041.webp"
+    imageUrl: "/img/GD01/GD01-041.webp"
   },
   {
     id: "gd01-044",
@@ -982,7 +982,7 @@ registerSet("GD 01", [
     traits: ["Neo Zeon"],
     link: "Marida Cruz",
     ability: "[When Paired] (Cyber-Newtype)/(Newtype) Pilot: Choose 1 to 2 enemy Units. Deal 1 damage to them.",
-    imageUrl: "/images/GD01/GD01-044.webp"
+    imageUrl: "/img/GD01/GD01-044.webp"
   },
   {
     id: "gd01-051",
@@ -997,7 +997,7 @@ registerSet("GD 01", [
     hp: 4,
     traits: ["Neo Zeon"],
     ability: "(Cyber-Newtype) Trait",
-    imageUrl: "/images/GD01/GD01-051.webp"
+    imageUrl: "/img/GD01/GD01-051.webp"
   },
   {
     id: "gd01-052",
@@ -1012,7 +1012,7 @@ registerSet("GD 01", [
     hp: 4,
     traits: ["Neo Zeon"],
     ability: "[Deploy] Choose 1 enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD01/GD01-052.webp"
+    imageUrl: "/img/GD01/GD01-052.webp"
   },
   {
     id: "gd01-065",
@@ -1028,7 +1028,7 @@ registerSet("GD 01", [
     traits: ["Triple Ship Alliance"],
     link: "Kira Yamato",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.) [During Pair] [Once per Turn] When you pair a Pilot with this Unit or one of your white Units, choose 1 enemy Unit. It gets AP-2 during this turn.",
-    imageUrl: "/images/GD01/GD01-065.webp"
+    imageUrl: "/img/GD01/GD01-065.webp"
   },
   {
     id: "gd01-066",
@@ -1044,7 +1044,7 @@ registerSet("GD 01", [
     traits: ["Triple Ship Alliance", "Space", "Earth"],
     link: "Athrun Zala",
     ability: "[Deploy] Deploy 1 [Fatum-00] ((Triple Ship Alliance) AP2 HP2 Blocker) Unit token.\n[During Pair] [Attack] Choose 1 of your (Triple Ship Alliance) Unit tokens, it may attack on the turn it is deployed.",
-    imageUrl: "/images/GD01/GD01-066.webp"
+    imageUrl: "/img/GD01/GD01-066.webp"
   },
   {
     id: "gd01-068",
@@ -1060,7 +1060,7 @@ registerSet("GD 01", [
     traits: ["Triple Ship Alliance"],
     link: "Kira Yamato",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.) [Deploy] Choose 1 enemy Unit with 1 HP. Return it to its owner's hand.",
-    imageUrl: "/images/GD01/GD01-068.webp"
+    imageUrl: "/img/GD01/GD01-068.webp"
   },
   {
     id: "gd01-072",
@@ -1075,7 +1075,7 @@ registerSet("GD 01", [
     hp: 4,
     traits: ["Earth Alliance"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD01/GD01-072.webp"
+    imageUrl: "/img/GD01/GD01-072.webp"
   },
   {
     id: "gd01-073",
@@ -1090,7 +1090,7 @@ registerSet("GD 01", [
     hp: 3,
     traits: ["Earth Alliance"],
     ability: "[During Link] [Attack] Choose 1 enemy Unit with 2 or less HP. Return it to its owner's hand.",
-    imageUrl: "/images/GD01/GD01-073.webp"
+    imageUrl: "/img/GD01/GD01-073.webp"
   },
   {
     id: "gd01-086",
@@ -1105,7 +1105,7 @@ registerSet("GD 01", [
     hp: 4,
     traits: ["Vanadis Institute", "Space", "Earth"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD01/GD01-086.webp"
+    imageUrl: "/img/GD01/GD01-086.webp"
   },
   {
     id: "gd01-088",
@@ -1120,7 +1120,7 @@ registerSet("GD 01", [
     hp: 2,
     traits: ["Civilian", "Newtype"],
     ability: "[Burst] Add this card to your hand. [When Linked] Draw 1.",
-    imageUrl: "/images/GD01/GD01-088.webp"
+    imageUrl: "/img/GD01/GD01-088.webp"
   },
   {
     id: "gd01-093",
@@ -1135,7 +1135,7 @@ registerSet("GD 01", [
     hp: 1,
     traits: ["Neo Zeon", "Cyber-Newtype"],
     ability: "[Burst] Add this card to your hand. [During Link] [Attack] Choose 1 enemy Unit whose Lv. is equal to or lower than this Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD01/GD01-093.webp"
+    imageUrl: "/img/GD01/GD01-093.webp"
   },
   {
     id: "gd01-100",
@@ -1147,7 +1147,7 @@ registerSet("GD 01", [
     cost: 3,
     level: 4,
     ability: "[Main] Draw 2.",
-    imageUrl: "/images/GD01/GD01-100.webp"
+    imageUrl: "/img/GD01/GD01-100.webp"
   },
   {
     id: "gd01-118",
@@ -1159,7 +1159,7 @@ registerSet("GD 01", [
     cost: 1,
     level: 2,
     ability: "[Main] Draw 2. Then, discard 1.",
-    imageUrl: "/images/GD01/GD01-118.webp"
+    imageUrl: "/img/GD01/GD01-118.webp"
   },
   {
     id: "gd01-120",
@@ -1171,7 +1171,7 @@ registerSet("GD 01", [
     cost: 1,
     level: 2,
     ability: "[Burst] Choose 1 enemy Unit. It gets AP-3 during this turn. [Action] Choose 1 friendly Unit with <Blocker>. It gets AP+3 during this turn.",
-    imageUrl: "/images/GD01/GD01-120.webp"
+    imageUrl: "/img/GD01/GD01-120.webp"
   },
   {
     id: "gd01-123",
@@ -1185,7 +1185,7 @@ registerSet("GD 01", [
     hp: 5,
     traits: ["Earth Federation", "Warship"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. Then, choose 1 enemy Unit with 3 or less HP. Rest it.",
-    imageUrl: "/images/GD01/GD01-123.webp"
+    imageUrl: "/img/GD01/GD01-123.webp"
   },
   {
     id: "gd01-126",
@@ -1199,7 +1199,7 @@ registerSet("GD 01", [
     hp: 6,
     traits: ["Maganac Corps", "Stronghold"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand.",
-    imageUrl: "/images/GD01/GD01-126.webp"
+    imageUrl: "/img/GD01/GD01-126.webp"
   },
   {
     id: "gd01-128",
@@ -1213,7 +1213,7 @@ registerSet("GD 01", [
     hp: 6,
     traits: ["Neo Zeon", "Stronghold", "Space"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.",
-    imageUrl: "/images/GD01/GD01-128.webp"
+    imageUrl: "/img/GD01/GD01-128.webp"
   }
 ]);
 registerSet("GD 02", [
@@ -1231,7 +1231,7 @@ registerSet("GD 02", [
     traits: ["Tekkadan", "Gundam Frame"],
     link: "Mikazuki Augus",
     ability: "[Attack] If this Unit is damaged, draw 1.",
-    imageUrl: "/images/GD02/GD02-054.webp"
+    imageUrl: "/img/GD02/GD02-054.webp"
   },
   {
     id: "gd02-055",
@@ -1247,7 +1247,7 @@ registerSet("GD 02", [
     traits: ["Tekkadan", "Gundam Frame"],
     link: "Akihiro Altland",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.) [Deploy] Choose 1 of your Units and 1 enemy Unit. Deal 1 damage to them.",
-    imageUrl: "/images/GD02/GD02-055.webp"
+    imageUrl: "/img/GD02/GD02-055.webp"
   },
   {
     id: "gd02-079",
@@ -1262,7 +1262,7 @@ registerSet("GD 02", [
     hp: 3,
     traits: ["AEUG", "Space", "Earth"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD02/GD02-079.webp"
+    imageUrl: "/img/GD02/GD02-079.webp"
   },
   {
     id: "gd02-111",
@@ -1274,7 +1274,7 @@ registerSet("GD 02", [
     cost: 4,
     level: 5,
     ability: "[Burst] Choose 1 enemy Unit that is Lv.3 or lower. Deal 2 damage to it. [Main] Choose 6 purple Unit cards from your trash. Exile them from the game. If you do, choose 1 enemy Unit. Destroy it.",
-    imageUrl: "/images/GD02/GD02-111.webp"
+    imageUrl: "/img/GD02/GD02-111.webp"
   },
   {
     id: "gd02-129",
@@ -1288,7 +1288,7 @@ registerSet("GD 02", [
     hp: 5,
     traits: ["AEUG", "Warship"],
     ability: "[Burst] Deploy this card. [Deploy] Add 1 of your Shields to your hand. This Base can't receive enemy effect damage.",
-    imageUrl: "/images/GD02/GD02-129.webp"
+    imageUrl: "/img/GD02/GD02-129.webp"
   }
 ]);
 registerSet("GD 03", [
@@ -1305,7 +1305,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Earth Federation"],
     ability: "[Repair 2] (At the end of your turn, this Unit recovers the specified number of HP.)\n[When Paired] Choose 1 rested enemy Unit. Deal 1 damage to it. When this effect destroys an enemy Unit, draw 1.",
-    imageUrl: "/images/GD03/GD03-001.webp"
+    imageUrl: "/img/GD03/GD03-001.webp"
   },
   {
     id: "gd03-002",
@@ -1320,7 +1320,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Titans", "Jupitris"],
     ability: "[Repair 3] (At the end of your turn, this Unit recovers the specified number of HP.)\n[During Pair] When one of your other Units with [Repair] attacks, choose 1 enemy Unit whose Lv. is equal to or lower than that Unit. Rest it.",
-    imageUrl: "/images/GD03/GD03-002.webp"
+    imageUrl: "/img/GD03/GD03-002.webp"
   },
   {
     id: "gd03-003",
@@ -1335,7 +1335,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Titans", "Jupitris"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)\n[Repair 1] (At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-003.webp"
+    imageUrl: "/img/GD03/GD03-003.webp"
   },
   {
     id: "gd03-004",
@@ -1350,7 +1350,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Titans"],
     ability: "[Attack] If you have 2 or more other (Titans) Units in play, choose 1 enemy Unit with 5 or less HP. Rest it.",
-    imageUrl: "/images/GD03/GD03-004.webp"
+    imageUrl: "/img/GD03/GD03-004.webp"
   },
   {
     id: "gd03-005",
@@ -1365,7 +1365,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Neo Zeon"],
     ability: "[Repair 1] (At the end of your turn, this Unit recovers the specified number of HP.)\n[Deploy] Draw 1.",
-    imageUrl: "/images/GD03/GD03-005.webp"
+    imageUrl: "/img/GD03/GD03-005.webp"
   },
   {
     id: "gd03-006",
@@ -1380,7 +1380,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Earth Federation"],
     ability: "[Deploy] Choose 1 to 2 enemy Units with 3 or less HP. Rest them.",
-    imageUrl: "/images/GD03/GD03-006.webp"
+    imageUrl: "/img/GD03/GD03-006.webp"
   },
   {
     id: "gd03-007",
@@ -1395,7 +1395,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Earth Federation"],
     ability: "[Destroyed] Choose 1 enemy Unit with 3 or less HP. Rest it.",
-    imageUrl: "/images/GD03/GD03-007.webp"
+    imageUrl: "/img/GD03/GD03-007.webp"
   },
   {
     id: "gd03-008",
@@ -1410,7 +1410,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Titans", "Jupitris"],
     ability: "[During Pair] This Unit gains [Repair 2]. (At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-008.webp"
+    imageUrl: "/img/GD03/GD03-008.webp"
   },
   {
     id: "gd03-009",
@@ -1425,7 +1425,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Titans", "Jupitris"],
     ability: "[Deploy] You may choose 2 (Titans) cards from your trash. Exile them from the game. If you do, choose 1 enemy Unit that is Lv.4 or lower. Rest it.",
-    imageUrl: "/images/GD03/GD03-009.webp"
+    imageUrl: "/img/GD03/GD03-009.webp"
   },
   {
     id: "gd03-010",
@@ -1440,7 +1440,7 @@ registerSet("GD 03", [
     hp: 6,
     traits: ["Civilian"],
     ability: "[Repair 3] (At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-010.webp"
+    imageUrl: "/img/GD03/GD03-010.webp"
   },
   {
     id: "gd03-011",
@@ -1455,7 +1455,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Earth Federation"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-011.webp"
+    imageUrl: "/img/GD03/GD03-011.webp"
   },
   {
     id: "gd03-012",
@@ -1470,7 +1470,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Titans", "Jupitris"],
     ability: "[Repair 1] (At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-012.webp"
+    imageUrl: "/img/GD03/GD03-012.webp"
   },
   {
     id: "gd03-013",
@@ -1485,7 +1485,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Titans", "Jupitris"],
     ability: "While you have another (Jupitris) Unit in play, this Unit gets AP+1 and [Repair 1].",
-    imageUrl: "/images/GD03/GD03-013.webp"
+    imageUrl: "/img/GD03/GD03-013.webp"
   },
   {
     id: "gd03-014",
@@ -1500,7 +1500,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Titans"],
     ability: "While you have 2 or more (Titans) Units in play, this card in your hand gets cost -1.",
-    imageUrl: "/images/GD03/GD03-014.webp"
+    imageUrl: "/img/GD03/GD03-014.webp"
   },
   {
     id: "gd03-015",
@@ -1515,7 +1515,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Titans"],
     ability: "[Activate･Main] [Once per Turn] Exile 3 (Titans) cards from your trash: This Unit gains <Breach 4> during this turn.",
-    imageUrl: "/images/GD03/GD03-015.webp"
+    imageUrl: "/img/GD03/GD03-015.webp"
   },
   {
     id: "gd03-016",
@@ -1530,7 +1530,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Civilian"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-016.webp"
+    imageUrl: "/img/GD03/GD03-016.webp"
   },
   {
     id: "gd03-017",
@@ -1545,7 +1545,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[Burst] Choose 1 (Cyclops Team) Pilot card from your trash. Add it to your hand.\n[When Paired]･(Cyclops Team) Pilot: All your (Cyclops Team) Units may choose an active enemy Unit with 5 or less AP as their attack target during this turn.",
-    imageUrl: "/images/GD03/GD03-017.webp"
+    imageUrl: "/img/GD03/GD03-017.webp"
   },
   {
     id: "gd03-018",
@@ -1560,7 +1560,7 @@ registerSet("GD 03", [
     hp: 6,
     traits: ["G Team"],
     ability: "<Breach 5> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)\n[Attack] Choose 1 enemy Unit with <Blocker>. Deal 5 damage to it.",
-    imageUrl: "/images/GD03/GD03-018.webp"
+    imageUrl: "/img/GD03/GD03-018.webp"
   },
   {
     id: "gd03-019",
@@ -1576,7 +1576,7 @@ registerSet("GD 03", [
     traits: ["Earth Federation", "AGE System"],
     link: "Flit Asuno",
     ability: "[During Pair] Enemy Units choose this rested Unit as their attack target if possible when attacking.\n[When Linked] Place 1 EX Resource.",
-    imageUrl: "/images/GD03/GD03-019.webp"
+    imageUrl: "/img/GD03/GD03-019.webp"
   },
   {
     id: "gd03-020",
@@ -1591,7 +1591,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[When Paired] If there are 4 or more (Cyclops Team) cards in your trash, deploy 2 rested [Ad Balloon]((Civilian)･AP0･HP1) Unit tokens. While you have a Unit with \"Ad Balloon\" in its card name in play, this Unit can't receive enemy battle damage.",
-    imageUrl: "/images/GD03/GD03-020.webp"
+    imageUrl: "/img/GD03/GD03-020.webp"
   },
   {
     id: "gd03-021",
@@ -1606,7 +1606,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["G Team"],
     ability: "[Deploy] Choose 1 of your (Operation Meteor)/(G Team) Units. During this turn, it may choose an active enemy Unit as its attack target.",
-    imageUrl: "/images/GD03/GD03-021.webp"
+    imageUrl: "/img/GD03/GD03-021.webp"
   },
   {
     id: "gd03-022",
@@ -1621,7 +1621,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["CB", "GN Drive"],
     ability: "[During Link] During your turn, when this Unit destroys an enemy Unit with battle damage, deal 1 damage to all enemy Units that are Lv.3 or lower.",
-    imageUrl: "/images/GD03/GD03-022.webp"
+    imageUrl: "/img/GD03/GD03-022.webp"
   },
   {
     id: "gd03-023",
@@ -1636,7 +1636,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Earth Federation"],
     ability: "When you place an EX Resource, choose 1 of your (AGE System) Units. It gains <High-Maneuver> during this turn. (This Unit can't be blocked.)",
-    imageUrl: "/images/GD03/GD03-023.webp"
+    imageUrl: "/img/GD03/GD03-023.webp"
   },
   {
     id: "gd03-024",
@@ -1651,7 +1651,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[When Linked] If you have another (Cyclops Team) Unit in play, deploy 1 rested [Hy-Gogg]((Cyclops Team)･AP2･HP1) Unit token.",
-    imageUrl: "/images/GD03/GD03-024.webp"
+    imageUrl: "/img/GD03/GD03-024.webp"
   },
   {
     id: "gd03-025",
@@ -1666,7 +1666,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["G Team"],
     ability: "Enemy Units choose one of your rested (Maganac Corps) Units as their attack target if possible when attacking.",
-    imageUrl: "/images/GD03/GD03-025.webp"
+    imageUrl: "/img/GD03/GD03-025.webp"
   },
   {
     id: "gd03-026",
@@ -1681,7 +1681,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["CB", "GN Drive"],
     ability: "<Breach 3> (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
-    imageUrl: "/images/GD03/GD03-026.webp"
+    imageUrl: "/img/GD03/GD03-026.webp"
   },
   {
     id: "gd03-027",
@@ -1696,7 +1696,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Zeon", "Cyclops Team"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-027.webp"
+    imageUrl: "/img/GD03/GD03-027.webp"
   },
   {
     id: "gd03-028",
@@ -1711,7 +1711,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Maganac Corps"],
     ability: "[Attack] If you are attacking an enemy Unit, this Unit gets AP+2 during this battle.",
-    imageUrl: "/images/GD03/GD03-028.webp"
+    imageUrl: "/img/GD03/GD03-028.webp"
   },
   {
     id: "gd03-029",
@@ -1726,7 +1726,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["G Team"],
     ability: "During your turn, when this Unit destroys an enemy Unit with battle damage, deal 2 damage to all enemy Units with <Blocker>.",
-    imageUrl: "/images/GD03/GD03-029.webp"
+    imageUrl: "/img/GD03/GD03-029.webp"
   },
   {
     id: "gd03-030",
@@ -1741,7 +1741,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["CB", "GN Drive"],
     ability: "While you have a (CB) Link Unit in play, this card in your hand gets cost -1.",
-    imageUrl: "/images/GD03/GD03-030.webp"
+    imageUrl: "/img/GD03/GD03-030.webp"
   },
   {
     id: "gd03-031",
@@ -1756,7 +1756,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Earth Federation", "AGE System"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-031.webp"
+    imageUrl: "/img/GD03/GD03-031.webp"
   },
   {
     id: "gd03-032",
@@ -1771,7 +1771,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Clan"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-032.webp"
+    imageUrl: "/img/GD03/GD03-032.webp"
   },
   {
     id: "gd03-033",
@@ -1787,7 +1787,7 @@ registerSet("GD 03", [
     traits: ["ZAFT"],
     link: "Rau Le Creuset",
     ability: "[During Pair]･(ZAFT) Pilot: During your turn, all your (ZAFT) Units get AP+2.\n[Attack] Choose 1 enemy Unit. Deal 1 damage to it for each 4 AP this Unit has.",
-    imageUrl: "/images/GD03/GD03-033.webp"
+    imageUrl: "/img/GD03/GD03-033.webp"
   },
   {
     id: "gd03-034",
@@ -1802,7 +1802,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Clan"],
     ability: "<Suppression> (Damage to Shields by an attack is dealt to the first 2 cards simultaneously.)\n[Deploy] Choose 1 enemy Unit. Deal 3 damage to it.",
-    imageUrl: "/images/GD03/GD03-034.webp"
+    imageUrl: "/img/GD03/GD03-034.webp"
   },
   {
     id: "gd03-035",
@@ -1817,7 +1817,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Zeon"],
     ability: "[Activate･Main] [Once per Turn] [1], exile 1 Pilot card from your trash: Deal 1 damage to all enemy Units.\n[When Linked] During this turn, this Unit may choose an active enemy Unit with AP equal to or less than this Unit as its attack target.",
-    imageUrl: "/images/GD03/GD03-035.webp"
+    imageUrl: "/img/GD03/GD03-035.webp"
   },
   {
     id: "gd03-036",
@@ -1832,7 +1832,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Mafty"],
     ability: "[When Linked] Deal 1 damage to all enemy Units.",
-    imageUrl: "/images/GD03/GD03-036.webp"
+    imageUrl: "/img/GD03/GD03-036.webp"
   },
   {
     id: "gd03-037",
@@ -1847,7 +1847,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["SRA"],
     ability: "[During Link] During your turn, while this Unit is battling an enemy Unit with a [Destroyed] effect, it gains <First Strike>. (While this Unit is attacking, it deals damage before the enemy Unit.)",
-    imageUrl: "/images/GD03/GD03-037.webp"
+    imageUrl: "/img/GD03/GD03-037.webp"
   },
   {
     id: "gd03-038",
@@ -1862,7 +1862,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["ZAFT"],
     ability: "[Activate･Main] <Support 1> (Rest this Unit. 1 other friendly Unit gets AP+(specified amount) during this turn.)\nDuring your turn, when this Unit is rested by an effect, choose 1 of your (ZAFT) Units. It gets AP+2 during this turn.",
-    imageUrl: "/images/GD03/GD03-038.webp"
+    imageUrl: "/img/GD03/GD03-038.webp"
   },
   {
     id: "gd03-039",
@@ -1877,7 +1877,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Clan"],
     ability: "[Deploy] Choose 1 other active friendly (Clan) Unit. Rest it. If you do, choose 1 enemy Unit with 2 or less AP. Deal 2 damage to it.",
-    imageUrl: "/images/GD03/GD03-039.webp"
+    imageUrl: "/img/GD03/GD03-039.webp"
   },
   {
     id: "gd03-040",
@@ -1892,7 +1892,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["New UNE"],
     ability: "[During Link] This Unit gains <High-Maneuver>. (This Unit can't be blocked.)",
-    imageUrl: "/images/GD03/GD03-040.webp"
+    imageUrl: "/img/GD03/GD03-040.webp"
   },
 ]);
 
@@ -1910,7 +1910,7 @@ registerSet("GD 03", [
     hp: 6,
     traits: ["SRA"],
     ability: "[Deploy] Deal 3 damage to all Bases.",
-    imageUrl: "/images/GD03/GD03-041.webp"
+    imageUrl: "/img/GD03/GD03-041.webp"
   },
   {
     id: "gd03-042",
@@ -1925,7 +1925,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["ZAFT"],
     ability: "While this Unit has 5 or more AP, it may choose an active enemy Unit that is Lv.5 or lower as its attack target.",
-    imageUrl: "/images/GD03/GD03-042.webp"
+    imageUrl: "/img/GD03/GD03-042.webp"
   },
   {
     id: "gd03-043",
@@ -1940,7 +1940,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Mafty"],
     ability: "[When Paired] Choose 1 enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD03/GD03-043.webp"
+    imageUrl: "/img/GD03/GD03-043.webp"
   },
   {
     id: "gd03-044",
@@ -1955,7 +1955,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["New UNE"],
     ability: "[Deploy] Deploy 1 rested [Daughtress]((New UNE)･AP0･HP1) Unit token.",
-    imageUrl: "/images/GD03/GD03-044.webp"
+    imageUrl: "/img/GD03/GD03-044.webp"
   },
   {
     id: "gd03-045",
@@ -1970,7 +1970,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["New UNE"],
     ability: "While you have a Unit token in play, this Unit gets AP+1.",
-    imageUrl: "/images/GD03/GD03-045.webp"
+    imageUrl: "/img/GD03/GD03-045.webp"
   },
   {
     id: "gd03-046",
@@ -1985,7 +1985,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["ZAFT"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-046.webp"
+    imageUrl: "/img/GD03/GD03-046.webp"
   },
   {
     id: "gd03-047",
@@ -2000,7 +2000,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["ZAFT"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-047.webp"
+    imageUrl: "/img/GD03/GD03-047.webp"
   },
   {
     id: "gd03-048",
@@ -2015,7 +2015,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Zeon"],
     ability: "[Burst] If there are 3 or less enemy Shields, deploy 1 rested [GFreD]((Zeon)･AP4･HP3) Unit token.",
-    imageUrl: "/images/GD03/GD03-048.webp"
+    imageUrl: "/img/GD03/GD03-048.webp"
   },
   {
     id: "gd03-049",
@@ -2030,7 +2030,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["CB", "GN Drive"],
     ability: "<Suppression> (Damage to Shields by an attack is dealt to the first 2 cards simultaneously.)\nWhen this Unit destroys an enemy shield area card with battle damage, if there are 10 or more (CB) cards in your trash, choose 1 enemy Unit with the lowest HP. Destroy it.",
-    imageUrl: "/images/GD03/GD03-049.webp"
+    imageUrl: "/img/GD03/GD03-049.webp"
   },
   {
     id: "gd03-050",
@@ -2045,7 +2045,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Tekkadan", "Gundam Frame"],
     ability: "[Activate･Main] Choose 3 (Tekkadan)/(Teiwaz) Unit cards from your trash. Exile them from the game. If you do, choose 1 enemy Unit. Deal 2 damage to it.",
-    imageUrl: "/images/GD03/GD03-050.webp"
+    imageUrl: "/img/GD03/GD03-050.webp"
   },
   {
     id: "gd03-051",
@@ -2060,7 +2060,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Vulture"],
     ability: "[When Linked] You may choose 1 Unit card that is Lv.4 or lower from your trash. Pay its cost to deploy it.",
-    imageUrl: "/images/GD03/GD03-051.webp"
+    imageUrl: "/img/GD03/GD03-051.webp"
   },
   {
     id: "gd03-052",
@@ -2075,7 +2075,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["CB", "GN Drive"],
     ability: "[Activate･Main] <Support 2> (Rest this Unit. 1 other friendly Unit gets AP+(specified amount) during this turn.)\nWhen this Unit deals battle damage to an enemy Unit that is Lv.5 or lower, if you have a (CB) Pilot in play, destroy that enemy Unit.",
-    imageUrl: "/images/GD03/GD03-052.webp"
+    imageUrl: "/img/GD03/GD03-052.webp"
   },
   {
     id: "gd03-053",
@@ -2090,7 +2090,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Tekkadan", "Gundam Frame"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)\n[During Pair] [Once per Turn] During your turn, when one of your (Tekkadan)/(Teiwaz) Units receives effect damage, choose 1 enemy Unit that is Lv.4 or lower. Rest it.",
-    imageUrl: "/images/GD03/GD03-053.webp"
+    imageUrl: "/img/GD03/GD03-053.webp"
   },
   {
     id: "gd03-054",
@@ -2105,7 +2105,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Vagan"],
     ability: "<High-Maneuver> (This Unit can't be blocked.)\n[When Paired]･(X-Rounder) Pilot: You may choose 4 (Vagan) cards from your trash. Exile them from the game. If you do, choose 1 enemy Unit that is Lv.4 or lower. Destroy it.",
-    imageUrl: "/images/GD03/GD03-054.webp"
+    imageUrl: "/img/GD03/GD03-054.webp"
   },
   {
     id: "gd03-055",
@@ -2120,7 +2120,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Civilian", "Gundam Frame"],
     ability: "[When Paired]･Purple Pilot: Choose 1 enemy Unit that is Lv.2 or lower. Destroy it.",
-    imageUrl: "/images/GD03/GD03-055.webp"
+    imageUrl: "/img/GD03/GD03-055.webp"
   },
   {
     id: "gd03-056",
@@ -2135,7 +2135,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Tekkadan", "Gundam Frame"],
     ability: "[Deploy] Choose 1 of your Units and 1 enemy Unit. Deal 1 damage to them.",
-    imageUrl: "/images/GD03/GD03-056.webp"
+    imageUrl: "/img/GD03/GD03-056.webp"
   },
   {
     id: "gd03-057",
@@ -2150,7 +2150,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["CB", "GN Drive"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD03/GD03-057.webp"
+    imageUrl: "/img/GD03/GD03-057.webp"
   },
   {
     id: "gd03-058",
@@ -2165,7 +2165,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["UE", "Vagan"],
     ability: "This card in your trash gets cost -1.",
-    imageUrl: "/images/GD03/GD03-058.webp"
+    imageUrl: "/img/GD03/GD03-058.webp"
   },
   {
     id: "gd03-059",
@@ -2180,7 +2180,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Vagan"],
     ability: "[Attack] You may choose 1 (Vagan) card from your trash. Exile it from the game. If you do, choose 1 of your (Vagan) Units. It gets AP+2 during this turn.",
-    imageUrl: "/images/GD03/GD03-059.webp"
+    imageUrl: "/img/GD03/GD03-059.webp"
   },
   {
     id: "gd03-060",
@@ -2195,7 +2195,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Tekkadan"],
     ability: "[Once per Turn] During your turn, when this Unit receives effect damage, deploy 1 rested [CGS Mobile Worker]((Tekkadan)･AP1･HP1) Unit token.",
-    imageUrl: "/images/GD03/GD03-060.webp"
+    imageUrl: "/img/GD03/GD03-060.webp"
   },
   {
     id: "gd03-061",
@@ -2210,7 +2210,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Tekkadan", "Gundam Frame"],
     ability: "While this Unit has 1 HP, it gains [Repair 3]. (At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-061.webp"
+    imageUrl: "/img/GD03/GD03-061.webp"
   },
   {
     id: "gd03-062",
@@ -2225,7 +2225,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Old UNE", "Vulture"],
     ability: "[Deploy] If you deploy this Unit from your trash, choose 1 enemy Unit with 4 or less AP. Deal 2 damage to it.",
-    imageUrl: "/images/GD03/GD03-062.webp"
+    imageUrl: "/img/GD03/GD03-062.webp"
   },
   {
     id: "gd03-063",
@@ -2240,7 +2240,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["CB", "GN Drive"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-063.webp"
+    imageUrl: "/img/GD03/GD03-063.webp"
   },
   {
     id: "gd03-064",
@@ -2255,7 +2255,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["UE", "Vagan"],
     ability: "[Deploy] You may choose 1 (X-Rounder) card from your trash and add it to your hand. If you do, discard 1.",
-    imageUrl: "/images/GD03/GD03-064.webp"
+    imageUrl: "/img/GD03/GD03-064.webp"
   },
   {
     id: "gd03-065",
@@ -2270,7 +2270,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Vagan"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-065.webp"
+    imageUrl: "/img/GD03/GD03-065.webp"
   },
   {
     id: "gd03-066",
@@ -2285,7 +2285,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Tekkadan", "Gundam Frame"],
     ability: "",
-    imageUrl: "/images/GD03/GD03-066.webp"
+    imageUrl: "/img/GD03/GD03-066.webp"
   },
   {
     id: "gd03-067",
@@ -2300,7 +2300,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Teiwaz", "Tekkadan"],
     ability: "[Deploy] You may choose 1 of your Units. Deal 1 damage to it. It gets AP+1 during this turn.",
-    imageUrl: "/images/GD03/GD03-067.webp"
+    imageUrl: "/img/GD03/GD03-067.webp"
   },
   {
     id: "gd03-068",
@@ -2315,7 +2315,7 @@ registerSet("GD 03", [
     hp: 3,
     traits: ["Civilian", "Gundam Frame"],
     ability: "While a friendly Base is in play, this Unit gains <Blocker>. (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD03/GD03-068.webp"
+    imageUrl: "/img/GD03/GD03-068.webp"
   },
   {
     id: "gd03-069",
@@ -2330,7 +2330,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Superpower Bloc"],
     ability: "<High-Maneuver> (This Unit can't be blocked.)\n[During Link] At the end of the turn when this Unit is paired with a Pilot, set it as active.",
-    imageUrl: "/images/GD03/GD03-069.webp"
+    imageUrl: "/img/GD03/GD03-069.webp"
   },
   {
     id: "gd03-070",
@@ -2346,7 +2346,7 @@ registerSet("GD 03", [
     traits: ["Triple Ship Alliance"],
     link: "Kira Yamato",
     ability: "While this Unit is rested, friendly Shields can't receive battle damage from enemy Units.",
-    imageUrl: "/images/GD03/GD03-070.webp"
+    imageUrl: "/img/GD03/GD03-070.webp"
   },
   {
     id: "gd03-071",
@@ -2361,7 +2361,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["AEUG"],
     ability: "[Deploy] Choose 1 enemy Unit. For each (AEUG) Unit card in your trash, it gets AP-1 during this turn.",
-    imageUrl: "/images/GD03/GD03-071.webp"
+    imageUrl: "/img/GD03/GD03-071.webp"
   },
   {
     id: "gd03-072",
@@ -2377,7 +2377,7 @@ registerSet("GD 03", [
     traits: ["Triple Ship Alliance"],
     link: "Kira Yamato",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)\n[Deploy] If you have another (Triple Ship Alliance) Unit in play, draw 1. Then, discard 1.",
-    imageUrl: "/images/GD03/GD03-072.webp"
+    imageUrl: "/img/GD03/GD03-072.webp"
   },
   {
     id: "gd03-073",
@@ -2392,7 +2392,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Gjallarhorn"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)\n[During Link] [Activate･Action] [Once per Turn] If there are 6 or more (Gjallarhorn) cards in your trash, choose 1 enemy Unit battling this Unit. It gets AP-3 during this battle.",
-    imageUrl: "/images/GD03/GD03-073.webp"
+    imageUrl: "/img/GD03/GD03-073.webp"
   },
   {
     id: "gd03-074",
@@ -2407,7 +2407,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc"],
     ability: "[During Pair] While you have another (Superpower Bloc) Unit in play, enemy Units choose this rested Unit as their attack target if possible when attacking.",
-    imageUrl: "/images/GD03/GD03-074.webp"
+    imageUrl: "/img/GD03/GD03-074.webp"
   },
   {
     id: "gd03-075",
@@ -2422,7 +2422,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["AEUG"],
     ability: "[During Link] [Attack] Choose 1 enemy Unit with no paired Pilot. It gets AP-2 during this turn.",
-    imageUrl: "/images/GD03/GD03-075.webp"
+    imageUrl: "/img/GD03/GD03-075.webp"
   },
   {
     id: "gd03-076",
@@ -2438,7 +2438,7 @@ registerSet("GD 03", [
     traits: ["Triple Ship Alliance"],
     link: "Kira Yamato",
     ability: "[Once per Turn] During your turn, when your (Triple Ship Alliance) Unit deals battle damage to an enemy Unit, you may return the enemy Unit to its owner's hand.",
-    imageUrl: "/images/GD03/GD03-076.webp"
+    imageUrl: "/img/GD03/GD03-076.webp"
   },
   {
     id: "gd03-077",
@@ -2454,7 +2454,7 @@ registerSet("GD 03", [
     traits: ["Triple Ship Alliance"],
     link: "Athrun Zala",
     ability: "[When Linked] Choose 1 to 3 enemy Units with 3 or less HP. Return them to their owners' hands.",
-    imageUrl: "/images/GD03/GD03-077.webp"
+    imageUrl: "/img/GD03/GD03-077.webp"
   },
   {
     id: "gd03-078",
@@ -2469,7 +2469,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc"],
     ability: "[During Link] [Destroyed] Return the card paired with this Unit to your hand.",
-    imageUrl: "/images/GD03/GD03-078.webp"
+    imageUrl: "/img/GD03/GD03-078.webp"
   },
   {
     id: "gd03-079",
@@ -2484,7 +2484,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["AEUG"],
     ability: "When you rest your Base with one of your Units' effects, you may rest this Unit instead.",
-    imageUrl: "/images/GD03/GD03-079.webp"
+    imageUrl: "/img/GD03/GD03-079.webp"
   },
   {
     id: "gd03-080",
@@ -2499,7 +2499,7 @@ registerSet("GD 03", [
     hp: 4,
     traits: ["Gjallarhorn", "Gundam Frame"],
     ability: "[When Linked] Choose 1 (Gjallarhorn) Command card from your trash. Add it to your hand.",
-    imageUrl: "/images/GD03/GD03-080.webp"
+    imageUrl: "/img/GD03/GD03-080.webp"
   },
   {
     id: "gd03-081",
@@ -2514,7 +2514,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc"],
     ability: "This Unit can only attack during a turn when one of your (Superpower Bloc)/(UN) Units is deployed.",
-    imageUrl: "/images/GD03/GD03-081.webp"
+    imageUrl: "/img/GD03/GD03-081.webp"
   },
   {
     id: "gd03-082",
@@ -2529,7 +2529,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc"],
     ability: "While you have 2 or more (Superpower Bloc)/(UN) Units in play, this card in your hand gets cost -1.",
-    imageUrl: "/images/GD03/GD03-082.webp"
+    imageUrl: "/img/GD03/GD03-082.webp"
   },
   {
     id: "gd03-083",
@@ -2544,7 +2544,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc"],
     ability: "<Blocker> (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD03/GD03-083.webp"
+    imageUrl: "/img/GD03/GD03-083.webp"
   },
 ]);
 
@@ -2562,7 +2562,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Titans", "Jupitris", "Newtype"],
     ability: "[Burst] Add this card to your hand.\n[When Linked] Choose 1 of your other Units. It gains [Repair 2] during this turn. Then, if it is a (Jupitris) Unit, draw 1.\n(At the end of your turn, this Unit recovers the specified number of HP.)",
-    imageUrl: "/images/GD03/GD03-084.webp"
+    imageUrl: "/img/GD03/GD03-084.webp"
   },
   {
     id: "gd03-085",
@@ -2577,7 +2577,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Earth Federation"],
     ability: "[Burst] Add this card to your hand.\nWhen playing this card from your hand and pairing it with a Unit with \"Gundam NT-1\" in its card name, play this card as if it has 0 cost.",
-    imageUrl: "/images/GD03/GD03-085.webp"
+    imageUrl: "/img/GD03/GD03-085.webp"
   },
   {
     id: "gd03-086",
@@ -2592,7 +2592,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Titans"],
     ability: "[Burst] Add this card to your hand.\n[Attack] Choose 1 of your (Titans) Units whose Lv. is equal to or lower than this Unit. It gets AP+1 during this turn.",
-    imageUrl: "/images/GD03/GD03-086.webp"
+    imageUrl: "/img/GD03/GD03-086.webp"
   },
   {
     id: "gd03-087",
@@ -2607,7 +2607,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Titans", "Jupitris", "Newtype"],
     ability: "[Burst] Add this card to your hand.\n[When Linked] Choose 1 enemy Unit that is Lv.3 or lower. Rest it.",
-    imageUrl: "/images/GD03/GD03-087.webp"
+    imageUrl: "/img/GD03/GD03-087.webp"
   },
   {
     id: "gd03-088",
@@ -2622,7 +2622,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Earth Federation", "Asuno Family"],
     ability: "[Burst] Add this card to your hand.\n[During Link] If this is an (AGE System) Unit, it gets AP+1 and <Breach 1>.\n(When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
-    imageUrl: "/images/GD03/GD03-088.webp"
+    imageUrl: "/img/GD03/GD03-088.webp"
   },
   {
     id: "gd03-089",
@@ -2637,7 +2637,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[Burst] Add this card to your hand.\nIncrease this Unit's AP by an amount equal to the number of (Cyclops Team) Pilot cards/Command cards with unique names in your trash.",
-    imageUrl: "/images/GD03/GD03-089.webp"
+    imageUrl: "/img/GD03/GD03-089.webp"
   },
   {
     id: "gd03-090",
@@ -2652,7 +2652,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[Burst] Add this card to your hand.\n[Attack] Choose 1 of your (Cyclops Team) Units. It gains <Breach 1> during this turn.\n(When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
-    imageUrl: "/images/GD03/GD03-090.webp"
+    imageUrl: "/img/GD03/GD03-090.webp"
   },
   {
     id: "gd03-091",
@@ -2667,7 +2667,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["ZAFT"],
     ability: "[Burst] Add this card to your hand.\n[When Linked] Choose 1 (ZAFT) Base card from your trash. Add it to your hand.",
-    imageUrl: "/images/GD03/GD03-091.webp"
+    imageUrl: "/img/GD03/GD03-091.webp"
   },
   {
     id: "gd03-092",
@@ -2682,7 +2682,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Zeon", "Newtype"],
     ability: "[Burst] Add this card to your hand.\n[When Linked] Place the top card of your deck into your trash. If you placed a (Zeon)/(Clan) card with this effect, choose 1 enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD03/GD03-092.webp"
+    imageUrl: "/img/GD03/GD03-092.webp"
   },
   {
     id: "gd03-093",
@@ -2697,7 +2697,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["SRA", "Newtype"],
     ability: "[Burst] Add this card to your hand.\nWhile no enemy Base is in play, this Unit gets AP+1.",
-    imageUrl: "/images/GD03/GD03-093.webp"
+    imageUrl: "/img/GD03/GD03-093.webp"
   },
   {
     id: "gd03-094",
@@ -2712,7 +2712,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Vagan", "X-Rounder"],
     ability: "[Burst] Add this card to your hand.\n[When Paired] Place the top 2 cards of your deck into your trash. If you placed a (Vagan) card with this effect, choose 1 enemy Unit. It gets AP-2 during this turn.",
-    imageUrl: "/images/GD03/GD03-094.webp"
+    imageUrl: "/img/GD03/GD03-094.webp"
   },
   {
     id: "gd03-095",
@@ -2727,7 +2727,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Teiwaz"],
     ability: "[Burst] Add this card to your hand.\n[Once per Turn] When this Unit receives effect damage, choose 1 enemy Unit. It gets AP-1 during this turn.",
-    imageUrl: "/images/GD03/GD03-095.webp"
+    imageUrl: "/img/GD03/GD03-095.webp"
   },
   {
     id: "gd03-096",
@@ -2742,7 +2742,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Vulture", "Newtype"],
     ability: "[Burst] Add this card to your hand.\n[During Link] [Attack] You may discard 1. If you do, draw 1.",
-    imageUrl: "/images/GD03/GD03-096.webp"
+    imageUrl: "/img/GD03/GD03-096.webp"
   },
   {
     id: "gd03-097",
@@ -2757,7 +2757,7 @@ registerSet("GD 03", [
     hp: 2,
     traits: ["Civilian"],
     ability: "[Burst] Add this card to your hand.\n[During Link] [Once per Turn] During your turn, when this Unit destroys an enemy Unit with battle damage, look at the top 2 cards of your deck and return 1 to the top. Place the remaining card into your trash.",
-    imageUrl: "/images/GD03/GD03-097.webp"
+    imageUrl: "/img/GD03/GD03-097.webp"
   },
   {
     id: "gd03-098",
@@ -2772,7 +2772,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc", "UN"],
     ability: "[Burst] Add this card to your hand.\n[During Link] When this rested Unit is set as active by an effect, choose 1 enemy Unit with 3 or less HP. Return it to its owner's hand.",
-    imageUrl: "/images/GD03/GD03-098.webp"
+    imageUrl: "/img/GD03/GD03-098.webp"
   },
   {
     id: "gd03-099",
@@ -2787,7 +2787,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["AEUG"],
     ability: "[Burst] Add this card to your hand.\n[During Link] [Destroyed] If a friendly white Base is in play, choose 1 enemy Unit whose Lv. is equal to or lower than this Unit. Return it to its owner's hand.",
-    imageUrl: "/images/GD03/GD03-099.webp"
+    imageUrl: "/img/GD03/GD03-099.webp"
   },
   {
     id: "gd03-100",
@@ -2802,7 +2802,7 @@ registerSet("GD 03", [
     hp: 1,
     traits: ["Superpower Bloc", "UN", "Super Soldier"],
     ability: "[Burst] Add this card to your hand.\n[Destroyed] Choose 1 enemy Unit. It gets AP-3 during this turn.",
-    imageUrl: "/images/GD03/GD03-100.webp"
+    imageUrl: "/img/GD03/GD03-100.webp"
   },
   {
     id: "gd03-101",
@@ -2815,7 +2815,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main] Draw 1. Then, if there are 2 or more cards with \"A Healthy Curiosity\" in their card name in your trash, choose 1 enemy Unit with 4 or less HP. Rest it.",
-    imageUrl: "/images/GD03/GD03-101.webp"
+    imageUrl: "/img/GD03/GD03-101.webp"
   },
   {
     id: "gd03-102",
@@ -2828,7 +2828,7 @@ registerSet("GD 03", [
     level: 6,
     traits: [],
     ability: "[Burst] Draw 1.\n[Action] Choose 1 of your (Titans) Link Units battling an enemy Unit. Set it as active.",
-    imageUrl: "/images/GD03/GD03-102.webp"
+    imageUrl: "/img/GD03/GD03-102.webp"
   },
   {
     id: "gd03-103",
@@ -2841,7 +2841,7 @@ registerSet("GD 03", [
     level: 4,
     traits: [],
     ability: "[Burst] Choose 1 enemy Unit with 2 or less HP. Rest it.\n[Main] If 3 or more enemy Units are in play, choose 1 rested enemy Unit. Deal 2 damage to it.",
-    imageUrl: "/images/GD03/GD03-103.webp"
+    imageUrl: "/img/GD03/GD03-103.webp"
   },
   {
     id: "gd03-104",
@@ -2854,7 +2854,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main/Action] Choose 1 enemy Unit with 3 or less HP. Rest it. If a friendly (Jupitris) Link Unit is in play, choose 1 to 2 enemy Units with 3 or less HP instead.",
-    imageUrl: "/images/GD03/GD03-104.webp"
+    imageUrl: "/img/GD03/GD03-104.webp"
   },
   {
     id: "gd03-105",
@@ -2867,7 +2867,7 @@ registerSet("GD 03", [
     level: 4,
     traits: [],
     ability: "[Burst] Add this card to your hand.\n[Main] Choose 1 friendly Unit. During this turn, it may choose an active enemy Unit that has no Pilot paired with it as its attack target.",
-    imageUrl: "/images/GD03/GD03-105.webp"
+    imageUrl: "/img/GD03/GD03-105.webp"
   },
   {
     id: "gd03-106",
@@ -2880,7 +2880,7 @@ registerSet("GD 03", [
     level: 6,
     traits: [],
     ability: "[Main] Deploy 1 rested [GQuuuuuuX (Omega Psycommu)]((Clan)･AP3･HP2) Unit token and 1 rested [Red Gundam]((Clan)･AP2･HP3) Unit token.",
-    imageUrl: "/images/GD03/GD03-106.webp"
+    imageUrl: "/img/GD03/GD03-106.webp"
   },
   {
     id: "gd03-107",
@@ -2893,7 +2893,7 @@ registerSet("GD 03", [
     level: 4,
     traits: [],
     ability: "[Main] Choose 1 enemy Unit that is Lv.5 or lower. Deal damage to it equal to the number of friendly Unit tokens in play.",
-    imageUrl: "/images/GD03/GD03-107.webp"
+    imageUrl: "/img/GD03/GD03-107.webp"
   },
   {
     id: "gd03-108",
@@ -2906,7 +2906,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main] Deploy 1 [Hy-Gogg]((Cyclops Team)･AP2･HP1) Unit token.",
-    imageUrl: "/images/GD03/GD03-108.webp"
+    imageUrl: "/img/GD03/GD03-108.webp"
   },
   {
     id: "gd03-109",
@@ -2919,7 +2919,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Burst] Activate this card's Main.\n[Main/Action] Choose 1 enemy Unit that is Lv.4 or lower. Deal 3 damage to it. If there are 2 or more cards with \"Improved Technique\" in their card name in your trash, choose 1 enemy Unit instead.",
-    imageUrl: "/images/GD03/GD03-109.webp"
+    imageUrl: "/img/GD03/GD03-109.webp"
   },
   {
     id: "gd03-110",
@@ -2932,7 +2932,7 @@ registerSet("GD 03", [
     level: 6,
     traits: [],
     ability: "[Main/Action] Choose 1 Pilot paired with an enemy Unit that is Lv.5 or lower. Destroy it.",
-    imageUrl: "/images/GD03/GD03-110.webp"
+    imageUrl: "/img/GD03/GD03-110.webp"
   },
   {
     id: "gd03-111",
@@ -2945,7 +2945,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main/Action] Choose 1 friendly (Mafty) Unit. It gets AP+3 during this turn.",
-    imageUrl: "/images/GD03/GD03-111.webp"
+    imageUrl: "/img/GD03/GD03-111.webp"
   },
   {
     id: "gd03-112",
@@ -2958,7 +2958,7 @@ registerSet("GD 03", [
     level: 4,
     traits: [],
     ability: "[Burst] Add this card to your hand.\n[Main/Action] During this turn, all Units paired with a Pilot get AP+2.",
-    imageUrl: "/images/GD03/GD03-112.webp"
+    imageUrl: "/img/GD03/GD03-112.webp"
   },
   {
     id: "gd03-113",
@@ -2971,7 +2971,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main/Action] Choose 1 active friendly Unit. Rest it. If you do, choose 1 enemy Unit whose Lv. is equal to or lower than the Unit rested with this ability. Deal 3 damage to it.",
-    imageUrl: "/images/GD03/GD03-113.webp"
+    imageUrl: "/img/GD03/GD03-113.webp"
   },
   {
     id: "gd03-114",
@@ -2984,7 +2984,7 @@ registerSet("GD 03", [
     level: 2,
     traits: [],
     ability: "[Burst] Activate this card's Action.\n[Action] Choose 1 active enemy Unit that is Lv.2 or lower. Destroy it. If there are 10 or more cards in your trash, choose 1 active enemy Unit that is Lv.4 or lower instead.",
-    imageUrl: "/images/GD03/GD03-114.webp"
+    imageUrl: "/img/GD03/GD03-114.webp"
   },
   {
     id: "gd03-115",
@@ -2997,7 +2997,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Action] Choose 1 friendly Unit paired with an (X-Rounder) Pilot. It can't receive battle damage from enemy Units with 2 or less AP during this battle. If you are Lv.7 or higher, it can't receive battle damage from enemy Units with 5 or less AP instead.",
-    imageUrl: "/images/GD03/GD03-115.webp"
+    imageUrl: "/img/GD03/GD03-115.webp"
   },
   {
     id: "gd03-116",
@@ -3010,7 +3010,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main/Action] Choose 1 friendly (Vagan) Unit and 1 enemy Unit. Deal 2 damage to them.",
-    imageUrl: "/images/GD03/GD03-116.webp"
+    imageUrl: "/img/GD03/GD03-116.webp"
   },
   {
     id: "gd03-117",
@@ -3023,7 +3023,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main] If 1 to 4 enemy Units are in play, deploy 1 [Graze Custom]((Tekkadan)･AP2･HP2) Unit token. If 5 or more are in play, deploy 1 [Gundam Barbatos 4th Form]((Tekkadan)･AP4･HP4) Unit token.",
-    imageUrl: "/images/GD03/GD03-117.webp"
+    imageUrl: "/img/GD03/GD03-117.webp"
   },
   {
     id: "gd03-118",
@@ -3036,7 +3036,7 @@ registerSet("GD 03", [
     level: 4,
     traits: [],
     ability: "[Burst] Add this card to your hand.\n[Action] Choose 1 rested enemy Unit that is Lv.4 or lower. Return it to its owner's hand. Then, if there are 2 or more cards with \"Awakened Potential\" in their card name in your trash, you may choose 1 friendly Unit. It gains <Blocker> during this turn. (Rest this Unit to change the attack target to it.)",
-    imageUrl: "/images/GD03/GD03-118.webp"
+    imageUrl: "/img/GD03/GD03-118.webp"
   },
   {
     id: "gd03-119",
@@ -3049,7 +3049,7 @@ registerSet("GD 03", [
     level: 3,
     traits: [],
     ability: "[Main] Choose 1 rested friendly Base. Set it as active. If you do, all enemy Units get AP-1 during this turn.",
-    imageUrl: "/images/GD03/GD03-119.webp"
+    imageUrl: "/img/GD03/GD03-119.webp"
   },
   {
     id: "gd03-120",
@@ -3062,7 +3062,7 @@ registerSet("GD 03", [
     level: 2,
     traits: [],
     ability: "[Main] During this turn, if a friendly (Superpower Bloc)/(UN) Unit destroys an enemy Unit with battle damage, choose 1 rested friendly (Superpower Bloc)/(UN) Unit. Set it as active. It can't attack during this turn.",
-    imageUrl: "/images/GD03/GD03-120.webp"
+    imageUrl: "/img/GD03/GD03-120.webp"
   },
   {
     id: "gd03-121",
@@ -3075,7 +3075,7 @@ registerSet("GD 03", [
     level: 1,
     traits: [],
     ability: "[Action] Choose 1 friendly Base and 1 enemy Unit with 3 or less HP. Rest them.",
-    imageUrl: "/images/GD03/GD03-121.webp"
+    imageUrl: "/img/GD03/GD03-121.webp"
   },
   {
     id: "gd03-122",
@@ -3088,7 +3088,7 @@ registerSet("GD 03", [
     level: 2,
     traits: [],
     ability: "[Action] Choose 1 enemy Unit that is Lv.3 or lower. Return it to its owner's hand.",
-    imageUrl: "/images/GD03/GD03-122.webp"
+    imageUrl: "/img/GD03/GD03-122.webp"
   },
   {
     id: "gd03-123",
@@ -3102,7 +3102,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Titans", "Jupitris", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand. Then, if a friendly (Jupitris) Unit is in play, choose 1 enemy Unit that is Lv.3 or lower. Rest it.",
-    imageUrl: "/images/GD03/GD03-123.webp"
+    imageUrl: "/img/GD03/GD03-123.webp"
   },
   {
     id: "gd03-124",
@@ -3116,7 +3116,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Earth Federation", "Stronghold"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\n[Once per Turn] When you pair a Pilot that is Lv.3 or lower with one of your Units, choose 1 enemy Unit with 3 or less HP. Rest it.",
-    imageUrl: "/images/GD03/GD03-124.webp"
+    imageUrl: "/img/GD03/GD03-124.webp"
   },
   {
     id: "gd03-125",
@@ -3130,7 +3130,7 @@ registerSet("GD 03", [
     hp: 6,
     traits: ["G Team", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\n[Once per Turn] During your turn, when a friendly (Operation Meteor)/(G Team) Unit that is Lv.6 or higher destroys an enemy Unit with battle damage, that friendly Unit may recover 2 HP.",
-    imageUrl: "/images/GD03/GD03-125.webp"
+    imageUrl: "/img/GD03/GD03-125.webp"
   },
   {
     id: "gd03-126",
@@ -3144,7 +3144,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Zeon", "Cyclops Team"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\nAll friendly Unit tokens get AP+1 during your opponent's turn.",
-    imageUrl: "/images/GD03/GD03-126.webp"
+    imageUrl: "/img/GD03/GD03-126.webp"
   },
   {
     id: "gd03-127",
@@ -3158,7 +3158,7 @@ registerSet("GD 03", [
     hp: 6,
     traits: ["ZAFT", "Stronghold"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand. Then, Choose 1 friendly (ZAFT) Unit. It gets AP+3 during this turn.",
-    imageUrl: "/images/GD03/GD03-127.webp"
+    imageUrl: "/img/GD03/GD03-127.webp"
   },
   {
     id: "gd03-128",
@@ -3172,7 +3172,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["New UNE", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\n[Once per Turn] During your opponent's turn, when one of your Units is rested by one of your opponent's effects, choose 1 enemy Unit. Deal 1 damage to it.",
-    imageUrl: "/images/GD03/GD03-128.webp"
+    imageUrl: "/img/GD03/GD03-128.webp"
   },
   {
     id: "gd03-129",
@@ -3186,7 +3186,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Tekkadan", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\nDuring your turn, when one of your friendly (Tekkadan)/(Teiwaz) Units receives effect damage, you may rest this Base. If you do, place the top card of your deck into your trash.",
-    imageUrl: "/images/GD03/GD03-129.webp"
+    imageUrl: "/img/GD03/GD03-129.webp"
   },
   {
     id: "gd03-130",
@@ -3200,7 +3200,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Vagan", "Stronghold"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand. Then, if it is your turn, you may choose 1 (Vagan) Unit card that is Lv.4 or lower from your trash. Pay its cost to deploy it.",
-    imageUrl: "/images/GD03/GD03-130.webp"
+    imageUrl: "/img/GD03/GD03-130.webp"
   },
   {
     id: "gd03-131",
@@ -3214,7 +3214,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["Triple Ship Alliance", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand. Then, if you have 2 or more (Triple Ship Alliance) Units in play, choose 1 enemy Unit that is Lv.4 or lower. Return it to its owner's hand.",
-    imageUrl: "/images/GD03/GD03-131.webp"
+    imageUrl: "/img/GD03/GD03-131.webp"
   },
   {
     id: "gd03-132",
@@ -3228,7 +3228,7 @@ registerSet("GD 03", [
     hp: 5,
     traits: ["AEUG", "Warship"],
     ability: "[Burst] Deploy this card.\n[Deploy] Add 1 of your Shields to your hand.\n[Destroyed] If you have an (AEUG) Link Unit in play, choose 1 enemy Unit with 4 or less HP. Rest it.",
-    imageUrl: "/images/GD03/GD03-132.webp"
+    imageUrl: "/img/GD03/GD03-132.webp"
   },
 ]);
 

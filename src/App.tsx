@@ -109,21 +109,21 @@ const MiniPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode
   const displayPrice = formatPrice(price, mode);
 
   return (
-    <div ref={containerRef} className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 min-h-[14px]">
+    <div ref={containerRef} className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 h-[16px] overflow-hidden">
       {loading ? (
-        <div className="flex items-center gap-1 text-stone-400 animate-pulse">
+        <div className="flex items-center gap-1 text-stone-400 animate-pulse h-full">
           <Loader2 size={10} className="animate-spin" />
           <span>Loading...</span>
         </div>
       ) : price ? (
-        <span>{displayPrice || 'N/A'}</span>
+        <span className="h-full flex items-center">{displayPrice || 'N/A'}</span>
       ) : (
         <button 
           onClick={(e) => {
             e.stopPropagation();
             fetchPrice();
           }}
-          className="text-[10px] font-bold text-stone-400 hover:text-amber-600 transition-colors flex items-center gap-1"
+          className="text-[10px] font-bold text-stone-400 hover:text-amber-600 transition-colors flex items-center gap-1 h-full"
         >
           <RefreshCw size={10} />
           Retry
@@ -134,7 +134,7 @@ const MiniPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode
 });
 
 const CardBadge = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", className)}>
+  <span className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider", className)}>
     {children}
   </span>
 );
@@ -245,6 +245,17 @@ const CardPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode
   );
 });
 
+const ListContainer = React.forwardRef(({ style, children, ...props }: any, ref: any) => (
+  <div
+    ref={ref}
+    {...props}
+    style={{ ...style }}
+    className="grid gap-2 grid-cols-3 pb-32"
+  >
+    {children}
+  </div>
+));
+
 const GridItem = React.memo(({ 
   card, 
   onSelect, 
@@ -278,17 +289,28 @@ const GridItem = React.memo(({
     <div
       onClick={() => onSelect(card)}
       className={cn(
-        "bg-white rounded-2xl overflow-hidden shadow-sm border transition-all cursor-pointer",
+        "bg-white rounded-2xl overflow-hidden shadow-sm border cursor-pointer",
         card.isVariant ? "border-amber-200 bg-amber-50/10" : "border-stone-200"
       )}
     >
-      <div className="relative bg-stone-100 aspect-[2/3]">
+      <div className="relative bg-stone-100 aspect-[2/3] flex items-center justify-center">
         <img 
           src={card.imageUrl} 
           alt={card.name}
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
           loading="lazy"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            const parent = target.parentElement;
+            if (parent) {
+              const errorMsg = document.createElement('div');
+              errorMsg.className = "text-[8px] text-red-500 font-bold text-center p-2";
+              errorMsg.innerText = `Failed: ${card.imageUrl}`;
+              parent.appendChild(errorMsg);
+            }
+          }}
         />
 
         {!card.isVariant && (card.variants?.length || card.altImageUrl) && (
@@ -361,13 +383,15 @@ const GridItem = React.memo(({
         )}
       </div>
       
-      <div className="p-2">
-        <div className="flex items-start justify-between mb-1">
-          <h3 className="font-bold text-sm line-clamp-1">{card.name}</h3>
-        </div>
-        <div className="flex items-center gap-2 mb-2">
-          <ColorTag color={card.color} />
-          <span className="text-[10px] font-mono text-stone-400">{card.cardNumber}</span>
+      <div className="p-2 h-[76px] flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between mb-0.5">
+            <h3 className="font-bold text-[10px] leading-tight line-clamp-1 h-[14px] text-[#141414]">{card.name}</h3>
+          </div>
+          <div className="flex items-center gap-2 mb-1">
+            <ColorTag color={card.color} />
+            <span className="text-[8px] font-mono text-stone-400">{card.cardNumber}</span>
+          </div>
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between">
@@ -423,6 +447,9 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
+    if (GUNDAM_CARDS.length > 0) {
+      console.log("First card image URL:", GUNDAM_CARDS[0].imageUrl);
+    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthReady(true);
@@ -447,7 +474,17 @@ export default function App() {
   // Matches Listener
   useEffect(() => {
     if (!user) {
-      setMatches([]);
+      const savedMatches = localStorage.getItem('guest_matches');
+      if (savedMatches) {
+        try {
+          setMatches(JSON.parse(savedMatches));
+        } catch (e) {
+          console.error("Error parsing guest matches:", e);
+          setMatches([]);
+        }
+      } else {
+        setMatches([]);
+      }
       return;
     }
 
@@ -484,7 +521,17 @@ export default function App() {
   // Decks Listener
   useEffect(() => {
     if (!user) {
-      setDecks([]);
+      const savedDecks = localStorage.getItem('guest_decks');
+      if (savedDecks) {
+        try {
+          setDecks(JSON.parse(savedDecks));
+        } catch (e) {
+          console.error("Error parsing guest decks:", e);
+          setDecks([]);
+        }
+      } else {
+        setDecks([]);
+      }
       return;
     }
 
@@ -572,24 +619,41 @@ export default function App() {
   };
 
   const createDeck = async (name: string) => {
-    if (!user) return;
     const deckId = Math.random().toString(36).substr(2, 9);
-    const newDeck: Deck & { uid: string } = {
+    const newDeck: Deck = {
       id: deckId,
-      uid: user.uid,
       name,
       items: [],
       lastModified: Date.now()
     };
+
+    if (!user) {
+      const updatedDecks = [newDeck, ...decks];
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
+    const deckWithUid = { ...newDeck, uid: user.uid };
     try {
-      await setDoc(doc(db, 'decks', deckId), newDeck);
+      await setDoc(doc(db, 'decks', deckId), deckWithUid);
     } catch (error) {
       console.error("Error creating deck:", error);
     }
   };
 
   const deleteDeck = async (id: string) => {
-    if (!user) return;
+    if (!user) {
+      const updatedDecks = decks.filter(d => d.id !== id);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      if (activeDeckId === id) {
+        setActiveDeckId(null);
+        setIsDeckEditorOpen(false);
+      }
+      return;
+    }
+
     try {
       await deleteDoc(doc(db, 'decks', id));
       if (activeDeckId === id) {
@@ -602,7 +666,12 @@ export default function App() {
   };
 
   const addMatch = async (match: MatchEntry) => {
-    if (!user) return;
+    if (!user) {
+      const updatedMatches = [match, ...matches];
+      setMatches(updatedMatches);
+      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
+      return;
+    }
     try {
       await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid });
     } catch (error) {
@@ -611,7 +680,12 @@ export default function App() {
   };
 
   const updateMatch = async (match: MatchEntry) => {
-    if (!user) return;
+    if (!user) {
+      const updatedMatches = matches.map(m => m.id === match.id ? match : m);
+      setMatches(updatedMatches);
+      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
+      return;
+    }
     try {
       await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid }, { merge: true });
     } catch (error) {
@@ -620,7 +694,12 @@ export default function App() {
   };
 
   const deleteMatch = async (id: string) => {
-    if (!user) return;
+    if (!user) {
+      const updatedMatches = matches.filter(m => m.id !== id);
+      setMatches(updatedMatches);
+      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
+      return;
+    }
     try {
       await deleteDoc(doc(db, 'matches', id));
     } catch (error) {
@@ -629,7 +708,16 @@ export default function App() {
   };
 
   const resetDeckHistory = async (deckId: string) => {
-    if (!user) return;
+    if (!user) {
+      const updatedMatches = matches.map(match => {
+        const filteredRounds = match.rounds.filter(round => round.myDeckSnapshot.id !== deckId);
+        return { ...match, rounds: filteredRounds };
+      }).filter(match => match.rounds.length > 0);
+      
+      setMatches(updatedMatches);
+      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
+      return;
+    }
     const batch = writeBatch(db);
     let hasChanges = false;
 
@@ -656,7 +744,13 @@ export default function App() {
   };
 
   const renameDeck = async (id: string, newName: string) => {
-    if (!user) return;
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === id ? { ...d, name: newName, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
     try {
       await setDoc(doc(db, 'decks', id), { 
         name: newName, 
@@ -673,7 +767,6 @@ export default function App() {
   };
 
   const addToDeck = async (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
-    if (!user) return false;
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return false;
 
@@ -696,6 +789,13 @@ export default function App() {
       newItems = [...deck.items, { card, count: 1, artType }];
     }
 
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === deckId ? { ...d, items: newItems, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return true;
+    }
+
     try {
       await setDoc(doc(db, 'decks', deckId), { 
         items: newItems, 
@@ -709,12 +809,18 @@ export default function App() {
   };
 
   const removeFromDeck = async (deckId: string, cardId: string, artType: ArtVariantType) => {
-    if (!user) return;
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return;
 
     const newItems = deck.items.filter(item => !(item.card.id === cardId && item.artType === artType));
     
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === deckId ? { ...d, items: newItems, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
     try {
       await setDoc(doc(db, 'decks', deckId), { 
         items: newItems, 
@@ -726,7 +832,6 @@ export default function App() {
   };
 
   const updateDeckCount = async (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => {
-    if (!user) return;
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return;
 
@@ -745,6 +850,13 @@ export default function App() {
       }
       return item;
     });
+
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === deckId ? { ...d, items: newItems, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
 
     try {
       await setDoc(doc(db, 'decks', deckId), { 
@@ -1035,9 +1147,9 @@ export default function App() {
       )}>
       {/* Header */}
       {currentTab === 'cards' && (
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#141414]/10 px-4 py-2">
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 px-4 py-2">
           <div className="max-w-md mx-auto flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm">
+            <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10">
               <Sparkles size={16} />
             </div>
             <div className="relative flex-1">
@@ -1149,7 +1261,7 @@ export default function App() {
               {debouncedSearchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors border border-stone-200 group"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full text-[9px] font-black uppercase tracking-wider transition-colors border border-stone-200 group"
                 >
                   Search: {debouncedSearchQuery}
                   <X size={10} className="text-stone-400 group-hover:text-stone-600" />
@@ -1159,7 +1271,7 @@ export default function App() {
                 <button
                   key={`${category}-${value}`}
                   onClick={() => toggleFilter(category, value)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors border border-amber-200 group"
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full text-[9px] font-black uppercase tracking-wider transition-colors border border-amber-200 group"
                 >
                   {value}
                   <X size={10} className="text-amber-400 group-hover:text-amber-600" />
@@ -1167,7 +1279,7 @@ export default function App() {
               ))}
               <button
                 onClick={resetFilters}
-                className="text-[10px] font-black uppercase tracking-wider text-stone-400 hover:text-stone-600 transition-colors py-1 px-1"
+                className="text-[9px] font-black uppercase tracking-wider text-stone-400 hover:text-stone-600 transition-colors py-1 px-1"
               >
                 Clear all
               </button>
@@ -1175,7 +1287,7 @@ export default function App() {
           )}
 
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-stone-500 uppercase tracking-widest">
+            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
               {filteredCards.length} Cards Found
             </p>
             <div className="flex bg-white border border-stone-200 rounded-lg p-0.5">
@@ -1184,9 +1296,9 @@ export default function App() {
                   key={m}
                   onClick={() => setPriceMode(m)}
                   className={cn(
-                    "px-2 py-1 rounded-md text-[10px] font-bold transition-all",
+                    "px-2 py-1 rounded-md text-[9px] font-bold transition-all",
                     priceMode === m 
-                      ? "bg-[#141414] text-white" 
+                      ? "bg-amber-600 text-white shadow-sm" 
                       : "text-stone-400 hover:text-stone-600"
                   )}
                 >
@@ -1215,7 +1327,7 @@ export default function App() {
                   {debouncedSearchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full text-xs font-bold transition-colors border border-stone-200"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-full text-[10px] font-bold transition-colors border border-stone-200"
                     >
                       Search: {debouncedSearchQuery}
                       <X size={12} />
@@ -1225,7 +1337,7 @@ export default function App() {
                     <button
                       key={`${category}-${value}`}
                       onClick={() => toggleFilter(category, value)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full text-xs font-bold transition-colors border border-amber-200"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold transition-colors border border-amber-200"
                     >
                       {value}
                       <X size={12} />
@@ -1235,7 +1347,7 @@ export default function App() {
 
                 <button
                   onClick={resetFilters}
-                  className="w-full py-3 rounded-2xl bg-[#141414] text-white font-bold text-sm shadow-lg shadow-stone-200 active:scale-95 transition-all"
+                  className="w-full py-3 rounded-2xl bg-[#141414] text-white font-bold text-sm shadow-lg shadow-black/10 active:scale-95 transition-all"
                 >
                   Clear all filters
                 </button>
@@ -1246,7 +1358,10 @@ export default function App() {
           <VirtuosoGrid
             useWindowScroll
             data={gridData}
-            listClassName="grid gap-2 grid-cols-3 pb-32"
+            overscan={400}
+            components={{
+              List: ListContainer
+            }}
             itemContent={(index, card) => (
               <GridItem 
                 key={card.id}
@@ -1261,7 +1376,7 @@ export default function App() {
                 isDeckBuilderMode={isDeckBuilderMode}
                 activeDeck={activeDeck}
                 onAddToDeck={(c, art) => {
-                  const originalCard = GUNDAM_CARDS.find(gc => gc.id === (c.parentId || gc.id));
+                  const originalCard = GUNDAM_CARDS.find(gc => gc.id === (c.parentId || c.id));
                   if (originalCard && activeDeckId) {
                     addToDeck(activeDeckId, originalCard, art);
                   }
@@ -1405,39 +1520,6 @@ export default function App() {
                 setShowAnatomy(false);
               }
               if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
-                setOpenedEditorFromList(false);
-                setIsDeckEditorOpen(false);
-              }
-              if (currentTab === 'scan') stopCamera();
-              setCurrentTab('play');
-              setShowDeckList(false);
-              setIsScanning(false);
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              currentTab === 'play' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              <Trophy size={16} className={cn(
-                "transition-colors",
-                currentTab === 'play' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'play' ? 2 : 1.5} />
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'play' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Play</span>
-          </button>
-
-          <button 
-            onClick={() => {
-              if (selectedCard) {
-                setSelectedCard(null);
-                setSelectedArtType("Base art");
-                setShowAnatomy(false);
-              }
-              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
                 deckEditorRef.current.requestClose();
                 return;
               }
@@ -1478,6 +1560,39 @@ export default function App() {
                 {decks.length}
               </span>
             )}
+          </button>
+
+          <button 
+            onClick={() => {
+              if (selectedCard) {
+                setSelectedCard(null);
+                setSelectedArtType("Base art");
+                setShowAnatomy(false);
+              }
+              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
+                setOpenedEditorFromList(false);
+                setIsDeckEditorOpen(false);
+              }
+              if (currentTab === 'scan') stopCamera();
+              setCurrentTab('play');
+              setShowDeckList(false);
+              setIsScanning(false);
+            }}
+            className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
+          >
+            <div className={cn(
+              "p-1 rounded-lg transition-colors",
+              currentTab === 'play' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+            )}>
+              <Trophy size={16} className={cn(
+                "transition-colors",
+                currentTab === 'play' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+              )} strokeWidth={currentTab === 'play' ? 2 : 1.5} />
+            </div>
+            <span className={cn(
+              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+              currentTab === 'play' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+            )}>Records</span>
           </button>
 
           <button 
@@ -1738,7 +1853,7 @@ export default function App() {
                     className="flex items-center gap-1.5 px-4 py-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg shadow-black/10 active:scale-95"
                   >
                     <Plus size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Add to deck</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">Add to deck</span>
                   </button>
                 </div>
               </div>
@@ -1829,11 +1944,11 @@ export default function App() {
                             <motion.div 
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
+                              exit={{ opacity: 1 }}
                               className="absolute inset-0 flex items-center justify-center"
                             >
                               <img 
-                                src="/images/Card anatomy overlay.png" 
+                                src="/img/card_anatomy_overlay.png" 
                                 alt="Card Anatomy Overlay"
                                 className="w-full h-full object-fill"
                                 referrerPolicy="no-referrer"
@@ -1863,12 +1978,12 @@ export default function App() {
 
               <div className="p-4 pb-20 space-y-6 flex-1">
                 <div className="space-y-2">
-                  <h2 className="text-3xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
+                  <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
                   {selectedCard.japaneseName && (
-                    <p className="text-lg font-medium text-stone-400 -mt-1">{selectedCard.japaneseName}</p>
+                    <p className="text-base font-medium text-stone-400 -mt-1">{selectedCard.japaneseName}</p>
                   )}
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mt-1">
-                    <p className="text-stone-500 font-mono text-[10px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
+                    <p className="text-stone-500 font-mono text-[9px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
                     
                     <div className="flex items-center gap-1.5">
                       <RarityTag rarity={selectedCard.rarity} />
@@ -1881,7 +1996,7 @@ export default function App() {
                               setSelectedArtType(e.target.value as ArtVariantType);
                               setShowAnatomy(false);
                             }}
-                            className="appearance-none bg-stone-100 border border-stone-200 rounded-full px-4 py-1.5 pr-8 text-[10px] font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+                            className="appearance-none bg-stone-100 border border-stone-200 rounded-full px-4 py-1.5 pr-8 text-[9px] font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
                           >
                             {selectedCard.variants ? (
                               selectedCard.variants.map(v => (
@@ -1913,19 +2028,19 @@ export default function App() {
 
                 <div className="grid grid-cols-4 gap-3">
                   <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">Cost</p>
+                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">Cost</p>
                     <p className="text-lg font-bold">{selectedCard.cost}</p>
                   </div>
                   <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">Lv.</p>
+                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">Lv.</p>
                     <p className="text-lg font-bold">{selectedCard.level || '-'}</p>
                   </div>
                   <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">AP</p>
+                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">AP</p>
                     <p className="text-lg font-bold text-red-600">{selectedCard.ap || '-'}</p>
                   </div>
                   <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[10px] text-stone-400 uppercase font-bold mb-1">HP</p>
+                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">HP</p>
                     <p className="text-lg font-bold text-blue-600">{selectedCard.hp || '-'}</p>
                   </div>
                 </div>
@@ -1933,7 +2048,7 @@ export default function App() {
                 {selectedCard.traits && selectedCard.traits.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {selectedCard.traits.map(trait => (
-                      <span key={trait} className="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 border border-stone-200">
+                      <span key={trait} className="px-3 py-1 bg-stone-100 rounded-full text-[9px] font-bold text-stone-500 border border-stone-200">
                         {trait}
                       </span>
                     ))}
@@ -1942,7 +2057,7 @@ export default function App() {
 
                 {selectedCard.link && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
                       <RefreshCw size={14} /> Link
                     </h4>
                     <div className="bg-white p-4 rounded-2xl border border-stone-200 text-sm font-bold text-blue-600">
@@ -1952,7 +2067,7 @@ export default function App() {
                 )}
 
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
                     <Info size={14} /> Ability
                   </h4>
                   <div className="bg-white p-4 rounded-2xl border border-stone-200 text-sm leading-relaxed whitespace-pre-wrap italic">
@@ -1962,7 +2077,7 @@ export default function App() {
 
                 {selectedCard.flavorText && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-stone-400 uppercase tracking-widest">Flavor</h4>
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Flavor</h4>
                     <p className="text-stone-500 text-sm italic">"{selectedCard.flavorText}"</p>
                   </div>
                 )}
@@ -2192,7 +2307,7 @@ export default function App() {
             >
               {/* Header */}
               <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-white sticky top-0 z-10">
-                <h2 className="font-bold text-lg">Filters</h2>
+                <h2 className="font-bold text-lg text-[#141414]">Filters</h2>
                 <button 
                   onClick={() => setIsFilterOpen(false)}
                   className="p-2 hover:bg-stone-100 rounded-full transition-colors"
@@ -2205,16 +2320,16 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-4 space-y-8 no-scrollbar">
                 {/* Sets */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Sets</h3>
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Sets</h3>
                   <div className="flex flex-wrap gap-2">
                     {ALL_SETS.map(setName => (
                       <button
                         key={setName}
                         onClick={() => toggleFilter('sets', setName)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
                           activeFilters.sets.includes(setName)
-                            ? "bg-[#141414] text-white border-[#141414]"
+                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
                             : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
                         )}
                       >
@@ -2226,16 +2341,16 @@ export default function App() {
 
                 {/* Rarity */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Rarity</h3>
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Rarity</h3>
                   <div className="flex flex-wrap gap-2">
                     {RARITIES.map(rarity => (
                       <button
                         key={rarity}
                         onClick={() => toggleFilter('rarities', rarity)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
                           activeFilters.rarities.includes(rarity)
-                            ? "bg-[#141414] text-white border-[#141414]"
+                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
                             : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
                         )}
                       >
@@ -2247,16 +2362,16 @@ export default function App() {
 
                 {/* Color */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Color</h3>
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Color</h3>
                   <div className="flex flex-wrap gap-2">
                     {COLORS.map(color => (
                       <button
                         key={color}
                         onClick={() => toggleFilter('colors', color)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
                           activeFilters.colors.includes(color)
-                            ? "bg-[#141414] text-white border-[#141414]"
+                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
                             : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
                         )}
                       >
@@ -2268,16 +2383,16 @@ export default function App() {
 
                 {/* Type */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Type</h3>
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Type</h3>
                   <div className="flex flex-wrap gap-2">
                     {TYPES.map(type => (
                       <button
                         key={type}
                         onClick={() => toggleFilter('types', type)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
                           activeFilters.types.includes(type)
-                            ? "bg-[#141414] text-white border-[#141414]"
+                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
                             : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
                         )}
                       >
@@ -2289,16 +2404,16 @@ export default function App() {
 
                 {/* Art Variant */}
                 <div className="space-y-3 pb-4">
-                  <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Art Variant</h3>
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Art Variant</h3>
                   <div className="flex flex-wrap gap-2">
                     {VARIANTS.map(variant => (
                       <button
                         key={variant}
                         onClick={() => toggleFilter('variants', variant)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
                           activeFilters.variants.includes(variant)
-                            ? "bg-[#141414] text-white border-[#141414]"
+                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
                             : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
                         )}
                       >
@@ -2319,7 +2434,7 @@ export default function App() {
                 </button>
                 <button 
                   onClick={() => setIsFilterOpen(false)}
-                  className="py-3 rounded-xl text-sm font-bold bg-[#141414] text-white hover:bg-stone-800 transition-colors shadow-lg shadow-stone-200"
+                  className="py-3 rounded-xl text-sm font-bold bg-[#141414] text-white hover:bg-stone-800 transition-colors shadow-lg shadow-black/10"
                 >
                   Apply
                 </button>

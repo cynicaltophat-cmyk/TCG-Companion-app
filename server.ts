@@ -11,6 +11,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Serve public directory
+  app.use(express.static('public'));
+  
   // Use the API routes from api/index.ts
   app.use(apiApp);
 
