@@ -1047,6 +1047,22 @@ registerSet("GD 01", [
     imageUrl: "/img/GD01/GD01-066.webp"
   },
   {
+    id: "gd01-067",
+    name: "Gundam Aerial Rebuild",
+    cardNumber: "GD01-067",
+    type: "Unit",
+    color: "White",
+    rarity: "LR",
+    cost: 5,
+    level: 6,
+    ap: 5,
+    hp: 4,
+    traits: ["Academy", "Space", "Earth"],
+    link: "Suletta Mercury",
+    ability: "When Paired Choose 1 Command card that is Lv.5 or lower from your trash. Add it to your hand.",
+    imageUrl: "/img/GD01/GD01-067.webp"
+  },
+  {
     id: "gd01-068",
     name: "Perfect Strike Gundam",
     cardNumber: "GD01-068",
@@ -1248,6 +1264,22 @@ registerSet("GD 02", [
     link: "Akihiro Altland",
     ability: "<Blocker> (Rest this Unit to change the attack target to it.) [Deploy] Choose 1 of your Units and 1 enemy Unit. Deal 1 damage to them.",
     imageUrl: "/img/GD02/GD02-055.webp"
+  },
+  {
+    id: "gd02-074",
+    name: "Gundam Aerial Rebuild",
+    cardNumber: "GD02-074",
+    type: "Unit",
+    color: "White",
+    rarity: "R",
+    cost: 5,
+    level: 7,
+    ap: 5,
+    hp: 5,
+    traits: ["Academy"],
+    link: "Suletta Mercury",
+    ability: "<High-Maneuver> (This Unit can't be blocked.) During Pair While there are 4 or more Command cards in your trash, this Unit gains <Blocker>. (Rest this Unit to change the attack target to it.)",
+    imageUrl: "/img/GD02/GD02-074.webp"
   },
   {
     id: "gd02-079",
