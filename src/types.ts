@@ -39,3 +39,17 @@ export interface MatchEntry {
   rounds: MatchRound[];
   createdAt: number;
 }
+
+export type FeedbackCategory = 'Bug' | 'Feature Request' | 'General' | 'Other';
+export type FeedbackStatus = 'New' | 'In Progress' | 'Resolved' | 'Closed';
+
+export interface Feedback {
+  id: string;
+  uid: string;
+  userEmail?: string;
+  userName?: string;
+  category: FeedbackCategory;
+  message: string;
+  createdAt: number;
+  status: FeedbackStatus;
+}

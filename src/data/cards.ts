@@ -509,6 +509,18 @@ registerSet("ST 04", [
     imageUrl: "/img/ST04/ST04-011.webp"
   },
   {
+    id: "st04-012",
+    name: "Striker Pack",
+    cardNumber: "ST04-012",
+    type: "Command",
+    color: "White",
+    rarity: "C",
+    cost: 2,
+    level: 4,
+    ability: "【Burst】If you have no (Earth Alliance) Unit tokens in play, deploy 1 [Aile Strike Gundam]((Earth Alliance)･AP3･HP3･<Blocker>) Unit token.【Main】If you have no (Earth Alliance) Unit tokens in play, deploy 1 [Sword Strike Gundam]((Earth Alliance)･AP4･HP2･<Blocker>) or 1 [Launcher Strike Gundam]((Earth Alliance)･AP2･HP4･<Blocker>) Unit token.",
+    imageUrl: "/img/ST04/ST04-012.webp"
+  },
+  {
     id: "st04-015",
     name: "Archangel",
     cardNumber: "ST04-015",
@@ -1230,6 +1242,19 @@ registerSet("GD 01", [
     level: 4,
     ability: "【Burst】Add this card to your hand.【Activate･Action】【Once per Turn】If an enemy Unit with 1 or less AP is in play, this Unit recovers 1 HP.",
     imageUrl: "/img/GD01/GD01-098.webp"
+  },
+  {
+    id: "gd01-091",
+    name: "Chang Wufei",
+    cardNumber: "GD01-091",
+    type: "Pilot",
+    color: "Green",
+    rarity: "U",
+    cost: 1,
+    level: 4,
+    traits: ["Operation Meteor"],
+    ability: "【Burst】Add this card to your hand. During your turn, while this Unit has <Breach>, it can't receive battle damage from enemy Units with 3 or less AP.",
+    imageUrl: "/img/GD01/GD01-091.webp"
   },
   {
     id: "gd01-093",

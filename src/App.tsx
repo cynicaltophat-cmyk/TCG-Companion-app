@@ -32,7 +32,16 @@ import {
   Swords,
   LogIn,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  MessageSquare,
+  Send,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  CheckCircle,
+  Circle,
+  Trash2,
+  ShieldCheck
 } from 'lucide-react';
 import { GUNDAM_CARDS, GundamCard, ArtVariantType, ALL_SETS } from './data/cards';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -40,7 +49,7 @@ import { cn, PriceDisplayMode, formatPrice } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { DeckList } from './components/DeckList';
 import { PlayScreen } from './components/PlayScreen';
-import { Deck, DeckItem, MatchEntry, MatchRound, MatchNature } from './types';
+import { Deck, DeckItem, MatchEntry, MatchRound, MatchNature, Feedback, FeedbackCategory } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -48,6 +57,8 @@ import {
   onSnapshot, 
   doc, 
   setDoc, 
+  addDoc,
+  updateDoc,
   deleteDoc, 
   query, 
   where,
@@ -350,6 +361,198 @@ const GridItem = React.memo(({
   );
 });
 
+// --- Feedback Form ---
+
+const FeedbackForm = ({ user, onComplete }: { user: User, onComplete: () => void }) => {
+  const [category, setCategory] = useState<FeedbackCategory>('General');
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        uid: user.uid,
+        userEmail: user.email,
+        userName: user.displayName,
+        category,
+        message: message.trim(),
+        createdAt: Date.now(),
+        status: 'New'
+      });
+      setIsSuccess(true);
+      setTimeout(() => {
+        onComplete();
+      }, 2000);
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      alert("Failed to submit feedback. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in duration-300">
+        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+          <CheckCircle2 size={32} />
+        </div>
+        <h3 className="text-lg font-black text-[#141414]">Thank You!</h3>
+        <p className="text-stone-500 text-sm">Your feedback has been received.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Category</label>
+        <div className="grid grid-cols-2 gap-2">
+          {(['Bug', 'Feature Request', 'General', 'Other'] as FeedbackCategory[]).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategory(cat)}
+              className={cn(
+                "px-3 py-2 rounded-xl text-xs font-bold border transition-all",
+                category === cat 
+                  ? "bg-[#141414] text-white border-[#141414]" 
+                  : "bg-white text-stone-600 border-stone-200 hover:border-stone-300"
+              )}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black uppercase tracking-widest text-stone-400">Your Message</label>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Tell us what's on your mind..."
+          className="w-full h-32 bg-white border border-stone-200 rounded-2xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
+          required
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isSubmitting || !message.trim()}
+        className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-amber-500 text-white rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+      >
+        {isSubmitting ? (
+          <Loader2 className="animate-spin" size={20} />
+        ) : (
+          <Send size={20} />
+        )}
+        Submit Feedback
+      </button>
+    </form>
+  );
+};
+
+// --- Admin Feedback Panel ---
+
+const AdminFeedbackPanel = ({ tickets, onUpdateStatus, onDelete }: { 
+  tickets: Feedback[], 
+  onUpdateStatus: (id: string, status: Feedback['status']) => void,
+  onDelete: (id: string) => void
+}) => {
+  const [filter, setFilter] = useState<Feedback['status'] | 'All'>('All');
+
+  const filteredTickets = tickets.filter(t => filter === 'All' || t.status === filter);
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+        {(['All', 'New', 'In Progress', 'Resolved', 'Closed'] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border",
+              filter === s 
+                ? "bg-[#141414] text-white border-[#141414]" 
+                : "bg-white text-stone-500 border-stone-200 hover:border-stone-300"
+            )}
+          >
+            {s} ({s === 'All' ? tickets.length : tickets.filter(t => t.status === s).length})
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {filteredTickets.length === 0 ? (
+          <div className="py-12 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+            <p className="text-stone-400 text-sm font-medium">No tickets found</p>
+          </div>
+        ) : (
+          filteredTickets.map((ticket) => (
+            <div key={ticket.id} className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                      ticket.category === 'Bug' ? "bg-red-100 text-red-600" :
+                      ticket.category === 'Feature Request' ? "bg-blue-100 text-blue-600" :
+                      "bg-stone-100 text-stone-600"
+                    )}>
+                      {ticket.category}
+                    </span>
+                    <span className="text-[10px] text-stone-400 font-bold">
+                      {new Date(ticket.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-xs font-bold text-[#141414]">{ticket.userName || 'Anonymous'}</p>
+                  <p className="text-[10px] text-stone-500">{ticket.userEmail}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => onDelete(ticket.id)}
+                    className="p-2 text-stone-300 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-sm text-stone-700 leading-relaxed bg-stone-50 p-3 rounded-xl border border-stone-100">
+                {ticket.message}
+              </p>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-stone-50">
+                <p className="text-[9px] font-black uppercase tracking-widest text-stone-400 mr-auto">Status:</p>
+                {(['New', 'In Progress', 'Resolved', 'Closed'] as Feedback['status'][]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => onUpdateStatus(ticket.id, s)}
+                    className={cn(
+                      "px-2 py-1 rounded-lg text-[9px] font-bold transition-all border",
+                      ticket.status === s 
+                        ? "bg-emerald-500 text-white border-emerald-500" 
+                        : "bg-white text-stone-400 border-stone-100 hover:border-stone-200"
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -388,7 +591,28 @@ export default function App() {
   const [showAnatomy, setShowAnatomy] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [adminFeedback, setAdminFeedback] = useState<Feedback[]>([]);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleUpdateFeedbackStatus = async (id: string, status: Feedback['status']) => {
+    try {
+      await updateDoc(doc(db, 'feedback', id), { status });
+    } catch (error) {
+      console.error("Error updating feedback status:", error);
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    if (!window.confirm("Delete this feedback?")) return;
+    try {
+      await deleteDoc(doc(db, 'feedback', id));
+    } catch (error) {
+      console.error("Error deleting feedback:", error);
+    }
+  };
+
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
   const debouncedSetSearch = useRef(
@@ -413,6 +637,33 @@ export default function App() {
   const [isDeckInPlayMode, setIsDeckInPlayMode] = useState(false);
   const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'play' | 'profile'>('cards');
   const [user, setUser] = useState<User | null>(null);
+
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    const adminEmails = ["inkytophat@gmail.com", "cynicaltophat@gmail.com"];
+    return adminEmails.includes(user.email?.toLowerCase() || "");
+  }, [user]);
+
+  // Admin Feedback Fetching
+  useEffect(() => {
+    if (!isAdmin || !user) {
+      setAdminFeedback([]);
+      return;
+    }
+
+    const q = query(collection(db, 'feedback'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tickets: Feedback[] = [];
+      snapshot.forEach((doc) => {
+        tickets.push({ id: doc.id, ...doc.data() } as Feedback);
+      });
+      setAdminFeedback(tickets);
+    }, (error) => {
+      console.error("Admin feedback fetch error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [isAdmin, user]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [matches, setMatches] = useState<MatchEntry[]>([]);
 
@@ -1332,6 +1583,83 @@ export default function App() {
                 </p>
               </div>
 
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                <button 
+                  onClick={() => setShowFeedback(!showFeedback)}
+                  className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                      <MessageSquare size={18} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black text-[#141414]">Send Feedback</p>
+                      <p className="text-[10px] text-stone-500 font-medium">Help us improve the app</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className={cn("text-stone-400 transition-transform", showFeedback && "rotate-90")} />
+                </button>
+                
+                <AnimatePresence>
+                  {showFeedback && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t border-stone-100"
+                    >
+                      <div className="p-4">
+                        <FeedbackForm user={user} onComplete={() => setShowFeedback(false)} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {isAdmin && (
+                <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                  <button 
+                    onClick={() => setShowAdminPanel(!showAdminPanel)}
+                    className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-stone-900 text-white rounded-lg flex items-center justify-center relative">
+                        <ShieldCheck size={18} />
+                        {adminFeedback.filter(t => t.status === 'New').length > 0 && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-black text-[#141414]">Feedback Management</p>
+                        <p className="text-[10px] text-stone-500 font-medium">
+                          {adminFeedback.filter(t => t.status === 'New').length} New Tickets
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className={cn("text-stone-400 transition-transform", showAdminPanel && "rotate-90")} />
+                  </button>
+                  
+                  <AnimatePresence>
+                    {showAdminPanel && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-stone-100"
+                      >
+                        <div className="p-4">
+                          <AdminFeedbackPanel 
+                            tickets={adminFeedback} 
+                            onUpdateStatus={handleUpdateFeedbackStatus}
+                            onDelete={handleDeleteFeedback}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
               <button 
                 onClick={() => {
                   logout();
@@ -1590,6 +1918,8 @@ export default function App() {
               }
               if (currentTab === 'scan') stopCamera();
               setCurrentTab('cards');
+              setShowFeedback(false);
+              setShowAdminPanel(false);
               setShowDeckList(false);
               setIsScanning(false);
             }}
@@ -1626,14 +1956,20 @@ export default function App() {
               if (isDeckInPlayMode) {
                 setCurrentTab('decks');
                 setIsDeckEditorOpen(true);
+                setShowFeedback(false);
+                setShowAdminPanel(false);
               } else if (isDeckBuilderMode && activeDeckId) {
                 setIsDeckEditorOpen(true);
                 setShowDeckList(false);
                 setCurrentTab('decks');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
               } else {
                 setShowDeckList(true);
                 setIsDeckEditorOpen(false);
                 setCurrentTab('decks');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
               }
 
               setIsScanning(false);
@@ -1673,6 +2009,8 @@ export default function App() {
               }
               if (currentTab === 'scan') stopCamera();
               setCurrentTab('play');
+              setShowFeedback(false);
+              setShowAdminPanel(false);
               setShowDeckList(false);
               setIsScanning(false);
             }}
@@ -1706,6 +2044,8 @@ export default function App() {
               }
               if (currentTab === 'scan') stopCamera();
               setCurrentTab('scan');
+              setShowFeedback(false);
+              setShowAdminPanel(false);
               setIsScanning(true);
               setShowDeckList(false);
               startCamera();
@@ -1731,6 +2071,8 @@ export default function App() {
             onClick={() => {
               if (user) {
                 setCurrentTab('profile');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
                 setIsScanning(false);
                 setShowDeckList(false);
                 setIsDeckEditorOpen(false);

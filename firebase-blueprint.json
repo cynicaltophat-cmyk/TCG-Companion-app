@@ -37,6 +37,22 @@
         "createdAt": { "type": "integer" }
       },
       "required": ["id", "uid", "nature", "shopName", "date", "rounds", "createdAt"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "A user-submitted feedback ticket.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string", "description": "The user ID of the submitter" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "category": { "type": "string", "enum": ["Bug", "Feature Request", "General", "Other"] },
+        "message": { "type": "string" },
+        "createdAt": { "type": "integer" },
+        "status": { "type": "string", "enum": ["New", "In Progress", "Resolved", "Closed"] }
+      },
+      "required": ["id", "uid", "category", "message", "createdAt", "status"]
     }
   },
   "firestore": {
@@ -47,6 +63,10 @@
     "matches/{matchId}": {
       "schema": "MatchEntry",
       "description": "User match history"
+    },
+    "feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User feedback tickets"
     }
   }
 }

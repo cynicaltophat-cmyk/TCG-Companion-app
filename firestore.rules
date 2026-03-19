@@ -80,6 +80,15 @@ service cloud.firestore {
              data.createdAt is int;
     }
 
+    function isValidFeedback(data) {
+      return hasOnlyAllowedFields(['id', 'uid', 'userEmail', 'userName', 'category', 'message', 'createdAt', 'status']) &&
+             data.uid == request.auth.uid &&
+             data.category in ['Bug', 'Feature Request', 'General', 'Other'] &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
+             data.createdAt is int &&
+             data.status in ['New', 'In Progress', 'Resolved', 'Closed'];
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -96,6 +105,17 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidMatch(request.resource.data);
       allow update: if isDocOwner() && isValidMatch(request.resource.data) && uidNotModified();
       allow delete: if isDocOwner();
+    }
+
+    match /feedback/{feedbackId} {
+      // Users can only read their own feedback, admins can read all
+      allow read: if isDocOwner() || isAdmin();
+      // Any authenticated user can create feedback
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      // Only admins can update feedback (e.g., change status)
+      allow update: if isAdmin() && isValidFeedback(request.resource.data);
+      // Only admins can delete feedback
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {
