@@ -30,9 +30,8 @@ import {
   Copy,
   CopyPlus
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, GUNDAM_CARDS } from '../data/cards';
+import { GundamCard, ArtVariantType, Deck, DeckItem, MatchEntry } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
-import { Deck, DeckItem, MatchEntry } from '../types';
 
 interface DeckEditorProps {
   deck: Deck;
@@ -49,6 +48,7 @@ interface DeckEditorProps {
   onPlayModeChange?: (isPlay: boolean) => void;
   onDuplicateDeck?: (deck: Deck) => void;
   onImportDeck?: (text: string) => void;
+  allCards: GundamCard[];
   visible?: boolean;
 }
 
@@ -192,6 +192,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   onPlayModeChange,
   onDuplicateDeck,
   onImportDeck,
+  allCards,
   visible = true
 }, ref) => {
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'performance' | 'play'>('cards');
@@ -346,7 +347,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
 
       // If no pilot in deck/hand, try to find the "intended" pilot in all cards to show as greyed out
       if (potentialPilots.length === 0 && unit.link) {
-        const intendedPilot = GUNDAM_CARDS.find(c => c.type === 'Pilot' && c.name === unit.link);
+        const intendedPilot = allCards.find(c => c.type === 'Pilot' && c.name === unit.link);
         if (intendedPilot) {
           const group = getOrCreateGroup(intendedPilot);
           group.units.add(unit);
@@ -1743,7 +1744,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                 {(() => {
                                   const item = sortedHand[selectedHandIndex];
                                   if (!item) return null;
-                                  const latestCard = GUNDAM_CARDS.find(c => c.id === item.card.id) || item.card;
+                                  const latestCard = allCards.find(c => c.id === item.card.id) || item.card;
                                   
                                   return (
                                     <div className="space-y-4">
@@ -1803,7 +1804,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                             <p className="text-[11px] text-stone-600 leading-relaxed">
                                               <span className="font-bold text-stone-800">Providence Gundam</span> can be paired with other <span className="text-red-600 font-bold italic">ZAFT</span> pilots such as:{" "}
                                               {(() => {
-                                                const zaftPilots = GUNDAM_CARDS.filter(c => 
+                                                const zaftPilots = allCards.filter(c => 
                                                   c.type === "Pilot" && 
                                                   c.traits?.includes("ZAFT") &&
                                                   c.name !== "Rau Le Creuset"

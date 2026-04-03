@@ -53,6 +53,57 @@
         "status": { "type": "string", "enum": ["New", "In Progress", "Resolved", "Closed"] }
       },
       "required": ["id", "uid", "category", "message", "createdAt", "status"]
+    },
+    "Card": {
+      "title": "Card",
+      "description": "A single card in the Gundam TCG.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "set": { "type": "string" },
+        "cardNumber": { "type": "string" },
+        "type": { "type": "string", "enum": ["Unit", "Pilot", "Command", "Base"] },
+        "color": { "type": "string", "enum": ["Red", "Blue", "Green", "White", "Black", "Yellow", "Purple"] },
+        "rarity": { "type": "string", "enum": ["C", "U", "R", "SR", "UR", "LR"] },
+        "cost": { "type": "integer" },
+        "level": { "type": "integer" },
+        "ap": { "type": "integer" },
+        "hp": { "type": "integer" },
+        "ability": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "baseArtist": { "type": "string" },
+        "baseArtistLink": { "type": "string" },
+        "altImageUrl": { "type": "string" },
+        "altArtist": { "type": "string" },
+        "altArtistLink": { "type": "string" },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "imageUrl": { "type": "string" },
+              "artist": { "type": "string" },
+              "artistLink": { "type": "string" }
+            }
+          }
+        },
+        "traits": { "type": "array", "items": { "type": "string" } },
+        "link": { "type": "string" },
+        "faq": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": { "type": "string" },
+              "answer": { "type": "string" }
+            },
+            "required": ["question", "answer"]
+          }
+        }
+      },
+      "required": ["id", "name", "set", "cardNumber", "type", "color", "rarity", "cost", "ability", "imageUrl"]
     }
   },
   "firestore": {
@@ -67,6 +118,10 @@
     "feedback/{feedbackId}": {
       "schema": "Feedback",
       "description": "User feedback tickets"
+    },
+    "cards/{cardId}": {
+      "schema": "Card",
+      "description": "The master list of all cards"
     }
   }
 }

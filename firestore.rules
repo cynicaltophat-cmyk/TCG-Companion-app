@@ -34,8 +34,7 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          ((request.auth.token.email == "inkytophat@gmail.com" || request.auth.token.email == "cynicaltophat@gmail.com") && request.auth.token.email_verified == true)); // Default admins
+        request.auth.token.email.matches("(?i)^(inkytophat|cynicaltophat)@gmail\\.com$");
     }
 
     function isOwner(userId) {
@@ -89,9 +88,21 @@ service cloud.firestore {
              data.status in ['New', 'In Progress', 'Resolved', 'Closed'];
     }
 
+    function isValidCard(data) {
+      // Relaxed validation to ensure migration works
+      return data.id is string &&
+             data.name is string &&
+             data.cardNumber is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /cards/{cardId} {
+      allow read: if true; // Cards are public
+      allow write: if isAdmin(); // Only admins can manage cards
+    }
 
     match /decks/{deckId} {
       allow read: if isDocOwner();

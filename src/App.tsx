@@ -15,6 +15,7 @@ import {
   Grid, 
   List as ListIcon,
   Sparkles,
+  Palette,
   Loader2,
   Plus,
   Minus,
@@ -41,15 +42,16 @@ import {
   CheckCircle,
   Circle,
   Trash2,
-  ShieldCheck
+  ShieldCheck,
+  HelpCircle
 } from 'lucide-react';
-import { GUNDAM_CARDS, GundamCard, ArtVariantType, ALL_SETS } from './data/cards';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, MatchEntry, MatchRound, MatchNature, Feedback, FeedbackCategory } from './types';
+import { AdminCardManager } from './components/AdminCardManager';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
 import { cn, PriceDisplayMode, formatPrice } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { DeckList } from './components/DeckList';
 import { PlayScreen } from './components/PlayScreen';
-import { Deck, DeckItem, MatchEntry, MatchRound, MatchNature, Feedback, FeedbackCategory } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -67,7 +69,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 
-const VARIANTS: ArtVariantType[] = ["Base art", "Parallel", "Beta", "Beta Parallel", "Premium", "Championship"];
+const COMMON_VARIANTS: ArtVariantType[] = ["Base art", "Parallel", "Beta", "Beta Parallel", "Premium", "Championship"];
 const RARITIES = ["C", "U", "R", "LR"];
 const COLORS = ["Red", "Blue", "Green", "White", "Purple"];
 const TYPES = ["Base", "Unit", "Pilot", "Command"];
@@ -553,10 +555,113 @@ const AdminFeedbackPanel = ({ tickets, onUpdateStatus, onDelete }: {
   );
 };
 
+// --- Error Boundary ---
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white rounded-3xl border border-stone-200 p-8 shadow-xl text-center space-y-6">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-[#141414]">Something went wrong</h2>
+              <p className="text-stone-500 text-sm leading-relaxed">
+                The application encountered an unexpected error. We've logged the details.
+              </p>
+            </div>
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-100 text-left overflow-auto max-h-32">
+              <code className="text-[10px] text-red-500 font-mono">{this.state.error?.message}</code>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-[#141414] text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-stone-800 transition-all"
+            >
+              Reload Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // --- Main App ---
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
+  const [allCards, setAllCards] = useState<GundamCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
+
+  // Firestore Cards Listener
+  useEffect(() => {
+    const q = query(collection(db, 'cards'), orderBy('cardNumber', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const cardsData: GundamCard[] = [];
+        snapshot.forEach((doc) => {
+          cardsData.push(doc.data() as GundamCard);
+        });
+        setAllCards(cardsData);
+      }
+      setCardsLoading(false);
+    }, (error) => {
+      console.error("Error fetching cards from Firestore:", error);
+      setCardsLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [selectedCard, setSelectedCard] = useState<GundamCard | null>(null);
+  const cardFaq = useMemo(() => {
+    if (!selectedCard) return [];
+    
+    // If card already has FAQ, use it
+    if (selectedCard.faq && selectedCard.faq.length > 0) return selectedCard.faq;
+    
+    // Hardcoded fallback for ST 09-001 Impulse Gundam
+    const isImpulse = selectedCard.cardNumber?.replace(/[^a-z0-9]/gi, '') === 'ST09001' || 
+                     selectedCard.name?.toLowerCase().includes('impulse');
+                     
+    if (isImpulse) {
+      return [
+        {
+          question: "When deploying a Unit with this effect, do I have to pay that Unit's cost?",
+          answer: "No, you do not."
+        },
+        {
+          question: "If the Unit deployed by this effect has a 【Deploy】 effect, does it activate?",
+          answer: "Yes, it does."
+        }
+      ];
+    }
+    
+    return [];
+  }, [selectedCard]);
+
   const linkedCards = useMemo(() => {
     if (!selectedCard) return [];
     
@@ -565,20 +670,20 @@ export default function App() {
     if (selectedCard.type === 'Unit') {
       // 1. Find the pilot(s) this unit explicitly links to
       if (selectedCard.link) {
-        const pilots = GUNDAM_CARDS.filter(c => c.name === selectedCard.link && c.type === 'Pilot');
+        const pilots = allCards.filter(c => c.name === selectedCard.link && c.type === 'Pilot');
         results.push(...pilots);
       }
       // 2. Find any pilots that explicitly link to this unit
-      const linkingPilots = GUNDAM_CARDS.filter(c => c.link === selectedCard.name && c.type === 'Pilot');
+      const linkingPilots = allCards.filter(c => c.link === selectedCard.name && c.type === 'Pilot');
       results.push(...linkingPilots);
     } else if (selectedCard.type === 'Pilot') {
       // 1. Find the unit(s) this pilot explicitly links to
       if (selectedCard.link) {
-        const units = GUNDAM_CARDS.filter(c => c.name === selectedCard.link && c.type === 'Unit');
+        const units = allCards.filter(c => c.name === selectedCard.link && c.type === 'Unit');
         results.push(...units);
       }
       // 2. Find any units that explicitly link to this pilot
-      const linkingUnits = GUNDAM_CARDS.filter(c => c.link === selectedCard.name && c.type === 'Unit');
+      const linkingUnits = allCards.filter(c => c.link === selectedCard.name && c.type === 'Unit');
       results.push(...linkingUnits);
     }
     
@@ -586,7 +691,7 @@ export default function App() {
     return results.filter((card, index, self) => 
       index === self.findIndex((t) => t.id === card.id)
     );
-  }, [selectedCard]);
+  }, [selectedCard, allCards]);
   const [selectedArtType, setSelectedArtType] = useState<ArtVariantType>("Base art");
   const [showAnatomy, setShowAnatomy] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(0);
@@ -594,6 +699,7 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState<Feedback[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showCardManager, setShowCardManager] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleUpdateFeedbackStatus = async (id: string, status: Feedback['status']) => {
@@ -717,9 +823,6 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    if (GUNDAM_CARDS.length > 0) {
-      console.log("First card image URL:", GUNDAM_CARDS[0].imageUrl);
-    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setIsAuthReady(true);
@@ -948,7 +1051,7 @@ export default function App() {
         const count = parseInt(match[1]);
         const cardNumber = match[2].toUpperCase();
         
-        const card = GUNDAM_CARDS.find(c => c.cardNumber.toUpperCase() === cardNumber);
+        const card = allCards.find(c => c.cardNumber.toUpperCase() === cardNumber);
         if (card) {
           items.push({
             card,
@@ -1263,7 +1366,7 @@ export default function App() {
   }, [activeFilters]);
 
   const filteredCards = useMemo(() => {
-    return GUNDAM_CARDS.filter(card => {
+    return allCards.filter(card => {
       const query = debouncedSearchQuery.toLowerCase().trim();
       const normalizedQuery = query.replace(/[^a-z0-9]/g, '');
       const normalizedCardNumber = card.cardNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1278,16 +1381,16 @@ export default function App() {
       );
       
       // New multi-select filters
-      const matchesSets = activeFilters.sets.length === 0 || activeFilters.sets.every(s => card.set === s);
-      const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.every(r => card.rarity === r);
-      const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.every(c => card.color === c);
-      const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.every(t => card.type === t);
+      const matchesSets = activeFilters.sets.length === 0 || activeFilters.sets.includes(card.set);
+      const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.includes(card.rarity);
+      const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.includes(card.color);
+      const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.includes(card.type);
       const matchesVariants = activeFilters.variants.length === 0 || 
-                             activeFilters.variants.every(v => v === "Base art" || card.variants?.some(cv => cv.type === v));
+                             activeFilters.variants.some(v => v === "Base art" || card.variants?.some(cv => cv.type === v));
 
       return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants;
     });
-  }, [debouncedSearchQuery, activeFilters]);
+  }, [allCards, debouncedSearchQuery, activeFilters]);
 
   const gridData = useMemo(() => {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
@@ -1447,7 +1550,7 @@ export default function App() {
       const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       
       try {
-        const identified = await identifyCard(base64Image);
+        const identified = await identifyCard(base64Image, allCards);
         if (identified) {
           if (isContinuousScanMode && activeDeckId) {
             const success = addToDeck(activeDeckId, identified.card, "Base art");
@@ -1553,8 +1656,13 @@ export default function App() {
       {currentTab === 'profile' && user && (
         <div className="flex-1 flex flex-col bg-[#F5F5F0] min-h-screen">
           <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#141414]/10 px-4 py-4">
-            <div className="max-w-md mx-auto flex items-center justify-center">
+            <div className="max-w-md mx-auto flex items-center justify-between">
               <h1 className="text-xl font-black text-[#141414] tracking-tight uppercase">Profile</h1>
+              {isAdmin && (
+                <span className="px-3 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-amber-200">
+                  Admin
+                </span>
+              )}
             </div>
           </header>
 
@@ -1617,46 +1725,69 @@ export default function App() {
               </div>
 
               {isAdmin && (
-                <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-                  <button 
-                    onClick={() => setShowAdminPanel(!showAdminPanel)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-stone-900 text-white rounded-lg flex items-center justify-center relative">
-                        <ShieldCheck size={18} />
-                        {adminFeedback.filter(t => t.status === 'New').length > 0 && (
-                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
-                        )}
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-black text-[#141414]">Feedback Management</p>
-                        <p className="text-[10px] text-stone-500 font-medium">
-                          {adminFeedback.filter(t => t.status === 'New').length} New Tickets
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className={cn("text-stone-400 transition-transform", showAdminPanel && "rotate-90")} />
-                  </button>
-                  
-                  <AnimatePresence>
-                    {showAdminPanel && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="border-t border-stone-100"
-                      >
-                        <div className="p-4">
-                          <AdminFeedbackPanel 
-                            tickets={adminFeedback} 
-                            onUpdateStatus={handleUpdateFeedbackStatus}
-                            onDelete={handleDeleteFeedback}
-                          />
+                <div className="space-y-3">
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => setShowCardManager(true)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center">
+                          <Plus size={18} />
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-[#141414]">Card Management</p>
+                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded border border-amber-200">Admin</span>
+                          </div>
+                          <p className="text-[10px] text-stone-500 font-medium">Add or edit cards in Firestore</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-400" />
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => setShowAdminPanel(!showAdminPanel)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-stone-900 text-white rounded-lg flex items-center justify-center relative">
+                          <ShieldCheck size={18} />
+                          {adminFeedback.filter(t => t.status === 'New').length > 0 && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-[#141414]">Feedback Management</p>
+                          <p className="text-[10px] text-stone-500 font-medium">
+                            {adminFeedback.filter(t => t.status === 'New').length} New Tickets
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className={cn("text-stone-400 transition-transform", showAdminPanel && "rotate-90")} />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showAdminPanel && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t border-stone-100"
+                        >
+                          <div className="p-4">
+                            <AdminFeedbackPanel 
+                              tickets={adminFeedback} 
+                              onUpdateStatus={handleUpdateFeedbackStatus}
+                              onDelete={handleDeleteFeedback}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               )}
 
@@ -1802,7 +1933,7 @@ export default function App() {
                 isDeckBuilderMode={isDeckBuilderMode}
                 activeDeck={activeDeck}
                 onAddToDeck={(c, art) => {
-                  const originalCard = GUNDAM_CARDS.find(gc => gc.id === (c.parentId || c.id));
+                  const originalCard = allCards.find(gc => gc.id === (c.parentId || c.id));
                   if (originalCard && activeDeckId) {
                     addToDeck(activeDeckId, originalCard, art);
                   }
@@ -2286,6 +2417,28 @@ export default function App() {
                 </button>
 
                 <div className="flex items-center gap-3">
+                  {(selectedCard.variants && selectedCard.variants.length > 0) || selectedCard.altImageUrl ? (
+                    <div className="relative">
+                      <select
+                        value={selectedArtType}
+                        onChange={(e) => {
+                          setSelectedArtType(e.target.value as ArtVariantType);
+                          setShowAnatomy(false);
+                        }}
+                        className="appearance-none bg-stone-100 border border-stone-200 rounded-full px-4 py-2 pr-8 text-[9px] font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+                      >
+                        <option value="Base art">Base art</option>
+                        {selectedCard.altImageUrl && <option value="Parallel">Parallel</option>}
+                        {selectedCard.variants?.map(v => (
+                          <option key={v.type} value={v.type}>{v.type}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <ChevronLeft size={12} className="-rotate-90 text-stone-400" />
+                      </div>
+                    </div>
+                  ) : null}
+
                   <button 
                     onClick={() => {
                       setShowDeckSelector(true);
@@ -2370,9 +2523,11 @@ export default function App() {
                       >
                         <img 
                           src={
-                            selectedCard.variants 
-                              ? selectedCard.variants.find((v: any) => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
-                              : (selectedArtType === "Parallel" && selectedCard.altImageUrl ? selectedCard.altImageUrl : selectedCard.imageUrl)
+                            selectedArtType === "Base art" 
+                              ? selectedCard.imageUrl 
+                              : selectedArtType === "Parallel" 
+                                ? selectedCard.altImageUrl || selectedCard.imageUrl
+                                : selectedCard.variants?.find(v => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
                           } 
                           alt={selectedCard.name}
                           className="w-full h-full object-fill bg-stone-100"
@@ -2419,41 +2574,12 @@ export default function App() {
               <div className="p-4 pb-20 space-y-6 flex-1">
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
-                  {selectedCard.japaneseName && (
-                    <p className="text-base font-medium text-stone-400 -mt-1">{selectedCard.japaneseName}</p>
-                  )}
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mt-1">
                     <p className="text-stone-500 font-mono text-[9px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
                     
                     <div className="flex items-center gap-1.5">
                       <RarityTag rarity={selectedCard.rarity} />
                       <ColorTag color={selectedCard.color} />
-                      {(selectedCard.variants && selectedCard.variants.length > 0) || selectedCard.altImageUrl ? (
-                        <div className="relative ml-1.5">
-                          <select
-                            value={selectedArtType}
-                            onChange={(e) => {
-                              setSelectedArtType(e.target.value as ArtVariantType);
-                              setShowAnatomy(false);
-                            }}
-                            className="appearance-none bg-stone-100 border border-stone-200 rounded-full px-4 py-1.5 pr-8 text-[9px] font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
-                          >
-                            {selectedCard.variants ? (
-                              selectedCard.variants.map(v => (
-                                <option key={v.type} value={v.type}>{v.type}</option>
-                              ))
-                            ) : (
-                              <>
-                                <option value="Base art">Base art</option>
-                                <option value="Parallel">Parallel</option>
-                              </>
-                            )}
-                          </select>
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <ChevronLeft size={12} className="-rotate-90 text-stone-400" />
-                          </div>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
 
@@ -2464,34 +2590,86 @@ export default function App() {
                     mode={priceMode}
                     onModeChange={setPriceMode}
                   />
+
+                  {/* Artist Info */}
+                  {(() => {
+                    let currentArtist;
+                    if (selectedArtType === "Base art") {
+                      currentArtist = { name: selectedCard.baseArtist, link: selectedCard.baseArtistLink };
+                    } else if (selectedArtType === "Parallel") {
+                      currentArtist = { name: selectedCard.altArtist, link: selectedCard.altArtistLink };
+                    } else {
+                      const variant = selectedCard.variants?.find(v => v.type === selectedArtType);
+                      currentArtist = { name: variant?.artist, link: variant?.artistLink };
+                    }
+
+                    if (!currentArtist.name) return null;
+
+                    return (
+                      <div className="flex items-center gap-2 py-1">
+                        <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600">
+                          <Palette size={14} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[8px] font-black uppercase text-stone-400 leading-none mb-0.5">Artist</span>
+                          {currentArtist.link ? (
+                            <a 
+                              href={currentArtist.link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-[#141414] hover:text-amber-600 flex items-center gap-1 transition-colors"
+                            >
+                              {currentArtist.name}
+                              <ExternalLink size={10} className="opacity-50" />
+                            </a>
+                          ) : (
+                            <span className="text-xs font-bold text-[#141414]">{currentArtist.name}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                <div className="grid grid-cols-4 gap-3">
-                  <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">Cost</p>
-                    <p className="text-lg font-bold">{selectedCard.cost}</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">Cost</p>
+                    <p className="text-sm font-black">{selectedCard.cost}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">Lv.</p>
-                    <p className="text-lg font-bold">{selectedCard.level || '-'}</p>
+                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">Lv.</p>
+                    <p className="text-sm font-black">{selectedCard.level || '-'}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">AP</p>
-                    <p className="text-lg font-bold text-red-600">{selectedCard.ap || '-'}</p>
+                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">AP</p>
+                    <p className="text-sm font-black text-red-600">{selectedCard.ap || '-'}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-2xl border border-stone-200 text-center">
-                    <p className="text-[9px] text-stone-400 uppercase font-bold mb-1">HP</p>
-                    <p className="text-lg font-bold text-blue-600">{selectedCard.hp || '-'}</p>
+                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">HP</p>
+                    <p className="text-sm font-black text-blue-600">{selectedCard.hp || '-'}</p>
                   </div>
                 </div>
 
                 {selectedCard.traits && selectedCard.traits.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCard.traits.map(trait => (
-                      <span key={trait} className="px-3 py-1 bg-stone-100 rounded-full text-[9px] font-bold text-stone-500 border border-stone-200">
-                        {trait}
-                      </span>
-                    ))}
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                      <Tag size={14} /> Traits
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedCard.traits.map(trait => (
+                        <button 
+                          key={trait} 
+                          onClick={() => {
+                            setSearchQuery(trait);
+                            setSelectedCard(null);
+                            setCurrentTab('cards');
+                          }}
+                          className="px-3 py-1.5 bg-stone-100 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200 rounded-full text-[11px] font-black text-stone-600 border border-stone-200 transition-all active:scale-95"
+                        >
+                          {trait}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -2503,6 +2681,28 @@ export default function App() {
                     {renderAbilityText(selectedCard.ability)}
                   </div>
                 </div>
+
+                {cardFaq.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                      <HelpCircle size={14} /> Card FAQ
+                    </h4>
+                    <div className="space-y-4">
+                      {cardFaq.map((item, index) => (
+                        <div key={index} className="bg-white p-4 rounded-2xl border border-stone-200 space-y-2">
+                          <div className="flex gap-2">
+                            <span className="font-black text-amber-500 shrink-0">Q:</span>
+                            <p className="text-sm font-bold text-[#141414]">{item.question}</p>
+                          </div>
+                          <div className="flex gap-2 pt-2 border-t border-stone-50">
+                            <span className="font-black text-stone-400 shrink-0">A:</span>
+                            <p className="text-sm text-stone-600 leading-relaxed">{item.answer}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {linkedCards.length > 0 && (
                   <div className="space-y-3">
@@ -2534,13 +2734,6 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {selectedCard.flavorText && (
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Flavor</h4>
-                    <p className="text-stone-500 text-sm italic">"{selectedCard.flavorText}"</p>
                   </div>
                 )}
               </div>
@@ -2712,6 +2905,7 @@ export default function App() {
             deck={activeDeck}
             matches={matches}
             visible={currentTab === 'decks'}
+            allCards={allCards}
             onUpdateCount={updateDeckCount}
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
@@ -2870,7 +3064,7 @@ export default function App() {
                 <div className="space-y-3 pb-4">
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Art Variant</h3>
                   <div className="flex flex-wrap gap-2">
-                    {VARIANTS.map(variant => (
+                    {COMMON_VARIANTS.map(variant => (
                       <button
                         key={variant}
                         onClick={() => toggleFilter('variants', variant)}
@@ -2907,6 +3101,11 @@ export default function App() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Admin Card Manager */}
+      {showCardManager && isAdmin && (
+        <AdminCardManager onClose={() => setShowCardManager(false)} />
+      )}
     </div>
   );
 }

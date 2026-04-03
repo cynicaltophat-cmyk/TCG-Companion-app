@@ -1,5 +1,5 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
-import { GUNDAM_CARDS, GundamCard, ArtVariantType } from "../data/cards";
+import { GundamCard, ArtVariantType, ALL_SETS } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -37,7 +37,73 @@ export interface IdentifiedCard {
   isAlt: boolean;
 }
 
-export async function identifyCard(base64Image: string): Promise<IdentifiedCard | null> {
+export async function analyzeCardImage(base64Image: string): Promise<Partial<GundamCard> | null> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [
+        {
+          parts: [
+            {
+              text: "Analyze this Gundam TCG card and extract all its details. "
+            },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64Image
+              }
+            }
+          ]
+        }
+      ],
+      config: {
+        systemInstruction: `You are a Gundam TCG expert. Your task is to extract all details from a card image.
+        
+        Fields to extract:
+        - name: The card's name.
+        - cardNumber: The card's number (e.g., ST01-001, GD01-045).
+        - type: One of "Unit", "Pilot", "Command", "Base".
+        - color: One of "Red", "Blue", "Green", "White", "Black", "Yellow", "Purple".
+        - rarity: One of "C", "U", "R", "SR", "UR", "LR".
+        - cost: The numeric cost.
+        - level: The numeric level (if applicable).
+        - ap: The numeric attack power (if applicable).
+        - hp: The numeric health points (if applicable).
+        - ability: The full text of the card's ability/effect.
+        - traits: An array of strings representing the card's traits (e.g., ["MS", "Gundam", "Earth Federation"]).
+        - zones: An array of strings representing the card's zones. Choose from: "Earth", "Space".
+        - set: The set code. Choose from these valid sets: ${ALL_SETS.join(", ")}.
+        
+        Return ONLY a JSON object matching this structure:
+        {
+          "name": "string",
+          "cardNumber": "string",
+          "type": "Unit" | "Pilot" | "Command" | "Base",
+          "color": "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple",
+          "rarity": "C" | "U" | "R" | "SR" | "UR" | "LR",
+          "cost": number,
+          "level": number,
+          "ap": number,
+          "hp": number,
+          "ability": "string",
+          "traits": ["string"],
+          "zones": ["Earth" | "Space"],
+          "set": "string"
+        }`,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+      }
+    });
+
+    const text = response.text?.trim() || "{}";
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Error analyzing card image:", error);
+    return null;
+  }
+}
+
+export async function identifyCard(base64Image: string, cards: GundamCard[]): Promise<IdentifiedCard | null> {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -77,8 +143,8 @@ export async function identifyCard(base64Image: string): Promise<IdentifiedCard 
     
     if (!result.cardNumber && !result.name) return null;
 
-    // Try to find the card in our local database
-    const found = GUNDAM_CARDS.find(c => {
+    // Try to find the card in our database
+    const found = cards.find(c => {
       if (result.cardNumber) {
         const targetNum = result.cardNumber.toLowerCase();
         const cardNum = c.cardNumber.toLowerCase();
