@@ -29,7 +29,10 @@ import {
   ChevronDown,
   Image as ImageIcon,
   Palette,
-  Sparkles
+  Sparkles,
+  Trophy,
+  FileJson,
+  Download
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -43,11 +46,14 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
   const [uploading, setUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingCard, setEditingCard] = useState<Partial<GundamCard> | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<GundamCard | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [traitsInput, setTraitsInput] = useState("");
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
 
   useEffect(() => {
     console.log("Initializing AdminCardManager listener...");
@@ -70,6 +76,99 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
     );
     return () => unsubscribe();
   }, []);
+
+  const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsBulkImporting(true);
+    setStatusMessage("Parsing bulk data...");
+
+    try {
+      const text = await file.text();
+      const rawData = JSON.parse(text);
+      
+      const cardsToImport: GundamCard[] = Array.isArray(rawData) ? rawData : [rawData];
+      
+      if (cardsToImport.length === 0) {
+        throw new Error("No cards found in the file.");
+      }
+
+      setStatusMessage(`Importing ${cardsToImport.length} cards in batches...`);
+      
+      // Process in batches of 500 (Firestore limit)
+      const batchSize = 500;
+      for (let i = 0; i < cardsToImport.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = cardsToImport.slice(i, i + batchSize);
+        
+        chunk.forEach(card => {
+          // Ensure ID exists, if not use cardNumber
+          const id = card.id || card.cardNumber?.toLowerCase() || Math.random().toString(36).substring(7);
+          const cardRef = doc(db, 'cards', id);
+          batch.set(cardRef, { ...card, id });
+        });
+        
+        await batch.commit();
+        setStatusMessage(`Imported ${Math.min(i + batchSize, cardsToImport.length)} / ${cardsToImport.length} cards...`);
+      }
+
+      setStatusMessage(`Successfully imported ${cardsToImport.length} cards!`);
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Bulk import error:", error);
+      setStatusMessage(`Import failed: ${error.message}`);
+    } finally {
+      setIsBulkImporting(false);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template: GundamCard[] = [{
+      id: "st01-001",
+      name: "Gundam Exia",
+      set: "ST 01",
+      cardNumber: "ST01-001",
+      type: "Unit",
+      color: "Blue",
+      rarity: "SR",
+      cost: 4,
+      level: 4,
+      ap: 5000,
+      hp: 5000,
+      ability: "【Deploy】 Draw 1 card.",
+      imageUrl: "https://example.com/image.png",
+      traits: ["Celestial Being", "Gundam"],
+      zones: ["Space", "Earth"],
+      faq: [
+        { question: "Sample Question?", answer: "Sample Answer." }
+      ]
+    }];
+
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'gundam_cards_template.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAllCards = () => {
+    const blob = new Blob([JSON.stringify(cards, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gundam_cards_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleAIIdentify = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,12 +288,20 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
     }
   };
 
-  const handleDeleteCard = async (id: string) => {
-    if (!window.confirm("Delete this card from Firestore?")) return;
+  const handleDeleteCard = async () => {
+    if (!cardToDelete) return;
+    
+    setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'cards', id));
-    } catch (error) {
+      await deleteDoc(doc(db, 'cards', cardToDelete.id));
+      setCardToDelete(null);
+      setStatusMessage("Card deleted successfully");
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (error: any) {
       console.error("Error deleting card:", error);
+      alert(`Failed to delete card: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -244,6 +351,39 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
               {statusMessage}
             </div>
           )}
+
+          <button 
+            onClick={exportAllCards}
+            className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all"
+            title="Export All Cards to JSON"
+          >
+            <Download size={14} className="rotate-180" />
+            Export
+          </button>
+
+          <button 
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all"
+            title="Download JSON Template"
+          >
+            <Download size={14} />
+            Template
+          </button>
+
+          <label className={cn(
+            "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold cursor-pointer hover:bg-stone-200 transition-all",
+            isBulkImporting && "opacity-50 cursor-not-allowed"
+          )}>
+            {isBulkImporting ? <Loader2 size={14} className="animate-spin" /> : <FileJson size={14} />}
+            Bulk Import
+            <input 
+              type="file" 
+              accept=".json" 
+              className="hidden" 
+              onChange={handleBulkImport}
+              disabled={isBulkImporting}
+            />
+          </label>
           
           <button 
             onClick={() => {
@@ -493,6 +633,40 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                             <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">{z}</span>
                           </label>
                         ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400">Double Plus (++)</label>
+                      <div className="flex items-center h-[38px]">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            checked={editingCard.doublePlus || false} 
+                            onChange={e => {
+                              setEditingCard({...editingCard, doublePlus: e.target.checked});
+                              setHasUnsavedChanges(true);
+                            }}
+                            className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
+                          />
+                          <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">Has Double Plus (++)</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400">Championship Participation</label>
+                      <div className="flex items-center h-[38px]">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                          <input 
+                            type="checkbox" 
+                            checked={editingCard.championshipParticipation || false} 
+                            onChange={e => {
+                              setEditingCard({...editingCard, championshipParticipation: e.target.checked});
+                              setHasUnsavedChanges(true);
+                            }}
+                            className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
+                          />
+                          <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">Has Championship Participation</span>
+                        </label>
                       </div>
                     </div>
                   </div>
@@ -940,6 +1114,41 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
         )}
 
         <div className="space-y-4">
+          {/* Delete Confirmation Modal */}
+          {cardToDelete && (
+            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                    <Trash2 size={32} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-stone-900">Delete Card?</h3>
+                    <p className="text-sm text-stone-500">
+                      Are you sure you want to delete <span className="font-bold text-stone-900">{cardToDelete.name}</span> ({cardToDelete.cardNumber})? This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 w-full pt-2">
+                    <button 
+                      onClick={() => setCardToDelete(null)}
+                      disabled={isDeleting}
+                      className="flex-1 px-4 py-3 rounded-xl text-sm font-bold text-stone-500 hover:bg-stone-100 transition-all disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handleDeleteCard}
+                      disabled={isDeleting}
+                      className="flex-1 px-4 py-3 bg-red-500 text-white rounded-xl text-sm font-bold hover:bg-red-600 shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isDeleting ? <Loader2 size={16} className="animate-spin" /> : "Delete"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-200">
             <Search className="text-stone-400" size={18} />
             <input 
@@ -957,7 +1166,12 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredCards.map(card => (
               <div key={card.id} className="bg-white border border-stone-200 rounded-2xl p-3 flex items-center gap-4 shadow-sm hover:border-stone-300 transition-all group">
-                <div className="w-12 h-16 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0">
+                <div className="w-12 h-16 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 relative">
+                  {card.championshipParticipation && (
+                    <div className="absolute top-0.5 right-0.5 bg-blue-500 text-white p-0.5 rounded-full shadow-sm z-10">
+                      <Trophy size={8} strokeWidth={2} />
+                    </div>
+                  )}
                   <img src={card.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -977,7 +1191,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                     <Edit2 size={14} />
                   </button>
                   <button 
-                    onClick={() => handleDeleteCard(card.id)}
+                    onClick={() => setCardToDelete(card)}
                     className="p-2 text-stone-400 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={14} />

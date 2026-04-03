@@ -125,10 +125,8 @@ const CardGridItem = React.memo(({
           const parent = target.parentElement;
           if (parent) {
             const errorMsg = document.createElement('div');
-            errorMsg.className = "text-[8px] text-red-500 font-bold text-center p-2";
-            const src = target.src;
-            const path = new URL(src).pathname;
-            errorMsg.innerText = `Failed: ${path}`;
+            errorMsg.className = "text-[8px] text-gray-500 font-medium text-center p-2 leading-tight";
+            errorMsg.innerText = "Card images will be uploaded in future updates!";
             parent.appendChild(errorMsg);
           }
         }}

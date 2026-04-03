@@ -30,22 +30,25 @@ export interface GundamCard {
   variants?: ArtVariant[];
   traits?: string[];
   zones?: string[];
+  doublePlus?: boolean;
+  championshipParticipation?: boolean;
   faq?: { question: string; answer: string }[];
 }
 
 export const ALL_SETS = [
-  "ST 01",
-  "ST02",
+  "GD 04",
+  "GD03",
+  "GD02",
+  "GD01",
+  "ST09",
+  "ST08",
+  "ST07",
+  "ST06",
+  "ST05",
+  "ST04",
   "ST03",
-  "ST 04",
-  "ST 05",
-  "ST 06",
-  "ST 07",
-  "ST 08",
-  "ST 09",
-  "GD 01",
-  "GD 02",
-  "GD 03"
+  "ST02",
+  "ST01"
 ];
 
 export interface DeckItem {

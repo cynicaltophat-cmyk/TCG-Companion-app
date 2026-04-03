@@ -69,7 +69,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 
-const COMMON_VARIANTS: ArtVariantType[] = ["Base art", "Parallel", "Beta", "Beta Parallel", "Premium", "Championship"];
+const COMMON_VARIANTS: ArtVariantType[] = ["Parallel", "Beta", "Beta Parallel", "Premium", "Championship", "Double Plus (++)", "Championship Participation"];
 const RARITIES = ["C", "U", "R", "LR"];
 const COLORS = ["Red", "Blue", "Green", "White", "Purple"];
 const TYPES = ["Base", "Unit", "Pilot", "Command"];
@@ -247,6 +247,11 @@ const GridItem = React.memo(({
       )}
     >
       <div className="relative bg-stone-100 aspect-[2/3] flex items-center justify-center">
+        {(card.championshipParticipation || card.variantType === "Championship Participation" || card.variants?.some(v => v.type === "Championship Participation")) && (
+          <div className="absolute top-8 left-2 bg-blue-500 text-white p-1 rounded-full shadow-lg z-10 border border-white/20">
+            <Trophy size={10} strokeWidth={2} />
+          </div>
+        )}
         <img 
           src={card.imageUrl} 
           alt={card.name}
@@ -259,8 +264,8 @@ const GridItem = React.memo(({
             const parent = target.parentElement;
             if (parent) {
               const errorMsg = document.createElement('div');
-              errorMsg.className = "text-[8px] text-red-500 font-bold text-center p-2";
-              errorMsg.innerText = `Failed: ${card.imageUrl}`;
+              errorMsg.className = "text-[8px] text-gray-500 font-medium text-center p-2 leading-tight";
+              errorMsg.innerText = "Card images will be uploaded in future updates!";
               parent.appendChild(errorMsg);
             }
           }}
@@ -667,23 +672,72 @@ function AppContent() {
     
     const results: GundamCard[] = [];
     
+    // Helper to extract traits from a link string like "(Coordinator) Trait / (Minerva Squad) Trait"
+    const getLinkTraits = (linkStr: string) => {
+      const matches = linkStr.match(/\(([^)]+)\)/g);
+      if (!matches) return [];
+      return matches.map(m => m.slice(1, -1));
+    };
+
+    // Helper to extract names from a link string, splitting by "/" and ignoring trait patterns
+    const getLinkNames = (linkStr: string) => {
+      return linkStr.split('/').map(s => s.trim()).filter(s => s && !s.startsWith('('));
+    };
+
     if (selectedCard.type === 'Unit') {
-      // 1. Find the pilot(s) this unit explicitly links to
+      // 1. Direct links from this Unit to Pilot(s)
       if (selectedCard.link) {
-        const pilots = allCards.filter(c => c.name === selectedCard.link && c.type === 'Pilot');
-        results.push(...pilots);
+        const linkNames = getLinkNames(selectedCard.link);
+        const pilotsByName = allCards.filter(c => c.type === 'Pilot' && linkNames.includes(c.name));
+        results.push(...pilotsByName);
+
+        const linkTraits = getLinkTraits(selectedCard.link);
+        if (linkTraits.length > 0) {
+          const pilotsByTrait = allCards.filter(c => 
+            c.type === 'Pilot' && 
+            c.traits?.some(t => linkTraits.includes(t))
+          );
+          results.push(...pilotsByTrait);
+        }
       }
-      // 2. Find any pilots that explicitly link to this unit
-      const linkingPilots = allCards.filter(c => c.link === selectedCard.name && c.type === 'Pilot');
+      
+      // 2. Reverse links: Pilots that link to this Unit (by name or trait)
+      const linkingPilots = allCards.filter(c => {
+        if (c.type !== 'Pilot' || !c.link) return false;
+        const names = getLinkNames(c.link);
+        if (names.includes(selectedCard.name)) return true;
+        const traits = getLinkTraits(c.link);
+        if (traits.some(t => selectedCard.traits?.includes(t))) return true;
+        return false;
+      });
       results.push(...linkingPilots);
+
     } else if (selectedCard.type === 'Pilot') {
-      // 1. Find the unit(s) this pilot explicitly links to
+      // 1. Direct links from this Pilot to Unit(s)
       if (selectedCard.link) {
-        const units = allCards.filter(c => c.name === selectedCard.link && c.type === 'Unit');
-        results.push(...units);
+        const linkNames = getLinkNames(selectedCard.link);
+        const unitsByName = allCards.filter(c => c.type === 'Unit' && linkNames.includes(c.name));
+        results.push(...unitsByName);
+
+        const linkTraits = getLinkTraits(selectedCard.link);
+        if (linkTraits.length > 0) {
+          const unitsByTrait = allCards.filter(c => 
+            c.type === 'Unit' && 
+            c.traits?.some(t => linkTraits.includes(t))
+          );
+          results.push(...unitsByTrait);
+        }
       }
-      // 2. Find any units that explicitly link to this pilot
-      const linkingUnits = allCards.filter(c => c.link === selectedCard.name && c.type === 'Unit');
+      
+      // 2. Reverse links: Units that link to this Pilot (by name or trait)
+      const linkingUnits = allCards.filter(c => {
+        if (c.type !== 'Unit' || !c.link) return false;
+        const names = getLinkNames(c.link);
+        if (names.includes(selectedCard.name)) return true;
+        const traits = getLinkTraits(c.link);
+        if (traits.some(t => selectedCard.traits?.includes(t))) return true;
+        return false;
+      });
       results.push(...linkingUnits);
     }
     
@@ -1336,7 +1390,7 @@ function AppContent() {
 
   const toggleFilter = (category: keyof typeof activeFilters, value: string) => {
     setActiveFilters(prev => {
-      const current = prev[category];
+      const current = prev[category] as string[];
       const next = current.includes(value)
         ? current.filter(v => v !== value)
         : [...current, value];
@@ -1381,14 +1435,37 @@ function AppContent() {
       );
       
       // New multi-select filters
-      const matchesSets = activeFilters.sets.length === 0 || activeFilters.sets.includes(card.set);
+      const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
+      const matchesSets = activeFilters.sets.length === 0 || 
+                         activeFilters.sets.some(s => normalize(s) === normalize(card.set));
       const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.includes(card.rarity);
       const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.includes(card.color);
       const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.includes(card.type);
       const matchesVariants = activeFilters.variants.length === 0 || 
-                             activeFilters.variants.some(v => v === "Base art" || card.variants?.some(cv => cv.type === v));
+                             activeFilters.variants.some(v => {
+                               if (v === "Base art") return true;
+                               const isDoublePlus = v === "Double Plus (++)";
+                               const isChampionship = v === "Championship Participation";
+                               
+                               if (isDoublePlus && card.doublePlus) return true;
+                               if (isChampionship && card.championshipParticipation) return true;
+                               
+                               return card.variants?.some(cv => cv.type === v);
+                             });
 
       return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants;
+    }).sort((a, b) => {
+      const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
+      const normalizedSets = ALL_SETS.map(normalize);
+      const setA = normalizedSets.indexOf(normalize(a.set));
+      const setB = normalizedSets.indexOf(normalize(b.set));
+      
+      // If a set isn't found in ALL_SETS, put it at the end
+      const indexA = setA === -1 ? 999 : setA;
+      const indexB = setB === -1 ? 999 : setB;
+      
+      if (indexA !== indexB) return indexA - indexB;
+      return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true });
     });
   }, [allCards, debouncedSearchQuery, activeFilters]);
 
@@ -1396,35 +1473,46 @@ function AppContent() {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
     filteredCards.forEach(card => {
       result.push(card);
-      if (expandedCardIds.includes(card.id)) {
+      
+      const activeVariantFilters = activeFilters.variants;
+      const isExpanded = expandedCardIds.includes(card.id);
+      
+      if (isExpanded || activeVariantFilters.length > 0) {
         if (card.variants && card.variants.length > 0) {
           card.variants.forEach(variant => {
-            // Skip if variant is Base art as it's already pushed
             if (variant.type === "Base art") return;
             
+            const matchesFilter = activeVariantFilters.includes(variant.type);
+            if (isExpanded || matchesFilter) {
+              result.push({
+                ...card,
+                id: `${card.id}-${variant.type}`,
+                imageUrl: variant.imageUrl,
+                isVariant: true,
+                parentId: card.id,
+                variantType: variant.type
+              });
+            }
+          });
+        }
+        
+        if (card.altImageUrl) {
+          const matchesParallel = activeVariantFilters.includes("Parallel");
+          if (isExpanded || matchesParallel) {
             result.push({
               ...card,
-              id: `${card.id}-${variant.type}`,
-              imageUrl: variant.imageUrl,
+              id: `${card.id}-Parallel`,
+              imageUrl: card.altImageUrl,
               isVariant: true,
               parentId: card.id,
-              variantType: variant.type
+              variantType: "Parallel"
             });
-          });
-        } else if (card.altImageUrl) {
-          result.push({
-            ...card,
-            id: `${card.id}-Parallel`,
-            imageUrl: card.altImageUrl,
-            isVariant: true,
-            parentId: card.id,
-            variantType: "Parallel"
-          });
+          }
         }
       }
     });
     return result;
-  }, [filteredCards, expandedCardIds]);
+  }, [filteredCards, expandedCardIds, activeFilters.variants]);
 
   const toggleExpanded = (id: string) => {
     setExpandedCardIds(prev => 
@@ -2521,6 +2609,11 @@ function AppContent() {
                           setShowAnatomy(!showAnatomy);
                         }}
                       >
+                        {selectedCard.championshipParticipation && (
+                          <div className="absolute top-4 right-4 bg-blue-500 text-white p-1.5 rounded-full shadow-2xl z-20 border border-white/30 animate-in zoom-in duration-300">
+                            <Trophy size={14} strokeWidth={2} />
+                          </div>
+                        )}
                         <img 
                           src={
                             selectedArtType === "Base art" 
@@ -2682,28 +2775,6 @@ function AppContent() {
                   </div>
                 </div>
 
-                {cardFaq.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                      <HelpCircle size={14} /> Card FAQ
-                    </h4>
-                    <div className="space-y-4">
-                      {cardFaq.map((item, index) => (
-                        <div key={index} className="bg-white p-4 rounded-2xl border border-stone-200 space-y-2">
-                          <div className="flex gap-2">
-                            <span className="font-black text-amber-500 shrink-0">Q:</span>
-                            <p className="text-sm font-bold text-[#141414]">{item.question}</p>
-                          </div>
-                          <div className="flex gap-2 pt-2 border-t border-stone-50">
-                            <span className="font-black text-stone-400 shrink-0">A:</span>
-                            <p className="text-sm text-stone-600 leading-relaxed">{item.answer}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {linkedCards.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
@@ -2731,6 +2802,28 @@ function AppContent() {
                           <p className="text-[10px] font-bold text-stone-600 leading-tight text-center group-hover:text-amber-600 transition-colors line-clamp-2">
                             {card.name}
                           </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {cardFaq.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                      <HelpCircle size={14} /> Card FAQ
+                    </h4>
+                    <div className="space-y-4">
+                      {cardFaq.map((item, index) => (
+                        <div key={index} className="bg-white p-4 rounded-2xl border border-stone-200 space-y-2">
+                          <div className="flex gap-2">
+                            <span className="font-black text-amber-500 shrink-0">Q:</span>
+                            <p className="text-sm font-bold text-[#141414]">{item.question}</p>
+                          </div>
+                          <div className="flex gap-2 pt-2 border-t border-stone-50">
+                            <span className="font-black text-stone-400 shrink-0">A:</span>
+                            <p className="text-sm text-stone-600 leading-relaxed">{item.answer}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
