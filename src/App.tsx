@@ -997,6 +997,121 @@ function AppContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // --- Navigation History Management ---
+  const isPoppingState = useRef(false);
+  
+  // Initial history state setup
+  useEffect(() => {
+    const initialState = {
+      currentTab: 'cards',
+      selectedCardId: null,
+      isDeckEditorOpen: false,
+      showAdminPanel: false,
+      showCardManager: false,
+      showFeedback: false,
+      isFilterOpen: false,
+      isScanning: false,
+      isDeckInPlayMode: false,
+      isDeckBuilderMode: false,
+      showDeckList: false,
+      activeDeckId: null
+    };
+    window.history.replaceState(initialState, '');
+  }, []);
+
+  // Handle Popstate (Back Button)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state) {
+        isPoppingState.current = true;
+        const state = event.state;
+        
+        if (state.currentTab !== undefined) setCurrentTab(state.currentTab);
+        
+        // Find card by ID if it was selected
+        if (state.selectedCardId) {
+          const card = allCards.find(c => c.id === state.selectedCardId);
+          if (card) setSelectedCard(card);
+        } else {
+          setSelectedCard(null);
+        }
+
+        setIsDeckEditorOpen(!!state.isDeckEditorOpen);
+        setShowAdminPanel(!!state.showAdminPanel);
+        setShowCardManager(!!state.showCardManager);
+        setShowFeedback(!!state.showFeedback);
+        setIsFilterOpen(!!state.isFilterOpen);
+        setIsScanning(!!state.isScanning);
+        setIsDeckInPlayMode(!!state.isDeckInPlayMode);
+        setIsDeckBuilderMode(!!state.isDeckBuilderMode);
+        setShowDeckList(!!state.showDeckList);
+        setActiveDeckId(state.activeDeckId || null);
+        
+        // Reset the flag after state updates have been scheduled
+        setTimeout(() => {
+          isPoppingState.current = false;
+        }, 100);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [allCards]);
+
+  // Push state on navigation changes
+  useEffect(() => {
+    if (isPoppingState.current || cardsLoading) return;
+
+    const currentState = {
+      currentTab,
+      selectedCardId: selectedCard?.id || null,
+      isDeckEditorOpen,
+      showAdminPanel,
+      showCardManager,
+      showFeedback,
+      isFilterOpen,
+      isScanning,
+      isDeckInPlayMode,
+      isDeckBuilderMode,
+      showDeckList,
+      activeDeckId
+    };
+
+    // Compare with current history state to avoid redundant pushes
+    const historyState = window.history.state;
+    const hasChanged = !historyState || 
+      historyState.currentTab !== currentState.currentTab ||
+      historyState.selectedCardId !== currentState.selectedCardId ||
+      historyState.isDeckEditorOpen !== currentState.isDeckEditorOpen ||
+      historyState.showAdminPanel !== currentState.showAdminPanel ||
+      historyState.showCardManager !== currentState.showCardManager ||
+      historyState.showFeedback !== currentState.showFeedback ||
+      historyState.isFilterOpen !== currentState.isFilterOpen ||
+      historyState.isScanning !== currentState.isScanning ||
+      historyState.isDeckInPlayMode !== currentState.isDeckInPlayMode ||
+      historyState.isDeckBuilderMode !== currentState.isDeckBuilderMode ||
+      historyState.showDeckList !== currentState.showDeckList ||
+      historyState.activeDeckId !== currentState.activeDeckId;
+
+    if (hasChanged) {
+      window.history.pushState(currentState, '');
+    }
+  }, [
+    currentTab, 
+    selectedCard, 
+    isDeckEditorOpen, 
+    showAdminPanel, 
+    showCardManager, 
+    showFeedback, 
+    isFilterOpen, 
+    isScanning, 
+    isDeckInPlayMode, 
+    isDeckBuilderMode,
+    showDeckList,
+    activeDeckId,
+    cardsLoading
+  ]);
+
   // Persistence Removed - Handled by Firestore Listeners
 
   useEffect(() => {
@@ -1932,7 +2047,7 @@ function AppContent() {
 
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
-              {filteredCards.length} Cards Found
+              {cardsLoading ? "..." : filteredCards.length} Cards Found
             </p>
             {/* Price mode switcher hidden as requested */}
             {/* <div className="flex bg-white border border-stone-200 rounded-lg p-0.5">
@@ -1955,7 +2070,17 @@ function AppContent() {
         </div>
 
         {/* Card Grid */}
-        {filteredCards.length === 0 ? (
+        {cardsLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mb-6">
+              <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+            </div>
+            <h3 className="text-xl font-bold text-stone-800 mb-2">Loading Database</h3>
+            <p className="text-stone-500 text-sm max-w-[240px]">
+              Please wait while we fetch the latest card information...
+            </p>
+          </div>
+        ) : filteredCards.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 px-6 text-center">
             <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mb-6 text-stone-300">
               <Search size={40} />
