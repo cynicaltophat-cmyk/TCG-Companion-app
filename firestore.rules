@@ -11,6 +11,7 @@ service cloud.firestore {
     //   - name: string (required, 1-100 chars)
     //   - uid: string (required, immutable)
     //   - items: list (required, max 100 items)
+    //   - coverImageUrl: string (optional)
     //   - lastModified: int (required)
     //
     // Collection: matches
@@ -62,10 +63,12 @@ service cloud.firestore {
     // ===============================================================
     
     function isValidDeck(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'uid', 'items', 'lastModified']) &&
+      return hasOnlyAllowedFields(['id', 'name', 'uid', 'items', 'coverImageUrl', 'lastModified']) &&
+             data.id is string &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.uid == request.auth.uid &&
+             data.uid is string && data.uid == request.auth.uid &&
              data.items is list && data.items.size() <= 100 &&
+             (!('coverImageUrl' in data) || (data.coverImageUrl is string && data.coverImageUrl.size() <= 2000)) &&
              data.lastModified is int;
     }
 

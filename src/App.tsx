@@ -43,15 +43,17 @@ import {
   Circle,
   Trash2,
   ShieldCheck,
-  HelpCircle
+  HelpCircle,
+  Zap
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, MatchEntry, MatchRound, MatchNature, Feedback, FeedbackCategory } from './types';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
+import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
 import { cn, PriceDisplayMode, formatPrice } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
+import { QuickSetup } from './components/QuickSetup';
 import { DeckList } from './components/DeckList';
-import { PlayScreen } from './components/PlayScreen';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -170,8 +172,6 @@ const RarityTag = ({ rarity }: { rarity: GundamCard['rarity'] }) => {
     C: "bg-stone-400 text-white",
     U: "bg-stone-600 text-white",
     R: "bg-blue-600 text-white",
-    SR: "bg-purple-600 text-white",
-    UR: "bg-amber-500 text-white",
     LR: "bg-gradient-to-r from-amber-400 via-yellow-200 to-amber-400 text-stone-900 border border-amber-600/20 shadow-sm",
   };
   return <CardBadge className={rarities[rarity]}>{rarity}</CardBadge>;
@@ -641,6 +641,7 @@ function AppContent() {
   }, []);
 
   const [selectedCard, setSelectedCard] = useState<GundamCard | null>(null);
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const cardFaq = useMemo(() => {
     if (!selectedCard) return [];
     
@@ -795,7 +796,10 @@ function AppContent() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
   const [isDeckInPlayMode, setIsDeckInPlayMode] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'play' | 'profile'>('cards');
+  const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
+  const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
+  const [quickStartMode, setQuickStartMode] = useState<'play' | 'stats' | null>(null);
+  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile'>('cards');
   const [user, setUser] = useState<User | null>(null);
 
   const isAdmin = useMemo(() => {
@@ -825,7 +829,6 @@ function AppContent() {
     return () => unsubscribe();
   }, [isAdmin, user]);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [matches, setMatches] = useState<MatchEntry[]>([]);
 
   // Handle Deck Import from URL
   useEffect(() => {
@@ -899,37 +902,7 @@ function AppContent() {
   }, []);
 
   // Matches Listener
-  useEffect(() => {
-    if (!user) {
-      const savedMatches = localStorage.getItem('guest_matches');
-      if (savedMatches) {
-        try {
-          setMatches(JSON.parse(savedMatches));
-        } catch (e) {
-          console.error("Error parsing guest matches:", e);
-          setMatches([]);
-        }
-      } else {
-        setMatches([]);
-      }
-      return;
-    }
 
-    const q = query(
-      collection(db, 'matches'),
-      where('uid', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const matchesData = snapshot.docs.map(doc => doc.data() as MatchEntry);
-      setMatches(matchesData);
-    }, (error) => {
-      console.error("Matches listener error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
 
   const deckEditorRef = useRef<DeckEditorHandle>(null);
   
@@ -1284,83 +1257,7 @@ function AppContent() {
     }
   };
 
-  const addMatch = async (match: MatchEntry) => {
-    if (!user) {
-      const updatedMatches = [match, ...matches];
-      setMatches(updatedMatches);
-      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
-      return;
-    }
-    try {
-      await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid });
-    } catch (error) {
-      console.error("Error adding match:", error);
-    }
-  };
 
-  const updateMatch = async (match: MatchEntry) => {
-    if (!user) {
-      const updatedMatches = matches.map(m => m.id === match.id ? match : m);
-      setMatches(updatedMatches);
-      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
-      return;
-    }
-    try {
-      await setDoc(doc(db, 'matches', match.id), { ...match, uid: user.uid }, { merge: true });
-    } catch (error) {
-      console.error("Error updating match:", error);
-    }
-  };
-
-  const deleteMatch = async (id: string) => {
-    if (!user) {
-      const updatedMatches = matches.filter(m => m.id !== id);
-      setMatches(updatedMatches);
-      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
-      return;
-    }
-    try {
-      await deleteDoc(doc(db, 'matches', id));
-    } catch (error) {
-      console.error("Error deleting match:", error);
-    }
-  };
-
-  const resetDeckHistory = async (deckId: string) => {
-    if (!user) {
-      const updatedMatches = matches.map(match => {
-        const filteredRounds = match.rounds.filter(round => round.myDeckSnapshot.id !== deckId);
-        return { ...match, rounds: filteredRounds };
-      }).filter(match => match.rounds.length > 0);
-      
-      setMatches(updatedMatches);
-      localStorage.setItem('guest_matches', JSON.stringify(updatedMatches));
-      return;
-    }
-    const batch = writeBatch(db);
-    let hasChanges = false;
-
-    matches.forEach(match => {
-      const filteredRounds = match.rounds.filter(round => round.myDeckSnapshot.id !== deckId);
-      if (filteredRounds.length !== match.rounds.length) {
-        hasChanges = true;
-        const matchRef = doc(db, 'matches', match.id);
-        if (filteredRounds.length === 0) {
-          batch.delete(matchRef);
-        } else {
-          batch.update(matchRef, { rounds: filteredRounds });
-        }
-      }
-    });
-
-    if (hasChanges) {
-      try {
-        await batch.commit();
-      } catch (error) {
-        console.error("Error resetting deck history:", error);
-      }
-    }
-  };
 
   const renameDeck = async (id: string, newName: string) => {
     if (!user) {
@@ -1377,6 +1274,43 @@ function AppContent() {
       }, { merge: true });
     } catch (error) {
       console.error("Error renaming deck:", error);
+    }
+  };
+
+  const setDeckCover = async (deckId: string, imageUrl: string) => {
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === deckId ? { ...d, coverImageUrl: imageUrl, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, 'decks', deckId), { 
+        coverImageUrl: imageUrl, 
+        lastModified: Date.now() 
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error setting deck cover:", error);
+      const errInfo = {
+        error: error instanceof Error ? error.message : String(error),
+        authInfo: {
+          userId: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          isAnonymous: user.isAnonymous,
+          tenantId: user.tenantId,
+          providerInfo: user.providerData.map(provider => ({
+            providerId: provider.providerId,
+            displayName: provider.displayName,
+            email: provider.email,
+            photoUrl: provider.photoURL
+          })) || []
+        },
+        operationType: 'write',
+        path: `decks/${deckId}`
+      };
+      console.error('Firestore Error: ', JSON.stringify(errInfo));
     }
   };
 
@@ -1796,8 +1730,7 @@ function AppContent() {
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
       <div className={cn(
         "transition-all duration-300", 
-        isFilterOpen && "blur-[2px] brightness-95",
-        currentTab === 'play' && "flex flex-col h-screen"
+        isFilterOpen && "blur-[2px] brightness-95"
       )}>
       {/* Header */}
       {currentTab === 'cards' && (
@@ -1844,15 +1777,76 @@ function AppContent() {
         </header>
       )}
 
-      {/* Play Screen */}
-      {currentTab === 'play' && (
-        <PlayScreen 
-          matches={matches}
-          onAddMatch={addMatch}
-          onUpdateMatch={updateMatch}
-          onDeleteMatch={deleteMatch}
-          decks={decks}
-        />
+      {/* Quick Start Screen */}
+      {currentTab === 'quick-start' && (
+        <div className="flex-1 flex flex-col bg-[#F5F5F0] min-h-screen">
+          <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#141414]/10 px-4 py-4">
+            <div className="max-w-md mx-auto flex items-center justify-between">
+              <h1 className="text-xl font-black text-[#141414] tracking-tight uppercase">Quick Start</h1>
+            </div>
+          </header>
+
+          <div className="max-w-md mx-auto w-full p-6 pb-32 flex flex-col gap-6">
+            <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center">
+                  <Sparkles size={24} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-[#141414]">Ready to play?</h2>
+                  <p className="text-xs text-stone-500 font-medium">Quickly access game modes and tools.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                <button 
+                  onClick={() => {
+                    setIsQuickSetupOpen(true);
+                  }}
+                  className="w-full p-4 bg-[#141414] text-white rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                      <Zap size={20} />
+                    </div>
+                    <div className="text-left">
+                      <span className="block font-bold text-sm">Quick set up</span>
+                      <span className="block text-[10px] text-white/50 font-medium">Generic game setup guide</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={20} className="text-white/30" />
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setCurrentTab('scan');
+                    setIsScanning(true);
+                    startCamera();
+                  }}
+                  className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 group-hover:scale-110 transition-transform">
+                      <Scan size={20} />
+                    </div>
+                    <div className="text-left">
+                      <span className="block font-bold text-sm text-[#141414]">Card Scanner</span>
+                      <span className="block text-[10px] text-stone-400 font-medium">Identify cards instantly</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={20} className="text-stone-300" />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 space-y-2">
+              <h3 className="text-sm font-black text-amber-800 uppercase tracking-wider">Pro Tip</h3>
+              <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                Use the Card Scanner to quickly add cards to your deck by enabling "Continuous Scan" in the scanner settings.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Profile Screen */}
@@ -2009,7 +2003,7 @@ function AppContent() {
         </div>
       )}
 
-      <main className={cn("max-w-md lg:max-w-none mx-auto px-4 lg:px-12 pt-4", currentTab !== 'cards' && "hidden")}>
+      <main className={cn("max-w-md lg:max-w-none mx-auto px-4 lg:px-12 pt-4 pb-32", currentTab !== 'cards' && "hidden")}>
         {/* Filters */}
         {currentTab === 'cards' && (
           <>
@@ -2352,7 +2346,7 @@ function AppContent() {
                 setIsDeckEditorOpen(false);
               }
               if (currentTab === 'scan') stopCamera();
-              setCurrentTab('play');
+              setCurrentTab('quick-start');
               setShowFeedback(false);
               setShowAdminPanel(false);
               setShowDeckList(false);
@@ -2362,17 +2356,17 @@ function AppContent() {
           >
             <div className={cn(
               "p-1 rounded-lg transition-colors",
-              currentTab === 'play' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              currentTab === 'quick-start' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
             )}>
-              <Trophy size={16} className={cn(
+              <Sparkles size={16} className={cn(
                 "transition-colors",
-                currentTab === 'play' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'play' ? 2 : 1.5} />
+                currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+              )} strokeWidth={currentTab === 'quick-start' ? 2 : 1.5} />
             </div>
             <span className={cn(
               "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'play' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Records</span>
+              currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+            )}>Quick start</span>
           </button>
 
           <button 
@@ -2791,7 +2785,16 @@ function AppContent() {
 
               <div className="p-4 pb-20 space-y-6 flex-1">
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
+                  <div className="flex items-start justify-between gap-4">
+                    <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
+                    <button 
+                      onClick={() => setShowFeedbackPopup(true)}
+                      className="p-2 text-stone-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all flex-shrink-0"
+                      title="Report issue with this card"
+                    >
+                      <MessageSquare size={20} />
+                    </button>
+                  </div>
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mt-1">
                     <p className="text-stone-500 font-mono text-[9px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
                     
@@ -3105,6 +3108,7 @@ function AppContent() {
             onCreateDeck={createDeck}
             onDeleteDeck={deleteDeck}
             onRenameDeck={renameDeck}
+            onSetCover={setDeckCover}
             onClose={() => {
               setShowDeckList(false);
               setDeckListAutoCreate(false);
@@ -3115,18 +3119,117 @@ function AppContent() {
         )}
       </AnimatePresence>
 
+      {/* Quick Setup Overlay */}
+      <QuickSetup 
+        isOpen={isQuickSetupOpen}
+        onClose={() => setIsQuickSetupOpen(false)}
+      />
+
+      {/* Quick Start Deck Picker Modal */}
+      <AnimatePresence>
+        {isQuickStartDeckPickerOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsQuickStartDeckPickerOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden"
+            >
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-black uppercase tracking-tight">Select Deck</h3>
+                  <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
+                    {quickStartMode === 'play' ? 'Start Play Mode' : 'View Stats'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setIsQuickStartDeckPickerOpen(false)}
+                  className="p-2 text-stone-400 hover:text-stone-600"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {decks.length === 0 ? (
+                  <div className="py-12 text-center space-y-4">
+                    <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto text-stone-300">
+                      <Layout size={32} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-stone-500 font-bold">No decks found</p>
+                      <p className="text-xs text-stone-400">Create a deck first to use this mode.</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsQuickStartDeckPickerOpen(false);
+                        setCurrentTab('decks');
+                        setShowDeckList(true);
+                      }}
+                      className="px-6 py-2 bg-[#141414] text-white rounded-xl text-xs font-black uppercase tracking-widest"
+                    >
+                      Go to Decks
+                    </button>
+                  </div>
+                ) : (
+                  decks.map(deck => (
+                    <button 
+                      key={deck.id}
+                      onClick={() => {
+                        setActiveDeckId(deck.id);
+                        setIsQuickStartDeckPickerOpen(false);
+                        if (quickStartMode === 'play') {
+                          setIsDeckInPlayMode(true);
+                          setIsDeckEditorOpen(true);
+                        }
+                      }}
+                      className="w-full p-4 bg-stone-50 hover:bg-stone-100 rounded-2xl border border-stone-200 transition-all flex items-center gap-4 group"
+                    >
+                      <div className="w-12 h-12 bg-stone-200 rounded-xl overflow-hidden shrink-0">
+                        {deck.coverImageUrl ? (
+                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-stone-400">
+                            <Layout size={20} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-left flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate text-[#141414]">{deck.name}</p>
+                        <p className="text-[10px] text-stone-400 font-medium">
+                          {deck.items.reduce((acc, item) => acc + item.count, 0)} Cards
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-300 group-hover:text-stone-500 transition-colors" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Deck Editor Overlay */}
       <AnimatePresence>
         {isDeckEditorOpen && activeDeckId && activeDeck && (
           <DeckEditor 
             ref={deckEditorRef}
             deck={activeDeck}
-            matches={matches}
             visible={currentTab === 'decks'}
+            initialTab={isDeckInPlayMode ? 'play' : 'cards'}
             allCards={allCards}
             onUpdateCount={updateDeckCount}
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
+            onSetCover={setDeckCover}
             onClose={() => {
               setIsDeckEditorOpen(false);
               if (isDeckBuilderMode) {
@@ -3142,7 +3245,6 @@ function AppContent() {
             priceMode={priceMode}
             onPriceModeChange={setPriceMode}
             onPlayModeChange={setIsDeckInPlayMode}
-            onResetHistory={resetDeckHistory}
             onDuplicateDeck={duplicateDeck}
             onImportDeck={importDeckFromText}
             onEnterBuilderMode={(types) => {
@@ -3324,6 +3426,16 @@ function AppContent() {
       {showCardManager && isAdmin && (
         <AdminCardManager onClose={() => setShowCardManager(false)} />
       )}
+
+      {/* Card Feedback Popup */}
+      <AnimatePresence>
+        {showFeedbackPopup && selectedCard && (
+          <CardFeedbackPopup 
+            card={selectedCard} 
+            onClose={() => setShowFeedbackPopup(false)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

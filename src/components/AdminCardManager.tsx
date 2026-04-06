@@ -42,6 +42,7 @@ interface AdminCardManagerProps {
 
 export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) => {
   const [cards, setCards] = useState<GundamCard[]>([]);
+  const mainRef = React.useRef<HTMLElement>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -133,11 +134,11 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
       cardNumber: "ST01-001",
       type: "Unit",
       color: "Blue",
-      rarity: "SR",
-      cost: 4,
-      level: 4,
-      ap: 5000,
-      hp: 5000,
+      rarity: "R",
+      cost: "4",
+      level: "4",
+      ap: "5000",
+      hp: "5000",
       ability: "【Deploy】 Draw 1 card.",
       imageUrl: "https://example.com/image.png",
       traits: ["Celestial Being", "Gundam"],
@@ -395,10 +396,10 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                 type: 'Unit',
                 color: 'Red',
                 rarity: 'C',
-                cost: 1,
-                level: 1,
-                ap: 0,
-                hp: 0,
+                cost: '1',
+                level: '1',
+                ap: '0',
+                hp: '0',
                 ability: '',
                 imageUrl: '',
                 altImageUrl: '',
@@ -415,6 +416,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
               setTraitsInput("");
               setHasUnsavedChanges(false);
               setShowForm(true);
+              mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-stone-800 transition-all"
           >
@@ -424,13 +426,13 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 space-y-6">
+      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 space-y-6">
         {showForm && editingCard && (
           <div className="bg-stone-50 border border-stone-200 rounded-3xl p-6 space-y-6 animate-in slide-in-from-top-4 duration-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <h3 className="text-sm font-black uppercase tracking-widest text-stone-400">
-                  {editingCard.id ? "Edit Card" : "New Card"}
+                  Edit card
                 </h3>
                 {!editingCard.id && (
                   <label className={cn(
@@ -462,51 +464,23 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Basic Info */}
                 <div className="lg:col-span-2 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Card ID (e.g. st01-001)</label>
-                      <input 
-                        type="text" 
-                        value={editingCard.id} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, id: e.target.value});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Name</label>
-                      <input 
-                        type="text" 
-                        value={editingCard.name} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, name: e.target.value});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
+                  {/* Line 1: Set, Card Number, Card ID, Name */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Set</label>
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Set</label>
                       <select 
                         value={editingCard.set} 
                         onChange={e => {
                           setEditingCard({...editingCard, set: e.target.value});
                           setHasUnsavedChanges(true);
                         }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
                       >
                         {ALL_SETS.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Card Number</label>
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Card Number</label>
                       <input 
                         type="text" 
                         value={editingCard.cardNumber} 
@@ -514,109 +488,174 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                           setEditingCard({...editingCard, cardNumber: e.target.value});
                           setHasUnsavedChanges(true);
                         }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Type</label>
-                      <select 
-                        value={editingCard.type} 
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Card ID</label>
+                      <input 
+                        type="text" 
+                        value={editingCard.id} 
                         onChange={e => {
-                          setEditingCard({...editingCard, type: e.target.value as any});
+                          setEditingCard({...editingCard, id: e.target.value});
                           setHasUnsavedChanges(true);
                         }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      >
-                        {["Unit", "Pilot", "Command", "Base"].map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                        required
+                      />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Cost</label>
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Name of card</label>
                       <input 
-                        type="number" 
+                        type="text" 
+                        value={editingCard.name} 
+                        onChange={e => {
+                          setEditingCard({...editingCard, name: e.target.value});
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Line 1.5: Stats (Cost, Level, AP, HP) */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Cost</label>
+                      <input 
+                        type="text" 
                         value={editingCard.cost} 
                         onChange={e => {
-                          setEditingCard({...editingCard, cost: parseInt(e.target.value)});
+                          setEditingCard({...editingCard, cost: e.target.value});
                           setHasUnsavedChanges(true);
                         }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
                         required
                       />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Level</label>
+                      <input 
+                        type="text" 
+                        value={editingCard.level || ''} 
+                        onChange={e => {
+                          setEditingCard({...editingCard, level: e.target.value});
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">AP</label>
+                      <input 
+                        type="text" 
+                        value={editingCard.ap || ''} 
+                        onChange={e => {
+                          setEditingCard({...editingCard, ap: e.target.value});
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">HP</label>
+                      <input 
+                        type="text" 
+                        value={editingCard.hp || ''} 
+                        onChange={e => {
+                          setEditingCard({...editingCard, hp: e.target.value});
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* Line 2: Color, Rarity, Type, Zones */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Color</label>
-                      <select 
-                        value={editingCard.color} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, color: e.target.value as any});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      >
-                        {["Red", "Blue", "Green", "White", "Black", "Yellow", "Purple"].map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Color</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: "Red", bg: "bg-red-500" },
+                          { name: "Blue", bg: "bg-blue-500" },
+                          { name: "Green", bg: "bg-green-500" },
+                          { name: "White", bg: "bg-white", border: "border-stone-200" },
+                          { name: "Purple", bg: "bg-purple-600" }
+                        ].map(c => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            title={c.name}
+                            onClick={() => {
+                              setEditingCard({...editingCard, color: c.name as any});
+                              setHasUnsavedChanges(true);
+                            }}
+                            className={cn(
+                              "w-6 h-6 rounded-md transition-all border-2",
+                              c.bg,
+                              c.border || "border-transparent",
+                              editingCard.color === c.name 
+                                ? "ring-2 ring-amber-500 ring-offset-1 scale-110 shadow-sm" 
+                                : "opacity-60 hover:opacity-100"
+                            )}
+                          />
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Rarity</label>
-                      <select 
-                        value={editingCard.rarity} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, rarity: e.target.value as any});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      >
-                        {["C", "U", "R", "SR", "UR", "LR"].map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Level</label>
-                      <input 
-                        type="number" 
-                        value={editingCard.level || 0} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, level: parseInt(e.target.value)});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      />
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Rarity</label>
+                      <div className="flex flex-wrap gap-1">
+                        {["C", "U", "R", "LR"].map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => {
+                              setEditingCard({...editingCard, rarity: r as any});
+                              setHasUnsavedChanges(true);
+                            }}
+                            className={cn(
+                              "w-7 h-7 rounded-lg text-[10px] font-black transition-all border flex items-center justify-center",
+                              editingCard.rarity === r 
+                                ? "bg-[#141414] text-white border-[#141414] shadow-sm" 
+                                : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                            )}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">AP</label>
-                      <input 
-                        type="number" 
-                        value={editingCard.ap || 0} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, ap: parseInt(e.target.value)});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      />
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Type</label>
+                      <div className="flex flex-wrap gap-1">
+                        {["Unit", "Pilot", "Command", "Base"].map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              setEditingCard({...editingCard, type: t as any});
+                              setHasUnsavedChanges(true);
+                            }}
+                            className={cn(
+                              "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border",
+                              editingCard.type === t 
+                                ? "bg-[#141414] text-white border-[#141414] shadow-sm" 
+                                : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                            )}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">HP</label>
-                      <input 
-                        type="number" 
-                        value={editingCard.hp || 0} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, hp: parseInt(e.target.value)});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Zones</label>
-                      <div className="flex items-center gap-4 h-[38px]">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Zones</label>
+                      <div className="flex items-center gap-3 h-7">
                         {["Earth", "Space"].map(z => (
-                          <label key={z} className="flex items-center gap-2 cursor-pointer group">
+                          <label key={z} className="flex items-center gap-1.5 cursor-pointer group">
                             <input 
                               type="checkbox" 
                               checked={editingCard.zones?.includes(z)} 
@@ -628,68 +667,34 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                                 setEditingCard({...editingCard, zones: newZones});
                                 setHasUnsavedChanges(true);
                               }}
-                              className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
+                              className="w-3.5 h-3.5 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
                             />
-                            <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">{z}</span>
+                            <span className="text-[10px] font-bold text-stone-600 group-hover:text-stone-900 transition-colors">{z}</span>
                           </label>
                         ))}
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Double Plus (++)</label>
-                      <div className="flex items-center h-[38px]">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input 
-                            type="checkbox" 
-                            checked={editingCard.doublePlus || false} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, doublePlus: e.target.checked});
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
-                          />
-                          <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">Has Double Plus (++)</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Championship Participation</label>
-                      <div className="flex items-center h-[38px]">
-                        <label className="flex items-center gap-2 cursor-pointer group">
-                          <input 
-                            type="checkbox" 
-                            checked={editingCard.championshipParticipation || false} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, championshipParticipation: e.target.checked});
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-500"
-                          />
-                          <span className="text-xs font-bold text-stone-600 group-hover:text-stone-900 transition-colors">Has Championship Participation</span>
-                        </label>
-                      </div>
-                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-stone-400">Traits (comma separated)</label>
-                    <input 
-                      type="text" 
-                      value={traitsInput} 
-                      onChange={e => {
-                        setTraitsInput(e.target.value);
-                        const traits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                        setEditingCard({...editingCard, traits});
-                        setHasUnsavedChanges(true);
-                      }}
-                      placeholder="e.g. Mobile Suit, Zeon, Char Aznable"
-                      className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
+                  {/* Line 3: Traits, Linked Card Name */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Linked Card Name (e.g. Amuro Ray)</label>
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Traits (comma separated)</label>
+                      <input 
+                        type="text" 
+                        value={traitsInput} 
+                        onChange={e => {
+                          setTraitsInput(e.target.value);
+                          const traits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                          setEditingCard({...editingCard, traits});
+                          setHasUnsavedChanges(true);
+                        }}
+                        placeholder="e.g. Mobile Suit, Zeon, Char Aznable"
+                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Linked Card Name (e.g. Amuro Ray)</label>
                       <input 
                         type="text" 
                         value={editingCard.link || ''} 
@@ -702,21 +707,20 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Ability Text</label>
-                      <textarea 
-                        value={editingCard.ability} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, ability: e.target.value});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500 h-32 resize-none"
-                      />
-                    </div>
+                  {/* Line 4: Ability Text */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Ability Text</label>
+                    <textarea 
+                      value={editingCard.ability} 
+                      onChange={e => {
+                        setEditingCard({...editingCard, ability: e.target.value});
+                        setHasUnsavedChanges(true);
+                      }}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 h-32 resize-none leading-relaxed"
+                    />
                   </div>
 
-                  {/* FAQ Section */}
+                  {/* Line 5: FAQ Section */}
                   <div className="space-y-4 pt-6 border-t border-stone-200">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-black uppercase text-stone-400">Card FAQ</label>
@@ -1185,6 +1189,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
                       setTraitsInput(card.traits?.join(', ') || '');
                       setHasUnsavedChanges(false);
                       setShowForm(true);
+                      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     className="p-2 text-stone-400 hover:text-amber-500 transition-colors"
                   >

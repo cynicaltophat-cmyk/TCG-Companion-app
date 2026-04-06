@@ -19,6 +19,7 @@ interface DeckListProps {
   onCreateDeck: (name: string) => void;
   onDeleteDeck: (deckId: string) => void;
   onRenameDeck: (deckId: string, newName: string) => void;
+  onSetCover: (deckId: string, imageUrl: string) => void;
   onClose: () => void;
   autoStartCreate?: boolean;
 }
@@ -29,6 +30,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   onCreateDeck,
   onDeleteDeck,
   onRenameDeck,
+  onSetCover,
   onClose,
   autoStartCreate = false
 }) => {
@@ -36,6 +38,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   const [newDeckName, setNewDeckName] = useState("");
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [coverPickerDeckId, setCoverPickerDeckId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
   const handleCreate = () => {
@@ -98,6 +101,47 @@ export const DeckList: React.FC<DeckListProps> = ({
               >
                 Yes
               </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Cover Picker Modal */}
+      {coverPickerDeckId && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm bg-white rounded-3xl overflow-hidden flex flex-col max-h-[80vh] shadow-2xl"
+          >
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+              <h3 className="font-black uppercase tracking-tight">Select Deck Cover</h3>
+              <button onClick={() => setCoverPickerDeckId(null)} className="p-2 text-stone-400 hover:text-stone-600">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4">
+              {decks.find(d => d.id === coverPickerDeckId)?.items.length === 0 ? (
+                <div className="py-12 text-center space-y-2">
+                  <p className="text-stone-400 text-sm italic">Add cards to your deck first</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {decks.find(d => d.id === coverPickerDeckId)?.items.map((item, i) => (
+                    <button 
+                      key={i}
+                      onClick={() => {
+                        onSetCover(coverPickerDeckId, item.card.imageUrl);
+                        setCoverPickerDeckId(null);
+                      }}
+                      className="aspect-[2/3] rounded-lg overflow-hidden border border-stone-200 hover:border-amber-500 transition-all active:scale-95"
+                    >
+                      <img src={item.card.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -198,8 +242,21 @@ export const DeckList: React.FC<DeckListProps> = ({
                       onClick={() => onSelectDeck(deck.id)}
                       className="flex-1 min-w-0 p-4 flex items-center gap-4 cursor-pointer hover:bg-stone-50/50 transition-colors"
                     >
-                      <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400">
-                        <Layout size={24} />
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCoverPickerDeckId(deck.id);
+                        }}
+                        className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0"
+                      >
+                        {deck.coverImageUrl ? (
+                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_15%] scale-125" referrerPolicy="no-referrer" />
+                        ) : (
+                          <Layout size={24} />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Plus size={16} className="text-white" />
+                        </div>
                       </div>
                       
                       <div className="flex-1 min-w-0">

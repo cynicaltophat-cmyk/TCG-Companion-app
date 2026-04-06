@@ -19,6 +19,7 @@
             }
           }
         },
+        "coverImageUrl": { "type": "string", "description": "The URL of the deck's cover image" },
         "lastModified": { "type": "integer" }
       },
       "required": ["id", "name", "uid", "items", "lastModified"]

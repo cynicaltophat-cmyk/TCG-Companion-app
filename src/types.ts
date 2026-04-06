@@ -14,11 +14,11 @@ export interface GundamCard {
   cardNumber: string;
   type: "Unit" | "Pilot" | "Command" | "Base";
   color: "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple";
-  rarity: "C" | "U" | "R" | "SR" | "UR" | "LR";
-  cost: number;
-  level?: number;
-  ap?: number;
-  hp?: number;
+  rarity: "C" | "U" | "R" | "LR";
+  cost: string | number;
+  level?: string | number;
+  ap?: string | number;
+  hp?: string | number;
   ability: string;
   imageUrl: string;
   link?: string;
@@ -62,36 +62,21 @@ export interface Deck {
   name: string;
   items: DeckItem[];
   lastModified: number;
+  coverImageUrl?: string;
 }
 
-export type MatchNature = 'Free & Casual' | 'Shop battle' | 'Newtype challenge';
+export type FeedbackCategory = 
+  | 'Incorrect ability effect' 
+  | 'Incorrect color' 
+  | 'Incorrect/Missing links' 
+  | 'Incorrect stats' 
+  | 'Incorrect ID number' 
+  | 'Incorrect trait' 
+  | 'Other'
+  | 'Bug' 
+  | 'Feature Request' 
+  | 'General';
 
-export interface DeckSnapshot {
-  id: string;
-  name: string;
-  items: DeckItem[];
-}
-
-export interface MatchRound {
-  id: string;
-  roundNumber: number;
-  myDeckSnapshot: DeckSnapshot;
-  opponentDeckName: string;
-  opponentColors: string[];
-  result: 'Win' | 'Lose';
-  notes: string;
-}
-
-export interface MatchEntry {
-  id: string;
-  nature: MatchNature;
-  shopName: string;
-  date: string;
-  rounds: MatchRound[];
-  createdAt: number;
-}
-
-export type FeedbackCategory = 'Bug' | 'Feature Request' | 'General' | 'Other';
 export type FeedbackStatus = 'New' | 'In Progress' | 'Resolved' | 'Closed';
 
 export interface Feedback {
@@ -101,6 +86,8 @@ export interface Feedback {
   userName?: string;
   category: FeedbackCategory;
   message: string;
+  cardId?: string;
+  cardName?: string;
   createdAt: number;
   status: FeedbackStatus;
 }

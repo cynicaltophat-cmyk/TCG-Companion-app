@@ -30,12 +30,11 @@ import {
   Copy,
   CopyPlus
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, Deck, DeckItem, MatchEntry } from '../types';
+import { GundamCard, ArtVariantType, Deck, DeckItem } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
 
 interface DeckEditorProps {
   deck: Deck;
-  matches: MatchEntry[];
   onUpdateCount: (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => void;
   onRemove: (deckId: string, cardId: string, artType: ArtVariantType) => void;
   onPreviewCard: (card: GundamCard) => void;
@@ -44,12 +43,13 @@ interface DeckEditorProps {
   priceMode: PriceDisplayMode;
   onPriceModeChange: (mode: PriceDisplayMode) => void;
   onEnterBuilderMode: (types?: string[]) => void;
-  onResetHistory?: (deckId: string) => void;
   onPlayModeChange?: (isPlay: boolean) => void;
   onDuplicateDeck?: (deck: Deck) => void;
   onImportDeck?: (text: string) => void;
+  onSetCover?: (deckId: string, imageUrl: string) => void;
   allCards: GundamCard[];
   visible?: boolean;
+  initialTab?: 'cards' | 'stats' | 'play';
 }
 
 export interface DeckEditorHandle {
@@ -177,7 +177,6 @@ const CardGridItem = React.memo(({
 
 export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({ 
   deck, 
-  matches,
   onUpdateCount, 
   onRemove, 
   onPreviewCard,
@@ -186,14 +185,16 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   priceMode,
   onPriceModeChange,
   onEnterBuilderMode,
-  onResetHistory,
   onPlayModeChange,
   onDuplicateDeck,
   onImportDeck,
+  onSetCover,
   allCards,
-  visible = true
+  visible = true,
+  initialTab
 }, ref) => {
-  const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'performance' | 'play'>('cards');
+  const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play'>(initialTab || 'cards');
+  const [showCoverPicker, setShowCoverPicker] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [importText, setImportText] = React.useState('');
@@ -207,7 +208,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const handCarouselRef = React.useRef<HTMLDivElement>(null);
   const [currentHand, setCurrentHand] = React.useState<(DeckItem & { handId: string })[]>([]);
   const sortedHand = React.useMemo(() => {
-    return [...currentHand].sort((a, b) => (a.card.level || 0) - (b.card.level || 0));
+    return [...currentHand].sort((a, b) => Number(a.card.level || 0) - Number(b.card.level || 0));
   }, [currentHand]);
   const [isAddHandModalOpen, setIsAddHandModalOpen] = React.useState(false);
   const [isStartingHandSetup, setIsStartingHandSetup] = React.useState(false);
@@ -273,7 +274,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
     // 4. Level-based pairing (e.g., "Lv.4 or Higher Pilot")
     const levelMatch = unit.ability.match(/Lv\.(\d+)\s*or\s*Higher\s*Pilot/i);
     if (levelMatch && pilot.level) {
-      if (pilot.level >= parseInt(levelMatch[1])) return true;
+      if (Number(pilot.level) >= parseInt(levelMatch[1])) return true;
     }
 
     // 5. Pilot ability mentions Unit traits or names
@@ -420,7 +421,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   }, {} as Record<string, number>);
 
   const costStats = deck.items.reduce((acc, item) => {
-    const cost = item.card.cost;
+    const cost = Number(item.card.cost);
     acc[cost] = (acc[cost] || 0) + item.count;
     return acc;
   }, {} as Record<number, number>);
@@ -430,14 +431,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
 
   // Archetype Calculations
   const unitsLvl3OrLower = deck.items.reduce((sum, item) => {
-    if (item.card.type === 'Unit' && item.card.level && item.card.level <= 3) {
+    if (item.card.type === 'Unit' && item.card.level && Number(item.card.level) <= 3) {
       return sum + item.count;
     }
     return sum;
   }, 0);
 
   const unitsLvl7OrHigher = deck.items.reduce((sum, item) => {
-    if (item.card.type === 'Unit' && item.card.level && item.card.level >= 7) {
+    if (item.card.type === 'Unit' && item.card.level && Number(item.card.level) >= 7) {
       return sum + item.count;
     }
     return sum;
@@ -470,16 +471,16 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const hasFirstPrefCards = deck.items.some(item => 
     item.card.type === 'Unit' && 
     item.card.level && 
-    item.card.level <= 4 && 
-    item.card.cost === item.card.level
+    Number(item.card.level) <= 4 && 
+    Number(item.card.cost) === Number(item.card.level)
   );
 
   const hasSecondPrefCards = deck.items.some(item => 
     item.card.type === 'Unit' && 
     item.card.level && 
-    ((item.card.level === 2 && item.card.cost === 1) ||
-     (item.card.level === 3 && item.card.cost === 2) ||
-     (item.card.level === 4 && item.card.cost === 3))
+    ((Number(item.card.level) === 2 && Number(item.card.cost) === 1) ||
+     (Number(item.card.level) === 3 && Number(item.card.cost) === 2) ||
+     (Number(item.card.level) === 4 && Number(item.card.cost) === 3))
   );
 
   const hasCommands = deck.items.some(item => item.card.type === 'Command');
@@ -494,48 +495,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   } else if (hasSecondPrefCards) {
     turnPreference = "This deck wants to go second";
   }
-
-  // Performance Stats
-  const deckMatches = React.useMemo(() => {
-    return matches.filter(match => 
-      match.rounds.some(round => round.myDeckSnapshot.id === deck.id)
-    ).map(match => ({
-      ...match,
-      rounds: match.rounds.filter(round => round.myDeckSnapshot.id === deck.id)
-    })).sort((a, b) => b.createdAt - a.createdAt);
-  }, [matches, deck.id]);
-
-  const performanceStats = React.useMemo(() => {
-    let totalWins = 0;
-    let totalLosses = 0;
-    const opponentStats = new Map<string, { wins: number, losses: number }>();
-
-    deckMatches.forEach(match => {
-      match.rounds.forEach(round => {
-        if (round.result === 'Win') totalWins++;
-        else totalLosses++;
-
-        const oppDeck = round.opponentDeckName || 'Unknown Deck';
-        const current = opponentStats.get(oppDeck) || { wins: 0, losses: 0 };
-        if (round.result === 'Win') current.wins++;
-        else current.losses++;
-        opponentStats.set(oppDeck, current);
-      });
-    });
-
-    const totalGames = totalWins + totalLosses;
-    const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
-
-    return {
-      totalWins,
-      totalLosses,
-      totalGames,
-      winRate,
-      opponentStats: Array.from(opponentStats.entries())
-        .map(([name, stats]) => ({ name, ...stats }))
-        .sort((a, b) => (b.wins + b.losses) - (a.wins + a.losses))
-    };
-  }, [deckMatches]);
 
   return (
     <motion.div 
@@ -661,30 +620,36 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </AnimatePresence>
               </div>
 
-              <button 
-                onClick={() => {
-                  if (activeTab === 'play') {
-                    setIsExitPlayModalOpen(true);
-                  } else {
-                    setActiveTab('play');
-                  }
-                }}
-                className={cn(
-                  "px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all",
-                  activeTab === 'play' 
-                    ? "bg-amber-500 text-white shadow-amber-500/20" 
-                    : "bg-[#141414] text-white shadow-black/10"
-                )}
-              >
-                <Play size={12} fill="currentColor" />
-                Play Mode
-              </button>
+              {activeTab === 'play' && (
+                <button 
+                  onClick={() => setIsExitPlayModalOpen(true)}
+                  className="px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all bg-amber-500 text-white shadow-amber-500/20"
+                >
+                  <Play size={12} fill="currentColor" />
+                  Exit Play Mode
+                </button>
+              )}
             </div>
           </div>
 
           {/* Line 2: Deck Name, Card Count */}
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-lg truncate max-w-[200px]">{deck.name}</h2>
+            <div className="flex items-center gap-3 min-w-0">
+              <div 
+                onClick={() => setShowCoverPicker(true)}
+                className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
+              >
+                {deck.coverImageUrl ? (
+                  <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_15%] scale-125" referrerPolicy="no-referrer" />
+                ) : (
+                  <Layout size={20} />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Plus size={14} className="text-white" />
+                </div>
+              </div>
+              <h2 className="font-bold text-lg truncate max-w-[200px]">{deck.name}</h2>
+            </div>
             <span className={cn(
               "text-xs font-bold px-2 py-0.5 rounded-full",
               isValidSize ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
@@ -713,15 +678,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 )}
               >
                 Deck Info
-              </button>
-              <button 
-                onClick={() => setActiveTab('performance')}
-                className={cn(
-                  "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-                  activeTab === 'performance' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
-                )}
-              >
-                Performance
               </button>
             </div>
           )}
@@ -858,177 +814,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   </p>
                 </div>
               )}
-            </motion.section>
-          ) : activeTab === 'performance' ? (
-            <motion.section 
-              key="performance"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="p-4 lg:px-12 space-y-6 w-full"
-            >
-              {/* Win Rate Overview */}
-              <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-5">
-                  <Trophy size={80} />
-                </div>
-                <div className="relative z-10 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest">Win Rate Overview</h3>
-                    <span className="text-xs font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">
-                      {performanceStats.winRate.toFixed(1)}% Win Rate
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-end gap-4">
-                    <div className="flex-1">
-                      <div className="text-4xl font-black tracking-tighter text-[#141414]">
-                        {performanceStats.totalWins} <span className="text-stone-300">/</span> {performanceStats.totalLosses}
-                      </div>
-                      <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mt-1">
-                        Total Wins & Losses
-                      </div>
-                    </div>
-                    <div className="w-24 h-2 bg-stone-100 rounded-full overflow-hidden flex">
-                      <div 
-                        className="h-full bg-emerald-500" 
-                        style={{ width: `${performanceStats.winRate}%` }} 
-                      />
-                      <div 
-                        className="h-full bg-red-500" 
-                        style={{ width: `${100 - performanceStats.winRate}%` }} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Match History */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-black text-stone-400 uppercase tracking-widest px-2 flex items-center justify-between">
-                  <span>Match History</span>
-                  <span className="text-[10px] font-bold text-stone-400">{performanceStats.totalGames} Games Total</span>
-                </h3>
-                
-                {deckMatches.length === 0 ? (
-                  <div className="bg-white rounded-2xl p-8 border border-stone-200 border-dashed text-center space-y-2">
-                    <History className="mx-auto text-stone-300" size={32} />
-                    <p className="text-sm text-stone-500 font-medium">No match history recorded for this deck yet.</p>
-                    <p className="text-[10px] text-stone-400 uppercase tracking-wider">Start playing in Play Mode to record stats!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {deckMatches.map(match => (
-                      <div key={match.id} className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
-                        <div className="p-3 bg-stone-50 border-b border-stone-100 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={12} className="text-stone-400" />
-                            <span className="text-[10px] font-bold text-stone-500">{match.date}</span>
-                            <span className="text-[10px] font-black text-stone-300 px-1.5 py-0.5 border border-stone-200 rounded uppercase tracking-tighter">
-                              {match.nature}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin size={10} className="text-stone-400" />
-                            <span className="text-[10px] font-medium text-stone-500">{match.shopName}</span>
-                          </div>
-                        </div>
-                        <div className="divide-y divide-stone-100">
-                          {match.rounds.map(round => (
-                            <div key={round.id} className="p-4 flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className={cn(
-                                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-black text-xs",
-                                  round.result === 'Win' ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
-                                )}>
-                                  {round.result === 'Win' ? 'W' : 'L'}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="font-bold text-sm truncate">vs {round.opponentDeckName || 'Unknown Deck'}</div>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    {round.opponentColors.map(color => (
-                                      <div key={color} className={cn("w-2 h-2 rounded-full", 
-                                        color === 'Red' ? 'bg-red-500' :
-                                        color === 'Blue' ? 'bg-blue-500' :
-                                        color === 'Green' ? 'bg-emerald-500' :
-                                        color === 'White' ? 'bg-stone-200' :
-                                        'bg-purple-500'
-                                      )} />
-                                    ))}
-                                    {round.notes && (
-                                      <span className="text-[10px] text-stone-400 italic truncate ml-1">
-                                        "{round.notes}"
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="text-[10px] font-black text-stone-300 uppercase tracking-widest">
-                                Round {round.roundNumber}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Reset History Button */}
-              {deckMatches.length > 0 && (
-                <div className="pt-4">
-                  <button 
-                    onClick={() => setIsResetConfirmOpen(true)}
-                    className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] border border-red-100 active:scale-95 transition-all flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw size={14} />
-                    Reset Match History
-                  </button>
-                </div>
-              )}
-
-              {/* Reset Confirmation Modal */}
-              <AnimatePresence>
-                {isResetConfirmOpen && (
-                  <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-                    <motion.div 
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.9, opacity: 0 }}
-                      className="w-full max-w-xs bg-white rounded-3xl p-6 shadow-2xl space-y-6"
-                    >
-                      <div className="space-y-2 text-center">
-                        <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <RotateCcw size={24} />
-                        </div>
-                        <h3 className="font-bold text-lg">Reset History?</h3>
-                        <p className="text-sm text-stone-500 leading-relaxed">
-                          Are you sure you wish to erase all match history for this deck? This action cannot be undone.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button 
-                          onClick={() => setIsResetConfirmOpen(false)}
-                          className="py-3 px-4 bg-stone-100 text-stone-600 rounded-xl font-bold text-sm hover:bg-stone-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button 
-                          onClick={() => {
-                            onResetHistory?.(deck.id);
-                            setIsResetConfirmOpen(false);
-                            showToast("Match history reset successfully");
-                          }}
-                          className="py-3 px-4 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
-                        >
-                          Reset
-                        </button>
-                      </div>
-                    </motion.div>
-                  </div>
-                )}
-              </AnimatePresence>
             </motion.section>
           ) : activeTab === 'play' ? (
             <motion.section 
@@ -1259,7 +1044,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                       
                       <div className="flex gap-3 overflow-x-auto pb-4 px-1 snap-x">
                         {deck.items
-                          .filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && (item.card.level || 0) <= 3)
+                          .filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && Number(item.card.level || 0) <= 3)
                           .map((item, i) => (
                             <div 
                               key={i} 
@@ -1277,7 +1062,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               <p className="text-[8px] font-bold mt-1 truncate">{item.card.name}</p>
                             </div>
                           ))}
-                        {deck.items.filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && (item.card.level || 0) <= 3).length === 0 && (
+                        {deck.items.filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && Number(item.card.level || 0) <= 3).length === 0 && (
                           <div className="w-full py-8 border-2 border-dashed border-stone-100 rounded-2xl flex items-center justify-center">
                             <p className="text-[10px] text-stone-300 italic font-medium">No matching cards in deck</p>
                           </div>
@@ -1663,8 +1448,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         <div className="relative">
                           <div ref={handCarouselRef} className="flex gap-3 overflow-x-auto pt-2 pb-4 px-1 snap-x no-scrollbar">
                             {sortedHand.map((item, idx) => {
-                              const cardLevel = item.card.level || 0;
-                              const isPlayable = item.card.cost <= resourceLevel && cardLevel <= resourceLevel;
+                              const cardLevel = Number(item.card.level || 0);
+                              const isPlayable = Number(item.card.cost) <= resourceLevel && cardLevel <= resourceLevel;
                               
                               return (
                                 <div 
@@ -2312,6 +2097,57 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                       Cancel
                     </button>
                   </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Cover Picker Modal */}
+        <AnimatePresence>
+          {showCoverPicker && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowCoverPicker(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-white rounded-3xl overflow-hidden flex flex-col max-h-[80vh] w-full max-w-sm shadow-2xl"
+              >
+                <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                  <h3 className="font-black uppercase tracking-tight">Select Deck Cover</h3>
+                  <button onClick={() => setShowCoverPicker(false)} className="p-2 text-stone-400 hover:text-stone-600">
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-4">
+                  {deck.items.length === 0 ? (
+                    <div className="py-12 text-center space-y-2">
+                      <p className="text-stone-400 text-sm italic">Add cards to your deck first</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      {deck.items.map((item, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => {
+                            onSetCover?.(deck.id, item.card.imageUrl);
+                            setShowCoverPicker(false);
+                          }}
+                          className="aspect-[2/3] rounded-lg overflow-hidden border border-stone-200 hover:border-amber-500 transition-all active:scale-95"
+                        >
+                          <img src={item.card.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>
