@@ -48,12 +48,21 @@
         "uid": { "type": "string", "description": "The user ID of the submitter" },
         "userEmail": { "type": "string" },
         "userName": { "type": "string" },
-        "category": { "type": "string", "enum": ["Bug", "Feature Request", "General", "Other"] },
+        "category": { 
+          "type": "string", 
+          "enum": [
+            "Bug", "Feature Request", "General", "Other",
+            "Incorrect ability effect", "Incorrect color", "Incorrect/Missing links",
+            "Incorrect stats", "Incorrect ID number", "Incorrect trait"
+          ] 
+        },
         "message": { "type": "string" },
+        "cardId": { "type": "string", "description": "Optional card ID if feedback is about a specific card" },
+        "cardName": { "type": "string", "description": "Optional card name" },
         "createdAt": { "type": "integer" },
         "status": { "type": "string", "enum": ["New", "In Progress", "Resolved", "Closed"] }
       },
-      "required": ["id", "uid", "category", "message", "createdAt", "status"]
+      "required": ["uid", "category", "message", "createdAt", "status"]
     },
     "Card": {
       "title": "Card",
@@ -119,6 +128,10 @@
     "feedback/{feedbackId}": {
       "schema": "Feedback",
       "description": "User feedback tickets"
+    },
+    "card_feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "Specific card feedback tickets"
     },
     "cards/{cardId}": {
       "schema": "Card",

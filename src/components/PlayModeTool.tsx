@@ -33,7 +33,7 @@ export const PlayModeTool: React.FC<PlayModeToolProps> = ({ allCards, onClose })
   const handCarouselRef = React.useRef<HTMLDivElement>(null);
   const [currentHand, setCurrentHand] = React.useState<(DeckItem & { handId: string })[]>([]);
   const sortedHand = React.useMemo(() => {
-    return [...currentHand].sort((a, b) => (a.card.level || 0) - (b.card.level || 0));
+    return [...currentHand].sort((a, b) => Number(a.card.level || 0) - Number(b.card.level || 0));
   }, [currentHand]);
   const [isAddHandModalOpen, setIsAddHandModalOpen] = React.useState(false);
   const [isStartingHandSetup, setIsStartingHandSetup] = React.useState(false);

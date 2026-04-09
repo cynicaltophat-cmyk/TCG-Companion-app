@@ -90,4 +90,5 @@ export interface Feedback {
   cardName?: string;
   createdAt: number;
   status: FeedbackStatus;
+  _collection?: 'feedback' | 'card_feedback';
 }

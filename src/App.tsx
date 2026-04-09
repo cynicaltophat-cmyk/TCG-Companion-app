@@ -42,6 +42,7 @@ import {
   CheckCircle,
   Circle,
   Trash2,
+  Edit2,
   ShieldCheck,
   HelpCircle,
   Zap
@@ -520,6 +521,18 @@ const AdminFeedbackPanel = ({ tickets, onUpdateStatus, onDelete }: {
                   </div>
                   <p className="text-xs font-bold text-[#141414]">{ticket.userName || 'Anonymous'}</p>
                   <p className="text-[10px] text-stone-500">{ticket.userEmail}</p>
+                  {ticket.cardName && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[9px] font-black uppercase text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
+                        Card: {ticket.cardName}
+                      </span>
+                      {ticket.cardId && (
+                        <span className="text-[8px] font-mono text-stone-400">
+                          ({ticket.cardId})
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button 
@@ -642,6 +655,7 @@ function AppContent() {
 
   const [selectedCard, setSelectedCard] = useState<GundamCard | null>(null);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<{ title: string, description: string, x: number, y: number, originalX: number } | null>(null);
   const cardFaq = useMemo(() => {
     if (!selectedCard) return [];
     
@@ -755,11 +769,15 @@ function AppContent() {
   const [adminFeedback, setAdminFeedback] = useState<Feedback[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showCardManager, setShowCardManager] = useState(false);
+  const [initialCardIdForManager, setInitialCardIdForManager] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleUpdateFeedbackStatus = async (id: string, status: Feedback['status']) => {
+    const ticket = adminFeedback.find(t => t.id === id);
+    if (!ticket) return;
+    const coll = ticket._collection || 'feedback';
     try {
-      await updateDoc(doc(db, 'feedback', id), { status });
+      await updateDoc(doc(db, coll, id), { status });
     } catch (error) {
       console.error("Error updating feedback status:", error);
     }
@@ -767,8 +785,11 @@ function AppContent() {
 
   const handleDeleteFeedback = async (id: string) => {
     if (!window.confirm("Delete this feedback?")) return;
+    const ticket = adminFeedback.find(t => t.id === id);
+    if (!ticket) return;
+    const coll = ticket._collection || 'feedback';
     try {
-      await deleteDoc(doc(db, 'feedback', id));
+      await deleteDoc(doc(db, coll, id));
     } catch (error) {
       console.error("Error deleting feedback:", error);
     }
@@ -815,18 +836,43 @@ function AppContent() {
       return;
     }
 
-    const q = query(collection(db, 'feedback'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tickets: Feedback[] = [];
-      snapshot.forEach((doc) => {
-        tickets.push({ id: doc.id, ...doc.data() } as Feedback);
-      });
-      setAdminFeedback(tickets);
+    const q1 = query(collection(db, 'feedback'), orderBy('createdAt', 'desc'));
+    const q2 = query(collection(db, 'card_feedback'), orderBy('createdAt', 'desc'));
+
+    let tickets1: Feedback[] = [];
+    let tickets2: Feedback[] = [];
+
+    const updateAdminFeedback = () => {
+      const merged = [...tickets1, ...tickets2].sort((a, b) => b.createdAt - a.createdAt);
+      setAdminFeedback(merged);
+    };
+
+    const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      tickets1 = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(), 
+        _collection: 'feedback' 
+      } as Feedback));
+      updateAdminFeedback();
     }, (error) => {
-      console.error("Admin feedback fetch error:", error);
+      console.error("Admin feedback fetch error (general):", error);
     });
 
-    return () => unsubscribe();
+    const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+      tickets2 = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(), 
+        _collection: 'card_feedback' 
+      } as Feedback));
+      updateAdminFeedback();
+    }, (error) => {
+      console.error("Admin feedback fetch error (card):", error);
+    });
+
+    return () => {
+      unsubscribe1();
+      unsubscribe2();
+    };
   }, [isAdmin, user]);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -954,6 +1000,7 @@ function AppContent() {
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [showDeckList, setShowDeckList] = useState(false);
   const [isDeckEditorOpen, setIsDeckEditorOpen] = useState(false);
+  const [showDeckModeNotification, setShowDeckModeNotification] = useState(false);
   const [openedEditorFromList, setOpenedEditorFromList] = useState(false);
   const [deckListAutoCreate, setDeckListAutoCreate] = useState(false);
   const [showDeckSelector, setShowDeckSelector] = useState(false);
@@ -969,6 +1016,14 @@ function AppContent() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (isDeckBuilderMode) {
+      setShowDeckModeNotification(true);
+      const timer = setTimeout(() => setShowDeckModeNotification(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [isDeckBuilderMode]);
 
   // --- Navigation History Management ---
   const isPoppingState = useRef(false);
@@ -1589,13 +1644,54 @@ function AppContent() {
     if (!text) return null;
     // Smart regex to catch "When Paired", "During Pair", and variations with conditions/pilots
     // Supports spaces or middle dots (･) as separators
-    const triggerRegex = /(During Pair|When Paired(?:[\s･]+\([^)]+\))?(?:[\s･]+lvl\s+\d+\s+or\s+Higher)?(?:[\s･]+pilot)?|\[When Paired\])/gi;
+    const triggerRegex = /(During Pair|When Paired(?:[\s･]+\([^)]+\))?(?:[\s･]+lvl\s+\d+\s+or\s+Higher)?(?:[\s･]+pilot)?|\[When Paired\]|【When Paired】|【During Pair】|【Deploy】)/gi;
     const parts = text.split(triggerRegex);
     
     return (
       <>
         {parts.map((part, i) => {
           if (part && part.match(triggerRegex)) {
+            const cleanPart = part.replace(/[【】\[\]]/g, '').toLowerCase();
+            let explanation = "";
+            let title = part;
+            
+            if (cleanPart.includes("when paired")) {
+              explanation = "【When Paired】is the keyword for an effect that activates when a Pilot is paired with any Unit.";
+              title = "【When Paired】";
+            } else if (cleanPart.includes("during pair")) {
+              explanation = "【During Pair】is the keyword for an effect that is active while the Pilot is paired with a Unit.";
+              title = "【During Pair】";
+            } else if (cleanPart.includes("deploy")) {
+              explanation = "【Deploy】is the keyword for an effect that activates when the card is played to the field.";
+              title = "【Deploy】";
+            }
+
+            if (explanation) {
+              return (
+                <button 
+                  key={i} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = rect.left + rect.width / 2;
+                    // Clamp tooltip center between 140px and screen width - 140px
+                    // 128px is half of w-64 (256px), 12px for safety margin
+                    const safeX = Math.max(140, Math.min(window.innerWidth - 140, x));
+                    setActiveTooltip({
+                      title,
+                      description: explanation,
+                      x: safeX,
+                      y: rect.top,
+                      originalX: x
+                    });
+                  }}
+                  className="bg-[#C86891] text-black px-1.5 py-0.5 rounded-sm font-bold not-italic inline-block mx-0.5 hover:bg-[#b05a7e] transition-colors cursor-help"
+                >
+                  {part}
+                </button>
+              );
+            }
+
             return (
               <span 
                 key={i} 
@@ -1728,6 +1824,23 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
+      {/* Deck Mode Notification */}
+      <AnimatePresence>
+        {showDeckModeNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none"
+          >
+            <div className="bg-[#141414] text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
+              <Layout size={18} className="text-amber-500" />
+              <span className="text-sm font-bold tracking-tight">Entering deck building mode</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className={cn(
         "transition-all duration-300", 
         isFilterOpen && "blur-[2px] brightness-95"
@@ -2787,13 +2900,28 @@ function AppContent() {
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
-                    <button 
-                      onClick={() => setShowFeedbackPopup(true)}
-                      className="p-2 text-stone-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all flex-shrink-0"
-                      title="Report issue with this card"
-                    >
-                      <MessageSquare size={20} />
-                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isAdmin && (
+                        <button 
+                          onClick={() => {
+                            setInitialCardIdForManager(selectedCard.id);
+                            setShowCardManager(true);
+                            setSelectedCard(null);
+                          }}
+                          className="p-2 text-stone-400 hover:text-[#C86891] hover:bg-[#C86891]/10 rounded-full transition-all"
+                          title="Edit card info"
+                        >
+                          <Edit2 size={20} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setShowFeedbackPopup(true)}
+                        className="p-2 text-stone-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
+                        title="Report issue with this card"
+                      >
+                        <MessageSquare size={20} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mt-1">
                     <p className="text-stone-500 font-mono text-[9px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
@@ -3194,7 +3322,7 @@ function AppContent() {
                     >
                       <div className="w-12 h-12 bg-stone-200 rounded-xl overflow-hidden shrink-0">
                         {deck.coverImageUrl ? (
-                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-stone-400">
                             <Layout size={20} />
@@ -3424,7 +3552,15 @@ function AppContent() {
 
       {/* Admin Card Manager */}
       {showCardManager && isAdmin && (
-        <AdminCardManager onClose={() => setShowCardManager(false)} />
+        <AdminCardManager 
+          onClose={() => {
+            setShowCardManager(false);
+            setInitialCardIdForManager(null);
+          }} 
+          adminFeedback={adminFeedback}
+          onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
+          initialCardId={initialCardIdForManager}
+        />
       )}
 
       {/* Card Feedback Popup */}
@@ -3434,6 +3570,55 @@ function AppContent() {
             card={selectedCard} 
             onClose={() => setShowFeedbackPopup(false)} 
           />
+        )}
+      </AnimatePresence>
+
+      {/* Keyword Tooltip */}
+      <AnimatePresence>
+        {activeTooltip && (
+          <>
+            <div 
+              className="fixed inset-0 z-[100]" 
+              onClick={() => setActiveTooltip(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              style={{ 
+                left: activeTooltip.x, 
+                top: activeTooltip.y - 10,
+                translateX: '-50%',
+                translateY: '-100%'
+              }}
+              className="fixed z-[101] w-64 max-w-[calc(100vw-32px)] bg-white rounded-2xl shadow-2xl border border-stone-100 p-4 pointer-events-auto"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[#C86891]">
+                    {activeTooltip.title}
+                  </h4>
+                  <button 
+                    onClick={() => setActiveTooltip(null)}
+                    className="p-1 hover:bg-stone-100 rounded-full transition-colors"
+                  >
+                    <X size={14} className="text-stone-400" />
+                  </button>
+                </div>
+                <p className="text-xs text-stone-600 leading-relaxed font-medium">
+                  {activeTooltip.description}
+                </p>
+              </div>
+              {/* Arrow */}
+              <div 
+                className="absolute bottom-0 w-3 h-3 bg-white border-r border-b border-stone-100 rotate-45 translate-y-1/2" 
+                style={{ 
+                  left: `calc(50% + ${activeTooltip.originalX - activeTooltip.x}px)`,
+                  transform: 'translateX(-50%) translateY(50%) rotate(45deg)'
+                }}
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

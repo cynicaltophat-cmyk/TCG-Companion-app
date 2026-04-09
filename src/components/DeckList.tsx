@@ -250,7 +250,7 @@ export const DeckList: React.FC<DeckListProps> = ({
                         className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0"
                       >
                         {deck.coverImageUrl ? (
-                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_15%] scale-125" referrerPolicy="no-referrer" />
+                          <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
                         ) : (
                           <Layout size={24} />
                         )}

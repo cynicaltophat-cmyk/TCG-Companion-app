@@ -640,7 +640,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
               >
                 {deck.coverImageUrl ? (
-                  <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_15%] scale-125" referrerPolicy="no-referrer" />
+                  <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
                 ) : (
                   <Layout size={20} />
                 )}

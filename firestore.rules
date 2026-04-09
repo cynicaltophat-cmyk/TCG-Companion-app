@@ -83,10 +83,17 @@ service cloud.firestore {
     }
 
     function isValidFeedback(data) {
-      return hasOnlyAllowedFields(['id', 'uid', 'userEmail', 'userName', 'category', 'message', 'createdAt', 'status']) &&
-             data.uid == request.auth.uid &&
-             data.category in ['Bug', 'Feature Request', 'General', 'Other'] &&
-             data.message is string && data.message.size() > 0 && data.message.size() <= 2000 &&
+      return hasOnlyAllowedFields(['id', 'uid', 'userEmail', 'userName', 'category', 'message', 'cardId', 'cardName', 'createdAt', 'status']) &&
+             (
+               (isAuthenticated() && data.uid == request.auth.uid) ||
+               (!isAuthenticated() && data.uid == 'anonymous')
+             ) &&
+             data.category in [
+               'Bug', 'Feature Request', 'General', 'Other',
+               'Incorrect ability effect', 'Incorrect color', 'Incorrect/Missing links',
+               'Incorrect stats', 'Incorrect ID number', 'Incorrect trait'
+             ] &&
+             data.message is string && data.message.size() >= 0 && data.message.size() <= 2000 &&
              data.createdAt is int &&
              data.status in ['New', 'In Progress', 'Resolved', 'Closed'];
     }
@@ -124,8 +131,19 @@ service cloud.firestore {
     match /feedback/{feedbackId} {
       // Users can only read their own feedback, admins can read all
       allow read: if isDocOwner() || isAdmin();
-      // Any authenticated user can create feedback
-      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      // Any user can create feedback
+      allow create: if isValidFeedback(request.resource.data);
+      // Only admins can update feedback (e.g., change status)
+      allow update: if isAdmin() && isValidFeedback(request.resource.data);
+      // Only admins can delete feedback
+      allow delete: if isAdmin();
+    }
+
+    match /card_feedback/{feedbackId} {
+      // Users can only read their own feedback, admins can read all
+      allow read: if isDocOwner() || isAdmin();
+      // Any user can create feedback
+      allow create: if isValidFeedback(request.resource.data);
       // Only admins can update feedback (e.g., change status)
       allow update: if isAdmin() && isValidFeedback(request.resource.data);
       // Only admins can delete feedback

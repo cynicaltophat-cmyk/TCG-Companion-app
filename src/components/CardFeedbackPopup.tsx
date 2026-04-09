@@ -6,6 +6,57 @@ import { auth, db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 interface CardFeedbackPopupProps {
   card: GundamCard;
   onClose: () => void;
@@ -51,12 +102,28 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
         status: 'New'
       };
 
-      await addDoc(collection(db, 'card_feedback'), feedbackData);
+      const path = 'card_feedback';
+      try {
+        await addDoc(collection(db, path), feedbackData);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, path);
+      }
+      
       setIsSubmitted(true);
       setTimeout(() => onClose(), 2000);
     } catch (err: any) {
       console.error('Error submitting feedback:', err);
-      setError('Failed to submit feedback. Please try again.');
+      // Try to parse the JSON error if it's from handleFirestoreError
+      let displayError = 'Failed to submit feedback. Please try again.';
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.error.includes('Missing or insufficient permissions')) {
+          displayError = 'Permission denied. Please make sure you are logged in or try again later.';
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
+      setError(displayError);
     } finally {
       setIsSubmitting(false);
     }

@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
-import { GundamCard, ALL_SETS, ArtVariantType, ArtVariant } from '../types';
+import { GundamCard, ALL_SETS, ArtVariantType, ArtVariant, Feedback } from '../types';
 import { analyzeCardImage } from '../services/geminiService';
 import { 
   Plus, 
@@ -32,15 +32,20 @@ import {
   Sparkles,
   Trophy,
   FileJson,
-  Download
+  Download,
+  Flag,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface AdminCardManagerProps {
   onClose: () => void;
+  adminFeedback: Feedback[];
+  onUpdateFeedbackStatus: (id: string, status: Feedback['status']) => void;
+  initialCardId?: string | null;
 }
 
-export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) => {
+export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adminFeedback, onUpdateFeedbackStatus, initialCardId }) => {
   const [cards, setCards] = useState<GundamCard[]>([]);
   const mainRef = React.useRef<HTMLElement>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +60,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [traitsInput, setTraitsInput] = useState("");
   const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
 
   useEffect(() => {
     console.log("Initializing AdminCardManager listener...");
@@ -77,6 +83,16 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
     );
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (initialCardId && cards.length > 0) {
+      const card = cards.find(c => c.id === initialCardId);
+      if (card) {
+        setEditingCard(card);
+        setShowForm(true);
+      }
+    }
+  }, [initialCardId, cards]);
 
   const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -306,10 +322,27 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
     }
   };
 
-  const filteredCards = cards.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.cardNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCards = cards.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         c.cardNumber.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (showOnlyFlagged) {
+      const hasFeedback = adminFeedback.some(f => f.cardId === c.id && f.status !== 'Closed' && f.status !== 'Resolved');
+      return matchesSearch && hasFeedback;
+    }
+    
+    return matchesSearch;
+  });
+
+  // Sort by feedback count if showOnlyFlagged is true
+  const sortedCards = [...filteredCards].sort((a, b) => {
+    if (showOnlyFlagged) {
+      const countA = adminFeedback.filter(f => f.cardId === a.id && f.status !== 'Closed' && f.status !== 'Resolved').length;
+      const countB = adminFeedback.filter(f => f.cardId === b.id && f.status !== 'Closed' && f.status !== 'Resolved').length;
+      return countB - countA;
+    }
+    return 0; // Keep original order (cardNumber asc)
+  });
 
   // Auto-populate ST 09-001 FAQ if empty
   useEffect(() => {
@@ -461,6 +494,55 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
             </div>
 
             <form onSubmit={handleSaveCard} className="space-y-8">
+              {/* Feedback Section at the top */}
+              {editingCard.id && adminFeedback.some(f => f.cardId === editingCard.id && f.status !== 'Resolved' && f.status !== 'Closed') && (
+                <div className="space-y-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={16} className="text-red-500" />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-red-600">
+                      Active User Feedback for this card
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2 scrollbar-hide">
+                    {adminFeedback
+                      .filter(f => f.cardId === editingCard.id && f.status !== 'Resolved' && f.status !== 'Closed')
+                      .sort((a, b) => b.createdAt - a.createdAt)
+                      .map(f => (
+                        <div key={f.id} className="bg-white p-3 rounded-xl border border-red-100 shadow-sm space-y-2 flex flex-col">
+                          <div className="flex items-center justify-between">
+                            <span className={cn(
+                              "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                              f.status === 'New' ? "bg-red-100 text-red-600" :
+                              f.status === 'In Progress' ? "bg-amber-100 text-amber-600" :
+                              "bg-emerald-100 text-emerald-600"
+                            )}>
+                              {f.status}
+                            </span>
+                            <span className="text-[8px] text-stone-400 font-bold">
+                              {new Date(f.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-[9px] font-black text-stone-600 uppercase tracking-tighter">
+                              {f.category}
+                            </p>
+                            <p className="text-xs text-stone-700 leading-tight">
+                              {f.message}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateFeedbackStatus(f.id, 'Resolved')}
+                            className="mt-2 w-full py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-sm"
+                          >
+                            Resolve this ticket
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Basic Info */}
                 <div className="lg:col-span-2 space-y-6">
@@ -1153,57 +1235,93 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose }) =
             </div>
           )}
 
-          <div className="flex items-center gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-200">
-            <Search className="text-stone-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search cards in Firestore..." 
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none focus:outline-none text-sm w-full"
-            />
-            <div className="text-[10px] font-bold text-stone-400 whitespace-nowrap">
-              {filteredCards.length} Cards
+          <div className="flex flex-col sm:flex-row items-center gap-3 bg-stone-50 p-3 rounded-2xl border border-stone-200">
+            <div className="flex items-center gap-3 flex-1 w-full">
+              <Search className="text-stone-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search cards in Firestore..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none focus:outline-none text-sm w-full"
+              />
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+              <button
+                onClick={() => setShowOnlyFlagged(!showOnlyFlagged)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap",
+                  showOnlyFlagged 
+                    ? "bg-red-500 text-white border-red-500 shadow-sm" 
+                    : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                )}
+              >
+                <Flag size={12} />
+                {showOnlyFlagged ? "Flagged Only" : "Show Flagged"}
+              </button>
+              <div className="text-[10px] font-bold text-stone-400 whitespace-nowrap px-2 border-l border-stone-200">
+                {sortedCards.length} Cards
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredCards.map(card => (
-              <div key={card.id} className="bg-white border border-stone-200 rounded-2xl p-3 flex items-center gap-4 shadow-sm hover:border-stone-300 transition-all group">
-                <div className="w-12 h-16 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 relative">
-                  {card.championshipParticipation && (
-                    <div className="absolute top-0.5 right-0.5 bg-blue-500 text-white p-0.5 rounded-full shadow-sm z-10">
-                      <Trophy size={8} strokeWidth={2} />
+            {sortedCards.map(card => {
+              const cardFeedback = adminFeedback.filter(f => f.cardId === card.id && f.status !== 'Closed' && f.status !== 'Resolved');
+              const hasFeedback = cardFeedback.length > 0;
+              
+              return (
+                <div key={card.id} className={cn(
+                  "bg-white border rounded-2xl p-3 flex items-center gap-4 shadow-sm hover:border-stone-300 transition-all group relative",
+                  hasFeedback ? "border-red-200 bg-red-50/10" : "border-stone-200"
+                )}>
+                  <div className="w-12 h-16 bg-stone-100 rounded-lg overflow-hidden flex-shrink-0 relative">
+                    {card.championshipParticipation && (
+                      <div className="absolute top-0.5 right-0.5 bg-blue-500 text-white p-0.5 rounded-full shadow-sm z-10">
+                        <Trophy size={8} strokeWidth={2} />
+                      </div>
+                    )}
+                    {hasFeedback && (
+                      <div className="absolute top-0.5 left-0.5 bg-red-500 text-white p-0.5 rounded-full shadow-sm z-10 animate-pulse">
+                        <Flag size={8} strokeWidth={2} />
+                      </div>
+                    )}
+                    <img src={card.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black text-[#141414] truncate">{card.name}</h4>
+                      {hasFeedback && (
+                        <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-[8px] font-black rounded uppercase">
+                          {cardFeedback.length}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <img src={card.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <p className="text-[10px] text-stone-400 font-bold">{card.cardNumber} • {card.set}</p>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => {
+                        setEditingCard(card);
+                        setTraitsInput(card.traits?.join(', ') || '');
+                        setHasUnsavedChanges(false);
+                        setShowForm(true);
+                        mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="p-2 text-stone-400 hover:text-amber-500 transition-colors"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button 
+                      onClick={() => setCardToDelete(card)}
+                      className="p-2 text-stone-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-black text-[#141414] truncate">{card.name}</h4>
-                  <p className="text-[10px] text-stone-400 font-bold">{card.cardNumber} • {card.set}</p>
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => {
-                      setEditingCard(card);
-                      setTraitsInput(card.traits?.join(', ') || '');
-                      setHasUnsavedChanges(false);
-                      setShowForm(true);
-                      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="p-2 text-stone-400 hover:text-amber-500 transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button 
-                    onClick={() => setCardToDelete(card)}
-                    className="p-2 text-stone-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </main>
