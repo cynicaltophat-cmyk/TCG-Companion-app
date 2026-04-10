@@ -1,4 +1,4 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 import { GundamCard, ArtVariantType, ALL_SETS } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -111,7 +111,7 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
         {
           parts: [
             {
-              text: "Identify the card in this image. Focus on the card name and the card number (usually in the bottom corner, e.g., ST01-001)."
+              text: "Identify the Gundam TCG card in this image. Focus on the card number (e.g., ST01-001, GD01-045) and the card name. The card number is the most important field for identification."
             },
             {
               inlineData: {
@@ -123,17 +123,20 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
         }
       ],
       config: {
-        systemInstruction: `You are a Gundam TCG expert. Your task is to identify cards from images.
-        Extract the card name and card number (e.g., ST01-001, GD01-045).
-        Also determine if it's the "base" art or an "alt" (alternative/parallel) art version.
-        
-        Return ONLY a JSON object:
-        {
-          "name": "string",
-          "cardNumber": "string",
-          "version": "base" | "alt"
-        }`,
+        systemInstruction: "You are a Gundam TCG expert. Identify the card name, card number, and whether it is base or alt art.",
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            cardNumber: { type: Type.STRING },
+            version: { 
+              type: Type.STRING,
+              enum: ["base", "alt"]
+            }
+          },
+          required: ["name", "cardNumber", "version"]
+        },
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
       }
     });

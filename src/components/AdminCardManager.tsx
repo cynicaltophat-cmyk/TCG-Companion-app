@@ -12,6 +12,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { GundamCard, ALL_SETS, ArtVariantType, ArtVariant, Feedback } from '../types';
+import { ST05_CARDS } from '../data/cards';
 import { analyzeCardImage } from '../services/geminiService';
 import { 
   Plus, 

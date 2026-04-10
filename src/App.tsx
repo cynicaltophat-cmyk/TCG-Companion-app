@@ -48,6 +48,7 @@ import {
   Zap
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
+import { LOCAL_CARDS } from './data/cards';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -78,6 +79,58 @@ const COLORS = ["Red", "Blue", "Green", "White", "Purple"];
 const TYPES = ["Base", "Unit", "Pilot", "Command"];
 
 // --- Components ---
+
+const SmartImage = React.memo(({ src, alt, className, priority = false }: { src: string, alt: string, className?: string, priority?: boolean }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!src) return;
+    const img = new Image();
+    img.src = src;
+    img.onload = () => setIsLoaded(true);
+    img.onerror = () => setError(true);
+  }, [src]);
+
+  return (
+    <div className={cn("relative overflow-hidden bg-stone-100", className)}>
+      <AnimatePresence mode="wait">
+        {!isLoaded && !error && (
+          <motion.div
+            key="placeholder"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            <Loader2 size={16} className="text-stone-300 animate-spin" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {src && !error && (
+        <motion.img
+          src={src}
+          alt={alt}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isLoaded ? 1 : 0 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className={cn("w-full h-full object-cover", isLoaded ? "visible" : "invisible")}
+          referrerPolicy="no-referrer"
+          onLoad={() => setIsLoaded(true)}
+        />
+      )}
+
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
+          <p className="text-[8px] text-stone-400 font-medium leading-tight">
+            Image unavailable
+          </p>
+        </div>
+      )}
+    </div>
+  );
+});
 
 const MiniPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode }) => {
   const [price, setPrice] = useState<string | null>(() => getCachedPrice(cardNumber, cardName, artType));
@@ -253,23 +306,10 @@ const GridItem = React.memo(({
             <Trophy size={10} strokeWidth={2} />
           </div>
         )}
-        <img 
+        <SmartImage 
           src={card.imageUrl} 
           alt={card.name}
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-          loading="lazy"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-            const parent = target.parentElement;
-            if (parent) {
-              const errorMsg = document.createElement('div');
-              errorMsg.className = "text-[8px] text-gray-500 font-medium text-center p-2 leading-tight";
-              errorMsg.innerText = "Card images will be uploaded in future updates!";
-              parent.appendChild(errorMsg);
-            }
-          }}
+          className="w-full h-full"
         />
 
         {!card.isVariant && (card.variants?.length || card.altImageUrl) && (
@@ -634,6 +674,13 @@ function AppContent() {
   const [allCards, setAllCards] = useState<GundamCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
 
+  // Combine local cards with Firestore cards
+  const combinedCards = useMemo(() => {
+    const firestoreIds = new Set(allCards.map(c => c.id));
+    const localOnly = LOCAL_CARDS.filter(c => !firestoreIds.has(c.id));
+    return [...allCards, ...localOnly].sort((a, b) => a.cardNumber.localeCompare(b.cardNumber));
+  }, [allCards]);
+
   // Firestore Cards Listener
   useEffect(() => {
     const q = query(collection(db, 'cards'), orderBy('cardNumber', 'asc'));
@@ -703,12 +750,12 @@ function AppContent() {
       // 1. Direct links from this Unit to Pilot(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const pilotsByName = allCards.filter(c => c.type === 'Pilot' && linkNames.includes(c.name));
+        const pilotsByName = combinedCards.filter(c => c.type === 'Pilot' && linkNames.includes(c.name));
         results.push(...pilotsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
         if (linkTraits.length > 0) {
-          const pilotsByTrait = allCards.filter(c => 
+          const pilotsByTrait = combinedCards.filter(c => 
             c.type === 'Pilot' && 
             c.traits?.some(t => linkTraits.includes(t))
           );
@@ -717,7 +764,7 @@ function AppContent() {
       }
       
       // 2. Reverse links: Pilots that link to this Unit (by name or trait)
-      const linkingPilots = allCards.filter(c => {
+      const linkingPilots = combinedCards.filter(c => {
         if (c.type !== 'Pilot' || !c.link) return false;
         const names = getLinkNames(c.link);
         if (names.includes(selectedCard.name)) return true;
@@ -731,12 +778,12 @@ function AppContent() {
       // 1. Direct links from this Pilot to Unit(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const unitsByName = allCards.filter(c => c.type === 'Unit' && linkNames.includes(c.name));
+        const unitsByName = combinedCards.filter(c => c.type === 'Unit' && linkNames.includes(c.name));
         results.push(...unitsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
         if (linkTraits.length > 0) {
-          const unitsByTrait = allCards.filter(c => 
+          const unitsByTrait = combinedCards.filter(c => 
             c.type === 'Unit' && 
             c.traits?.some(t => linkTraits.includes(t))
           );
@@ -745,7 +792,7 @@ function AppContent() {
       }
       
       // 2. Reverse links: Units that link to this Pilot (by name or trait)
-      const linkingUnits = allCards.filter(c => {
+      const linkingUnits = combinedCards.filter(c => {
         if (c.type !== 'Unit' || !c.link) return false;
         const names = getLinkNames(c.link);
         if (names.includes(selectedCard.name)) return true;
@@ -760,7 +807,7 @@ function AppContent() {
     return results.filter((card, index, self) => 
       index === self.findIndex((t) => t.id === card.id)
     );
-  }, [selectedCard, allCards]);
+  }, [selectedCard, combinedCards]);
   const [selectedArtType, setSelectedArtType] = useState<ArtVariantType>("Base art");
   const [showAnatomy, setShowAnatomy] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(0);
@@ -812,7 +859,7 @@ function AppContent() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastScanTime, setLastScanTime] = useState(0);
   const SCAN_COOLDOWN = 1500; // 1.5 seconds between manual scans
-  const [isAutoScan, setIsAutoScan] = useState(true);
+  const [isAutoScan, setIsAutoScan] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
@@ -1058,7 +1105,7 @@ function AppContent() {
         
         // Find card by ID if it was selected
         if (state.selectedCardId) {
-          const card = allCards.find(c => c.id === state.selectedCardId);
+          const card = combinedCards.find(c => c.id === state.selectedCardId);
           if (card) setSelectedCard(card);
         } else {
           setSelectedCard(null);
@@ -1084,7 +1131,7 @@ function AppContent() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [allCards]);
+  }, [combinedCards]);
 
   // Push state on navigation changes
   useEffect(() => {
@@ -1248,7 +1295,7 @@ function AppContent() {
         const count = parseInt(match[1]);
         const cardNumber = match[2].toUpperCase();
         
-        const card = allCards.find(c => c.cardNumber.toUpperCase() === cardNumber);
+        const card = combinedCards.find(c => c.cardNumber.toUpperCase() === cardNumber);
         if (card) {
           items.push({
             card,
@@ -1524,7 +1571,7 @@ function AppContent() {
   }, [activeFilters]);
 
   const filteredCards = useMemo(() => {
-    return allCards.filter(card => {
+    return combinedCards.filter(card => {
       const query = debouncedSearchQuery.toLowerCase().trim();
       const normalizedQuery = query.replace(/[^a-z0-9]/g, '');
       const normalizedCardNumber = card.cardNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1571,7 +1618,7 @@ function AppContent() {
       if (indexA !== indexB) return indexA - indexB;
       return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true });
     });
-  }, [allCards, debouncedSearchQuery, activeFilters]);
+  }, [combinedCards, debouncedSearchQuery, activeFilters]);
 
   const gridData = useMemo(() => {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
@@ -1783,7 +1830,7 @@ function AppContent() {
       const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       
       try {
-        const identified = await identifyCard(base64Image, allCards);
+        const identified = await identifyCard(base64Image, combinedCards);
         if (identified) {
           if (isContinuousScanMode && activeDeckId) {
             const success = addToDeck(activeDeckId, identified.card, "Base art");
@@ -1821,6 +1868,19 @@ function AppContent() {
       if (interval) clearInterval(interval);
     };
   }, [isScanning, isAutoScan, isAnalyzing, selectedCard]);
+
+  // Preload first batch of images
+  useEffect(() => {
+    if (gridData.length > 0) {
+      const firstBatch = gridData.slice(0, 20);
+      firstBatch.forEach(item => {
+        if (item.imageUrl) {
+          const img = new Image();
+          img.src = item.imageUrl;
+        }
+      });
+    }
+  }, [gridData]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
@@ -2253,7 +2313,7 @@ function AppContent() {
                 isDeckBuilderMode={isDeckBuilderMode}
                 activeDeck={activeDeck}
                 onAddToDeck={(c, art) => {
-                  const originalCard = allCards.find(gc => gc.id === (c.parentId || c.id));
+                  const originalCard = combinedCards.find(gc => gc.id === (c.parentId || c.id));
                   if (originalCard && activeDeckId) {
                     addToDeck(activeDeckId, originalCard, art);
                   }
@@ -2846,7 +2906,7 @@ function AppContent() {
                             <Trophy size={14} strokeWidth={2} />
                           </div>
                         )}
-                        <img 
+                        <SmartImage 
                           src={
                             selectedArtType === "Base art" 
                               ? selectedCard.imageUrl 
@@ -2855,8 +2915,7 @@ function AppContent() {
                                 : selectedCard.variants?.find(v => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
                           } 
                           alt={selectedCard.name}
-                          className="w-full h-full object-fill bg-stone-100"
-                          referrerPolicy="no-referrer"
+                          className="w-full h-full"
                         />
                         
                         <AnimatePresence>
@@ -3353,7 +3412,7 @@ function AppContent() {
             deck={activeDeck}
             visible={currentTab === 'decks'}
             initialTab={isDeckInPlayMode ? 'play' : 'cards'}
-            allCards={allCards}
+            allCards={combinedCards}
             onUpdateCount={updateDeckCount}
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
