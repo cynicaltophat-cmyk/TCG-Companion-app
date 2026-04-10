@@ -48,7 +48,6 @@ import {
   Zap
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
-import { LOCAL_CARDS } from './data/cards';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -674,11 +673,9 @@ function AppContent() {
   const [allCards, setAllCards] = useState<GundamCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
 
-  // Combine local cards with Firestore cards
+  // Use Firestore cards directly
   const combinedCards = useMemo(() => {
-    const firestoreIds = new Set(allCards.map(c => c.id));
-    const localOnly = LOCAL_CARDS.filter(c => !firestoreIds.has(c.id));
-    return [...allCards, ...localOnly].sort((a, b) => a.cardNumber.localeCompare(b.cardNumber));
+    return [...allCards].sort((a, b) => a.cardNumber.localeCompare(b.cardNumber));
   }, [allCards]);
 
   // Firestore Cards Listener
@@ -743,14 +740,42 @@ function AppContent() {
 
     // Helper to extract names from a link string, splitting by "/" and ignoring trait patterns
     const getLinkNames = (linkStr: string) => {
-      return linkStr.split('/').map(s => s.trim()).filter(s => s && !s.startsWith('('));
+      return linkStr.split('/')
+        .map(s => s.trim().replace(/[\[\]]/g, '')) // Remove brackets [ ]
+        .filter(s => s && !s.startsWith('('));
+    };
+
+    // Helper to check if a card name matches any of the link names (supporting partial matches for variants and minor typos)
+    const isNameMatch = (cardName: string, linkNames: string[]) => {
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalizedCardName = normalize(cardName);
+
+      return linkNames.some(name => {
+        const normalizedLinkName = normalize(name);
+        
+        // 1. Exact or normalized match (handles "Tieria Erde" vs "Tieria Erde")
+        if (normalizedCardName === normalizedLinkName) return true;
+        
+        // 2. Variant match (e.g., "Elan Ceres (Variant)" matches "Elan Ceres")
+        if (cardName.toLowerCase().startsWith(name.toLowerCase() + ' (') || 
+            cardName.toLowerCase().startsWith(name.toLowerCase() + ' ')) return true;
+
+        // 3. Handle common typos like "Tiera" vs "Tieria" by checking if they share significant prefix/suffix
+        if (normalizedLinkName.length >= 5 && normalizedCardName.length >= 5) {
+          const prefix = normalizedLinkName.substring(0, 4);
+          const suffix = normalizedLinkName.substring(normalizedLinkName.length - 4);
+          if (normalizedCardName.startsWith(prefix) && normalizedCardName.endsWith(suffix)) return true;
+        }
+
+        return false;
+      });
     };
 
     if (selectedCard.type === 'Unit') {
       // 1. Direct links from this Unit to Pilot(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const pilotsByName = combinedCards.filter(c => c.type === 'Pilot' && linkNames.includes(c.name));
+        const pilotsByName = combinedCards.filter(c => c.type === 'Pilot' && isNameMatch(c.name, linkNames));
         results.push(...pilotsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
@@ -767,7 +792,7 @@ function AppContent() {
       const linkingPilots = combinedCards.filter(c => {
         if (c.type !== 'Pilot' || !c.link) return false;
         const names = getLinkNames(c.link);
-        if (names.includes(selectedCard.name)) return true;
+        if (isNameMatch(selectedCard.name, names)) return true;
         const traits = getLinkTraits(c.link);
         if (traits.some(t => selectedCard.traits?.includes(t))) return true;
         return false;
@@ -778,7 +803,7 @@ function AppContent() {
       // 1. Direct links from this Pilot to Unit(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const unitsByName = combinedCards.filter(c => c.type === 'Unit' && linkNames.includes(c.name));
+        const unitsByName = combinedCards.filter(c => c.type === 'Unit' && isNameMatch(c.name, linkNames));
         results.push(...unitsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
@@ -795,7 +820,7 @@ function AppContent() {
       const linkingUnits = combinedCards.filter(c => {
         if (c.type !== 'Unit' || !c.link) return false;
         const names = getLinkNames(c.link);
-        if (names.includes(selectedCard.name)) return true;
+        if (isNameMatch(selectedCard.name, names)) return true;
         const traits = getLinkTraits(c.link);
         if (traits.some(t => selectedCard.traits?.includes(t))) return true;
         return false;
@@ -809,6 +834,7 @@ function AppContent() {
     );
   }, [selectedCard, combinedCards]);
   const [selectedArtType, setSelectedArtType] = useState<ArtVariantType>("Base art");
+  const [isCardMaximized, setIsCardMaximized] = useState(false);
   const [showAnatomy, setShowAnatomy] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
@@ -1683,6 +1709,7 @@ function AppContent() {
       const nextCard = gridData[newIndex];
       setSelectedCard(nextCard);
       setSelectedArtType(nextCard.variantType || "Base art");
+      setIsCardMaximized(false);
       setShowAnatomy(false);
     }
   };
@@ -2789,6 +2816,7 @@ function AppContent() {
                   onClick={() => {
                     setSelectedCard(null);
                     setSelectedArtType("Base art");
+                    setIsCardMaximized(false);
                     setShowAnatomy(false);
                   }}
                   className="p-2 text-[#141414] hover:bg-stone-100 rounded-full transition-colors"
@@ -2898,7 +2926,7 @@ function AppContent() {
                         className="relative w-[260px] aspect-[5/7] bg-stone-100 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 cursor-pointer group"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowAnatomy(!showAnatomy);
+                          setIsCardMaximized(true);
                         }}
                       >
                         {selectedCard.championshipParticipation && (
@@ -2917,24 +2945,6 @@ function AppContent() {
                           alt={selectedCard.name}
                           className="w-full h-full"
                         />
-                        
-                        <AnimatePresence>
-                          {showAnatomy && (
-                            <motion.div 
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 1 }}
-                              className="absolute inset-0 flex items-center justify-center"
-                            >
-                              <img 
-                                src="/img/card_anatomy_overlay.png" 
-                                alt="Card Anatomy Overlay"
-                                className="w-full h-full object-fill"
-                                referrerPolicy="no-referrer"
-                              />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                       </div>
                     </motion.div>
                   </AnimatePresence>
@@ -3102,6 +3112,7 @@ function AppContent() {
                           onClick={() => {
                             setSelectedCard(card);
                             setSelectedArtType("Base art");
+                            setIsCardMaximized(false);
                             setShowAnatomy(false);
                           }}
                           className="group cursor-pointer space-y-2 w-28 shrink-0"
@@ -3149,6 +3160,53 @@ function AppContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Maximized Card View */}
+      <AnimatePresence>
+        {isCardMaximized && selectedCard && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-6 md:p-12"
+            onClick={() => setIsCardMaximized(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-2xl h-full flex items-center justify-center pointer-events-none"
+            >
+              <div className="relative w-full h-full flex items-center justify-center p-4">
+                <img 
+                  src={
+                    selectedArtType === "Base art" 
+                      ? selectedCard.imageUrl 
+                      : selectedArtType === "Parallel" 
+                        ? selectedCard.altImageUrl || selectedCard.imageUrl
+                        : selectedCard.variants?.find(v => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
+                  } 
+                  alt={selectedCard.name}
+                  className="w-auto h-auto max-w-full max-h-full rounded-xl shadow-2xl object-contain pointer-events-auto"
+                  referrerPolicy="no-referrer"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCardMaximized(false);
+                  }}
+                  className="absolute top-4 right-4 md:-right-12 md:top-0 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md border border-white/10 shadow-xl active:scale-90 pointer-events-auto"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Deck Selector Modal */}
       <AnimatePresence>
         {showDeckSelector && selectedCard && (
