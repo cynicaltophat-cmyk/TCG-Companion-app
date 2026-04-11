@@ -1807,7 +1807,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
                 <div className={cn(
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
-                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-6"
                 )}>
                   {deck.items.filter(i => i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 
@@ -1843,7 +1843,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
                 <div className={cn(
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
-                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-6"
                 )}>
                   {deck.items.filter(i => !i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 

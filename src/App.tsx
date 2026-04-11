@@ -259,7 +259,7 @@ const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ..
     style={{ ...style }}
     className={cn(
       "grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32",
-      isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+      isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-6"
     )}
   >
     {children}
@@ -2026,7 +2026,7 @@ function AppContent() {
       {currentTab === 'cards' && (
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 px-4 py-2">
           <div className={cn(
-            "max-w-md mx-auto flex items-center gap-2",
+            "max-w-md landscape:max-w-none mx-auto flex items-center gap-2",
             isDeckBuilderMode && "landscape:max-w-none"
           )}>
             <div className={cn(
@@ -2303,7 +2303,7 @@ function AppContent() {
       )}
 
       <main className={cn(
-        "max-w-md lg:max-w-none mx-auto px-4 lg:px-12 pt-4 pb-32 transition-all duration-300", 
+        "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-4 lg:px-12 pt-4 pb-32 transition-all duration-300", 
         currentTab !== 'cards' && (isDeckBuilderMode && currentTab === 'decks' ? "hidden landscape:block" : "hidden"),
         isDeckBuilderMode && "landscape:w-1/2 landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
       )}>
