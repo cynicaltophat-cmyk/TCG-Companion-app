@@ -1,0 +1,22 @@
+{
+  "short_name": "Gundam TCG",
+  "name": "Gundam TCG Companion",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/gundam/192/192",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://picsum.photos/seed/gundam/512/512",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F5F5F0",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#F5F5F0",
+  "description": "A mobile-first Gundam TCG companion app."
+}
