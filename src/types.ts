@@ -7,12 +7,14 @@ export interface ArtVariant {
   artistLink?: string;
 }
 
+export type CardType = "Unit" | "Pilot" | "Command" | "Base";
+
 export interface GundamCard {
   id: string;
   name: string;
   set: string;
   cardNumber: string;
-  type: "Unit" | "Pilot" | "Command" | "Base";
+  type: CardType[];
   color: "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple";
   rarity: "C" | "U" | "R" | "LR";
   cost: string | number;

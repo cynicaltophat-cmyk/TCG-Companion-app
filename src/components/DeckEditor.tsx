@@ -28,7 +28,8 @@ import {
   Download,
   Upload,
   Copy,
-  CopyPlus
+  CopyPlus,
+  Printer
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, Deck, DeckItem } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
@@ -46,10 +47,12 @@ interface DeckEditorProps {
   onPlayModeChange?: (isPlay: boolean) => void;
   onDuplicateDeck?: (deck: Deck) => void;
   onImportDeck?: (text: string) => void;
+  onPrintProxy?: (deck: Deck) => void;
   onSetCover?: (deckId: string, imageUrl: string) => void;
   allCards: GundamCard[];
   visible?: boolean;
   initialTab?: 'cards' | 'stats' | 'play';
+  isDeckBuilderMode?: boolean;
 }
 
 export interface DeckEditorHandle {
@@ -188,10 +191,12 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   onPlayModeChange,
   onDuplicateDeck,
   onImportDeck,
+  onPrintProxy,
   onSetCover,
   allCards,
   visible = true,
-  initialTab
+  initialTab,
+  isDeckBuilderMode = false
 }, ref) => {
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play'>(initialTab || 'cards');
   const [showCoverPicker, setShowCoverPicker] = React.useState(false);
@@ -246,10 +251,16 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   };
 
   const canPair = React.useCallback((unit: GundamCard, pilot: GundamCard): boolean => {
-    if (unit.type !== 'Unit' || pilot.type !== 'Pilot') return false;
+    if (!unit.type.includes('Unit') || !pilot.type.includes('Pilot')) return false;
 
     // 1. Explicit link by name
-    if (unit.link === pilot.name) return true;
+    const pilotNames = [pilot.name];
+    const pilotNameMatch = pilot.ability.match(/Pilot:\s*([^.\n]+)/i);
+    if (pilotNameMatch) {
+      pilotNames.push(pilotNameMatch[1].trim());
+    }
+
+    if (unit.link && pilotNames.includes(unit.link)) return true;
 
     // 2. Trait-based pairing in unit ability text
     if (pilot.traits && pilot.traits.length > 0) {
@@ -321,9 +332,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
     };
 
     // 1. Process Pilots in hand: find all matching units in deck
-    handCards.filter(c => c.type === 'Pilot').forEach(pilot => {
+    handCards.filter(c => c.type.includes('Pilot')).forEach(pilot => {
       const group = getOrCreateGroup(pilot);
-      deckCards.filter(c => c.type === 'Unit').forEach(unit => {
+      deckCards.filter(c => c.type.includes('Unit')).forEach(unit => {
         if (canPair(unit, pilot)) {
           group.units.add(unit);
           if (handCards.some(c => c.id === unit.id)) {
@@ -334,9 +345,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
     });
 
     // 2. Process Units in hand: find all matching pilots in deck or hand
-    handCards.filter(c => c.type === 'Unit' && (c.link || c.ability.toLowerCase().includes('pilot'))).forEach(unit => {
+    handCards.filter(c => c.type.includes('Unit') && (c.link || c.ability.toLowerCase().includes('pilot'))).forEach(unit => {
       // Find pilots in deck or hand that can pair with this unit
-      const potentialPilots = [...deckCards, ...handCards].filter(c => c.type === 'Pilot' && canPair(unit, c));
+      const potentialPilots = [...deckCards, ...handCards].filter(c => c.type.includes('Pilot') && canPair(unit, c));
       
       potentialPilots.forEach(pilot => {
         const group = getOrCreateGroup(pilot);
@@ -346,7 +357,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
 
       // If no pilot in deck/hand, try to find the "intended" pilot in all cards to show as greyed out
       if (potentialPilots.length === 0 && unit.link) {
-        const intendedPilot = allCards.find(c => c.type === 'Pilot' && c.name === unit.link);
+        const intendedPilot = allCards.find(c => c.type.includes('Pilot') && c.name === unit.link);
         if (intendedPilot) {
           const group = getOrCreateGroup(intendedPilot);
           group.units.add(unit);
@@ -411,7 +422,10 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   
   // Stats
   const typeStats = deck.items.reduce((acc, item) => {
-    acc[item.card.type] = (acc[item.card.type] || 0) + item.count;
+    const types = Array.isArray(item.card.type) ? item.card.type : [item.card.type];
+    types.forEach(t => {
+      acc[t] = (acc[t] || 0) + item.count;
+    });
     return acc;
   }, {} as Record<string, number>);
 
@@ -431,14 +445,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
 
   // Archetype Calculations
   const unitsLvl3OrLower = deck.items.reduce((sum, item) => {
-    if (item.card.type === 'Unit' && item.card.level && Number(item.card.level) <= 3) {
+    if (item.card.type.includes('Unit') && item.card.level && Number(item.card.level) <= 3) {
       return sum + item.count;
     }
     return sum;
   }, 0);
 
   const unitsLvl7OrHigher = deck.items.reduce((sum, item) => {
-    if (item.card.type === 'Unit' && item.card.level && Number(item.card.level) >= 7) {
+    if (item.card.type.includes('Unit') && item.card.level && Number(item.card.level) >= 7) {
       return sum + item.count;
     }
     return sum;
@@ -469,21 +483,21 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
 
   // Turn Order Preference
   const hasFirstPrefCards = deck.items.some(item => 
-    item.card.type === 'Unit' && 
+    item.card.type.includes('Unit') && 
     item.card.level && 
     Number(item.card.level) <= 4 && 
     Number(item.card.cost) === Number(item.card.level)
   );
 
   const hasSecondPrefCards = deck.items.some(item => 
-    item.card.type === 'Unit' && 
+    item.card.type.includes('Unit') && 
     item.card.level && 
     ((Number(item.card.level) === 2 && Number(item.card.cost) === 1) ||
      (Number(item.card.level) === 3 && Number(item.card.cost) === 2) ||
      (Number(item.card.level) === 4 && Number(item.card.cost) === 3))
   );
 
-  const hasCommands = deck.items.some(item => item.card.type === 'Command');
+  const hasCommands = deck.items.some(item => item.card.type.includes('Command'));
 
   let turnPreference = "No clear preference";
   if (primaryArchetype === 'Aggro') {
@@ -502,29 +516,63 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className={cn(
-        "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col",
-        !visible && "hidden"
+        "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col transition-all duration-300",
+        !visible && !isDeckBuilderMode && "hidden",
+        isDeckBuilderMode && "landscape:left-1/2 landscape:w-1/2 landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
+        !visible && isDeckBuilderMode && "hidden landscape:flex"
       )}
     >
       {/* Header */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-        <div className="w-full px-4 lg:px-12 py-4 flex flex-col gap-4">
-          {/* Line 1: Back, Menu, Play Mode */}
+        <div className="w-full px-4 lg:px-12 py-4 flex flex-col gap-4 landscape:gap-3 landscape:py-3">
+          {/* Line 1: Back, Menu, Play Mode + Deck Info in Landscape */}
           <div className="flex items-center justify-between">
-            <button 
-              onClick={() => {
-                if (activeTab === 'play') {
-                  setIsExitPlayModalOpen(true);
-                } else {
-                  onClose();
-                }
-              }} 
-              className="p-2 hover:bg-stone-100 rounded-full transition-colors"
-            >
-              <ChevronRight className="rotate-180" size={24} />
-            </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <button 
+                onClick={() => {
+                  if (activeTab === 'play') {
+                    setIsExitPlayModalOpen(true);
+                  } else {
+                    onClose();
+                  }
+                }} 
+                className={cn(
+                  "p-2 hover:bg-stone-100 rounded-full transition-colors",
+                  isDeckBuilderMode && "landscape:hidden"
+                )}
+              >
+                <ChevronRight className="rotate-180" size={24} />
+              </button>
 
-            <div className="flex items-center gap-2">
+              {/* Landscape only: Deck Icon, Name, Count */}
+              <div className={cn(
+                "hidden landscape:flex items-center gap-3 min-w-0",
+                isDeckBuilderMode && "landscape:hidden"
+              )}>
+                <div 
+                  onClick={() => setShowCoverPicker(true)}
+                  className="w-8 h-8 bg-stone-100 rounded-lg flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
+                >
+                  {deck.coverImageUrl ? (
+                    <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
+                  ) : (
+                    <Layout size={16} />
+                  )}
+                </div>
+                <h2 className="font-bold text-base truncate max-w-[200px]">{deck.name}</h2>
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap",
+                  isValidSize ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                )}>
+                  {totalCards} / 50 Cards
+                </span>
+              </div>
+            </div>
+
+            <div className={cn(
+              "flex items-center gap-2",
+              isDeckBuilderMode && "landscape:hidden"
+            )}>
               <div className="relative">
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -613,6 +661,16 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                             <Copy size={16} />
                             Duplicate deck
                           </button>
+                          <button 
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              onPrintProxy?.(deck);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                          >
+                            <Printer size={16} />
+                            Print Proxy
+                          </button>
                         </div>
                       </motion.div>
                     </>
@@ -632,8 +690,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
             </div>
           </div>
 
-          {/* Line 2: Deck Name, Card Count */}
-          <div className="flex items-center justify-between">
+          {/* Line 2: Deck Name, Card Count (Hidden in landscape) */}
+          <div className="flex items-center justify-between landscape:hidden">
             <div className="flex items-center gap-3 min-w-0">
               <div 
                 onClick={() => setShowCoverPicker(true)}
@@ -664,7 +722,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('cards')}
                 className={cn(
-                  "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-2 landscape:py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
                   activeTab === 'cards' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
@@ -673,7 +731,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
-                  "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-2 landscape:py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
                   activeTab === 'stats' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
@@ -1044,7 +1102,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                       
                       <div className="flex gap-3 overflow-x-auto pb-4 px-1 snap-x">
                         {deck.items
-                          .filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && Number(item.card.level || 0) <= 3)
+                          .filter(item => (item.card.type.includes('Unit') || item.card.type.includes('Command')) && Number(item.card.level || 0) <= 3)
                           .map((item, i) => (
                             <div 
                               key={i} 
@@ -1062,7 +1120,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               <p className="text-[8px] font-bold mt-1 truncate">{item.card.name}</p>
                             </div>
                           ))}
-                        {deck.items.filter(item => (item.card.type === 'Unit' || item.card.type === 'Command') && Number(item.card.level || 0) <= 3).length === 0 && (
+                        {deck.items.filter(item => (item.card.type.includes('Unit') || item.card.type.includes('Command')) && Number(item.card.level || 0) <= 3).length === 0 && (
                           <div className="w-full py-8 border-2 border-dashed border-stone-100 rounded-2xl flex items-center justify-center">
                             <p className="text-[10px] text-stone-300 italic font-medium">No matching cards in deck</p>
                           </div>
@@ -1079,7 +1137,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                       
                       <div className="flex gap-3 overflow-x-auto pb-4 px-1 snap-x">
                         {deck.items
-                          .filter(item => item.card.type === 'Base' || item.card.type === 'Pilot')
+                          .filter(item => item.card.type.includes('Base') || item.card.type.includes('Pilot'))
                           .map((item, i) => (
                             <div 
                               key={i} 
@@ -1097,7 +1155,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               <p className="text-[8px] font-bold mt-1 truncate">{item.card.name}</p>
                             </div>
                           ))}
-                        {deck.items.filter(item => item.card.type === 'Base' || item.card.type === 'Pilot').length === 0 && (
+                        {deck.items.filter(item => item.card.type.includes('Base') || item.card.type.includes('Pilot')).length === 0 && (
                           <div className="w-full py-8 border-2 border-dashed border-stone-100 rounded-2xl flex items-center justify-center">
                             <p className="text-[10px] text-stone-300 italic font-medium">No matching cards in deck</p>
                           </div>
@@ -1588,7 +1646,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                               <span className="font-bold text-stone-800">Providence Gundam</span> can be paired with other <span className="text-red-600 font-bold italic">ZAFT</span> pilots such as:{" "}
                                               {(() => {
                                                 const zaftPilots = allCards.filter(c => 
-                                                  c.type === "Pilot" && 
+                                                  c.type.includes("Pilot") && 
                                                   c.traits?.includes("ZAFT") &&
                                                   c.name !== "Rau Le Creuset"
                                                 );
@@ -1744,11 +1802,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Units</h3>
                   <div className="h-px flex-1 bg-stone-200/60" />
                   <span className="text-[10px] font-black text-stone-300">
-                    {deck.items.filter(i => i.card.type === 'Unit').reduce((s, i) => s + i.count, 0)}
+                    {deck.items.filter(i => i.card.type.includes('Unit')).reduce((s, i) => s + i.count, 0)}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                  {deck.items.filter(i => i.card.type === 'Unit').map((item) => (
+                <div className={cn(
+                  "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
+                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+                )}>
+                  {deck.items.filter(i => i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 
                       key={`${item.card.id}-${item.artType}`} 
                       item={item} 
@@ -1777,11 +1838,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Pilots, Command, Base</h3>
                   <div className="h-px flex-1 bg-stone-200/60" />
                   <span className="text-[10px] font-black text-stone-300">
-                    {deck.items.filter(i => i.card.type !== 'Unit').reduce((s, i) => s + i.count, 0)}
+                    {deck.items.filter(i => !i.card.type.includes('Unit')).reduce((s, i) => s + i.count, 0)}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                  {deck.items.filter(i => i.card.type !== 'Unit').map((item) => (
+                <div className={cn(
+                  "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
+                  isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+                )}>
+                  {deck.items.filter(i => !i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 
                       key={`${item.card.id}-${item.artType}`} 
                       item={item} 
@@ -1848,7 +1912,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-4">
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                <div className="grid grid-cols-3 landscape:grid-cols-5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {deck.items.map((item) => (
                       <button
                         key={`${item.card.id}-${item.artType}`}

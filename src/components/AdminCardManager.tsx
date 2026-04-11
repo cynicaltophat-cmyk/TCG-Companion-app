@@ -142,13 +142,95 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     }
   };
 
+  const normalizeKeywords = async () => {
+    if (!window.confirm(`This will scan all ${cards.length} cards and add brackets to keywords like Attack, Deploy, Main, etc. where missing. Continue?`)) return;
+
+    setIsBulkImporting(true);
+    setStatusMessage("Normalizing keywords...");
+
+    try {
+      const keywords = [
+        "Attack", "Deploy", "During Link", "When Link", "Once per Turn", 
+        "Activate・Main", "Main", "Repair", "Breach", "Destroyed", "When Paired", "During Pair",
+        "Burst", "First Strike", "High-Maneuver", "Support", "Blocker", "Suppression"
+      ];
+      
+      // Regex to match keywords NOT already in brackets 【】 or []
+      // We look for the keyword preceded by something that isn't a bracket and followed by something that isn't a bracket
+      // Or at the start/end of string
+      
+      const batchSize = 500;
+      let updatedCount = 0;
+
+      for (let i = 0; i < cards.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = cards.slice(i, i + batchSize);
+        let batchHasChanges = false;
+
+        chunk.forEach(card => {
+          let newAbility = card.ability || "";
+          let changed = false;
+
+          keywords.forEach(kw => {
+            // Escape dots for regex
+            const escapedKw = kw.replace(/・/g, '・');
+            
+            // This regex finds the keyword if it's NOT inside 【】 or []
+            // It uses negative lookbehind and lookahead
+            // Since JS support for lookbehind varies, we'll use a simpler approach:
+            // Replace all instances, then fix double brackets if they occur, 
+            // but better yet, use a regex that matches the keyword only if it's not already bracketed.
+            
+            // Match keyword that is NOT preceded by 【 or [ AND NOT followed by 】 or ]
+            // We'll use a global replace with a function to check context
+            const regex = new RegExp(`(?<![【\\[])${escapedKw}(?![】\\]])`, 'gi');
+            
+            if (regex.test(newAbility)) {
+              // We use the original casing from the keyword list for the replacement
+              newAbility = newAbility.replace(regex, `【${kw}】`);
+              changed = true;
+            }
+            
+            // Special case for Repair, Breach, and Support which often have numbers
+            if (kw === "Repair" || kw === "Breach" || kw === "Support") {
+              const numRegex = new RegExp(`(?<![【\\[])${kw}\\s*(\\d+)(?![】\\]])`, 'gi');
+              if (numRegex.test(newAbility)) {
+                newAbility = newAbility.replace(numRegex, (match, p1) => `【${kw} ${p1}】`);
+                changed = true;
+              }
+            }
+          });
+
+          if (changed) {
+            const cardRef = doc(db, 'cards', card.id);
+            batch.update(cardRef, { ability: newAbility });
+            batchHasChanges = true;
+            updatedCount++;
+          }
+        });
+
+        if (batchHasChanges) {
+          await batch.commit();
+        }
+      }
+
+      setStatusMessage(`Successfully normalized keywords in ${updatedCount} cards!`);
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Normalization error:", error);
+      setStatusMessage(`Normalization failed: ${error.message}`);
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
   const downloadTemplate = () => {
     const template: GundamCard[] = [{
       id: "st01-001",
       name: "Gundam Exia",
       set: "ST 01",
       cardNumber: "ST01-001",
-      type: "Unit",
+      type: ["Unit"],
       color: "Blue",
       rarity: "R",
       cost: "4",
@@ -207,6 +289,11 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
 
       const result = await analyzeCardImage(base64);
       if (result) {
+        // Normalize type to array if it's a string
+        if (result.type && typeof result.type === 'string') {
+          result.type = [result.type as any];
+        }
+
         setEditingCard(prev => ({
           ...prev,
           ...result,
@@ -387,6 +474,19 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
           )}
 
           <button 
+            onClick={normalizeKeywords}
+            disabled={isBulkImporting}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all",
+              isBulkImporting && "opacity-50 cursor-not-allowed"
+            )}
+            title="Add brackets to keywords in all cards"
+          >
+            <Sparkles size={14} className="text-amber-500" />
+            Normalize
+          </button>
+
+          <button 
             onClick={exportAllCards}
             className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all"
             title="Export All Cards to JSON"
@@ -426,7 +526,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                 name: '',
                 set: ALL_SETS[0],
                 cardNumber: '',
-                type: 'Unit',
+                type: ['Unit'],
                 color: 'Red',
                 rarity: 'C',
                 cost: '1',
@@ -605,6 +705,18 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                   {/* Line 1.5: Stats (Cost, Level, AP, HP) */}
                   <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Level</label>
+                      <input 
+                        type="text" 
+                        value={editingCard.level || ''} 
+                        onChange={e => {
+                          setEditingCard({...editingCard, level: e.target.value});
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
+                      />
+                    </div>
+                    <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Cost</label>
                       <input 
                         type="text" 
@@ -615,18 +727,6 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                         }}
                         className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
                         required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Level</label>
-                      <input 
-                        type="text" 
-                        value={editingCard.level || ''} 
-                        onChange={e => {
-                          setEditingCard({...editingCard, level: e.target.value});
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 text-center"
                       />
                     </div>
                     <div className="space-y-1">
@@ -718,12 +818,16 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                             key={t}
                             type="button"
                             onClick={() => {
-                              setEditingCard({...editingCard, type: t as any});
+                              const currentTypes = editingCard.type || [];
+                              const newTypes = currentTypes.includes(t as any)
+                                ? currentTypes.filter(type => type !== t)
+                                : [...currentTypes, t as any];
+                              setEditingCard({...editingCard, type: newTypes});
                               setHasUnsavedChanges(true);
                             }}
                             className={cn(
                               "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all border",
-                              editingCard.type === t 
+                              editingCard.type?.includes(t as any) 
                                 ? "bg-[#141414] text-white border-[#141414] shadow-sm" 
                                 : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
                             )}

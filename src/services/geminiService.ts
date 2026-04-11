@@ -62,7 +62,7 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
         Fields to extract:
         - name: The card's name.
         - cardNumber: The card's number (e.g., ST01-001, GD01-045).
-        - type: One of "Unit", "Pilot", "Command", "Base".
+        - type: An array of strings. Choose from: "Unit", "Pilot", "Command", "Base". A card can have multiple types (e.g., both "Pilot" and "Command").
         - color: One of "Red", "Blue", "Green", "White", "Black", "Yellow", "Purple".
         - rarity: One of "C", "U", "R", "SR", "UR", "LR".
         - cost: The numeric cost.
@@ -78,7 +78,7 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
         {
           "name": "string",
           "cardNumber": "string",
-          "type": "Unit" | "Pilot" | "Command" | "Base",
+          "type": ["Unit" | "Pilot" | "Command" | "Base"],
           "color": "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple",
           "rarity": "C" | "U" | "R" | "SR" | "UR" | "LR",
           "cost": number,

@@ -55,6 +55,7 @@ import { cn, PriceDisplayMode, formatPrice } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { QuickSetup } from './components/QuickSetup';
 import { DeckList } from './components/DeckList';
+import { ProxyPrinter } from './components/ProxyPrinter';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -251,12 +252,15 @@ const CardPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode
   );
 });
 
-const ListContainer = React.forwardRef(({ style, children, ...props }: any, ref: any) => (
+const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ...props }: any, ref: any) => (
   <div
     ref={ref}
     {...props}
     style={{ ...style }}
-    className="grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32"
+    className={cn(
+      "grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32",
+      isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-5"
+    )}
   >
     {children}
   </div>
@@ -745,43 +749,53 @@ function AppContent() {
         .filter(s => s && !s.startsWith('('));
     };
 
-    // Helper to check if a card name matches any of the link names (supporting partial matches for variants and minor typos)
-    const isNameMatch = (cardName: string, linkNames: string[]) => {
+    // Helper to check if a card matches any of the link names (supporting partial matches for variants and minor typos)
+    const isCardMatch = (card: GundamCard, linkNames: string[]) => {
       const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const normalizedCardName = normalize(cardName);
-
-      return linkNames.some(name => {
-        const normalizedLinkName = normalize(name);
-        
-        // 1. Exact or normalized match (handles "Tieria Erde" vs "Tieria Erde")
-        if (normalizedCardName === normalizedLinkName) return true;
-        
-        // 2. Variant match (e.g., "Elan Ceres (Variant)" matches "Elan Ceres")
-        if (cardName.toLowerCase().startsWith(name.toLowerCase() + ' (') || 
-            cardName.toLowerCase().startsWith(name.toLowerCase() + ' ')) return true;
-
-        // 3. Handle common typos like "Tiera" vs "Tieria" by checking if they share significant prefix/suffix
-        if (normalizedLinkName.length >= 5 && normalizedCardName.length >= 5) {
-          const prefix = normalizedLinkName.substring(0, 4);
-          const suffix = normalizedLinkName.substring(normalizedLinkName.length - 4);
-          if (normalizedCardName.startsWith(prefix) && normalizedCardName.endsWith(suffix)) return true;
+      
+      const namesToCheck = [card.name];
+      if (card.type.includes('Pilot')) {
+        const pilotNameMatch = card.ability.match(/Pilot:\s*([^.\n]+)/i);
+        if (pilotNameMatch) {
+          namesToCheck.push(pilotNameMatch[1].trim());
         }
+      }
 
-        return false;
+      return namesToCheck.some(cardName => {
+        const normalizedCardName = normalize(cardName);
+        return linkNames.some(name => {
+          const normalizedLinkName = normalize(name);
+          
+          // 1. Exact or normalized match (handles "Tieria Erde" vs "Tieria Erde")
+          if (normalizedCardName === normalizedLinkName) return true;
+          
+          // 2. Variant match (e.g., "Elan Ceres (Variant)" matches "Elan Ceres")
+          if (cardName.toLowerCase().startsWith(name.toLowerCase() + ' (') || 
+              cardName.toLowerCase().startsWith(name.toLowerCase() + ' ')) return true;
+  
+          // 3. Handle common typos like "Tiera" vs "Tieria" by checking if they share significant prefix/suffix
+          if (normalizedLinkName.length >= 5 && normalizedCardName.length >= 5) {
+            const prefix = normalizedLinkName.substring(0, 4);
+            const suffix = normalizedLinkName.substring(normalizedLinkName.length - 4);
+            if (normalizedCardName.startsWith(prefix) && normalizedCardName.endsWith(suffix)) return true;
+          }
+  
+          return false;
+        });
       });
     };
 
-    if (selectedCard.type === 'Unit') {
+    if (selectedCard.type.includes('Unit')) {
       // 1. Direct links from this Unit to Pilot(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const pilotsByName = combinedCards.filter(c => c.type === 'Pilot' && isNameMatch(c.name, linkNames));
+        const pilotsByName = combinedCards.filter(c => c.type.includes('Pilot') && isCardMatch(c, linkNames));
         results.push(...pilotsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
         if (linkTraits.length > 0) {
           const pilotsByTrait = combinedCards.filter(c => 
-            c.type === 'Pilot' && 
+            c.type.includes('Pilot') && 
             c.traits?.some(t => linkTraits.includes(t))
           );
           results.push(...pilotsByTrait);
@@ -790,37 +804,38 @@ function AppContent() {
       
       // 2. Reverse links: Pilots that link to this Unit (by name or trait)
       const linkingPilots = combinedCards.filter(c => {
-        if (c.type !== 'Pilot' || !c.link) return false;
+        if (!c.type.includes('Pilot') || !c.link) return false;
         const names = getLinkNames(c.link);
-        if (isNameMatch(selectedCard.name, names)) return true;
+        if (isCardMatch(selectedCard, names)) return true;
         const traits = getLinkTraits(c.link);
         if (traits.some(t => selectedCard.traits?.includes(t))) return true;
         return false;
       });
       results.push(...linkingPilots);
-
-    } else if (selectedCard.type === 'Pilot') {
+    } 
+    
+    if (selectedCard.type.includes('Pilot')) {
       // 1. Direct links from this Pilot to Unit(s)
       if (selectedCard.link) {
         const linkNames = getLinkNames(selectedCard.link);
-        const unitsByName = combinedCards.filter(c => c.type === 'Unit' && isNameMatch(c.name, linkNames));
+        const unitsByName = combinedCards.filter(c => c.type.includes('Unit') && isCardMatch(c, linkNames));
         results.push(...unitsByName);
 
         const linkTraits = getLinkTraits(selectedCard.link);
         if (linkTraits.length > 0) {
           const unitsByTrait = combinedCards.filter(c => 
-            c.type === 'Unit' && 
+            c.type.includes('Unit') && 
             c.traits?.some(t => linkTraits.includes(t))
           );
           results.push(...unitsByTrait);
         }
       }
-      
+
       // 2. Reverse links: Units that link to this Pilot (by name or trait)
       const linkingUnits = combinedCards.filter(c => {
-        if (c.type !== 'Unit' || !c.link) return false;
+        if (!c.type.includes('Unit') || !c.link) return false;
         const names = getLinkNames(c.link);
-        if (isNameMatch(selectedCard.name, names)) return true;
+        if (isCardMatch(selectedCard, names)) return true;
         const traits = getLinkTraits(c.link);
         if (traits.some(t => selectedCard.traits?.includes(t))) return true;
         return false;
@@ -1077,6 +1092,7 @@ function AppContent() {
   const [openedEditorFromList, setOpenedEditorFromList] = useState(false);
   const [deckListAutoCreate, setDeckListAutoCreate] = useState(false);
   const [showDeckSelector, setShowDeckSelector] = useState(false);
+  const [printingDeck, setPrintingDeck] = useState<Deck | null>(null);
   const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
   const [isContinuousScanMode, setIsContinuousScanMode] = useState(false);
   
@@ -1617,7 +1633,7 @@ function AppContent() {
                          activeFilters.sets.some(s => normalize(s) === normalize(card.set));
       const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.includes(card.rarity);
       const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.includes(card.color);
-      const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.includes(card.type);
+      const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.some(t => card.type.includes(t as any));
       const matchesVariants = activeFilters.variants.length === 0 || 
                              activeFilters.variants.some(v => {
                                if (v === "Base art") return true;
@@ -1718,7 +1734,7 @@ function AppContent() {
     if (!text) return null;
     // Smart regex to catch "When Paired", "During Pair", and variations with conditions/pilots
     // Supports spaces or middle dots (･) as separators
-    const triggerRegex = /(During Pair|When Paired(?:[\s･]+\([^)]+\))?(?:[\s･]+lvl\s+\d+\s+or\s+Higher)?(?:[\s･]+pilot)?|\[When Paired\]|【When Paired】|【During Pair】|【Deploy】)/gi;
+    const triggerRegex = /(During Pair|When Paired(?:[\s･]+\([^)]+\))?(?:[\s･]+lvl\s+\d+\s+or\s+Higher)?(?:[\s･]+pilot)?|\[When Paired\]|【When Paired】|【During Pair】|【Deploy】|【Attack】|【During Link】|【When Link】|【Destroyed】|【Repair(?:\s*\d+)?】|【Once per Turn】|【Activate・Main】|【Breach(?:\s*\d+)?】|【Burst】|【First Strike】|【High-Maneuver】|【Support(?:\s*\d+)?】|【Blocker】|【Suppression】)/gi;
     const parts = text.split(triggerRegex);
     
     return (
@@ -1728,6 +1744,8 @@ function AppContent() {
             const cleanPart = part.replace(/[【】\[\]]/g, '').toLowerCase();
             let explanation = "";
             let title = part;
+            let bgColor = "#C86891"; // Default pink
+            let shadow = "none";
             
             if (cleanPart.includes("when paired")) {
               explanation = "【When Paired】is the keyword for an effect that activates when a Pilot is paired with any Unit.";
@@ -1738,6 +1756,78 @@ function AppContent() {
             } else if (cleanPart.includes("deploy")) {
               explanation = "【Deploy】is the keyword for an effect that activates when the card is played to the field.";
               title = "【Deploy】";
+              bgColor = "#79B8BA";
+            } else if (cleanPart.includes("attack")) {
+              explanation = "【Attack】is the keyword for an effect that activates when this card declares an attack.";
+              title = "【Attack】";
+              bgColor = "#79B8BA";
+            } else if (cleanPart.includes("during link")) {
+              explanation = "【During Link】is the keyword for an effect that is active while this card is linked to another card.";
+              title = "【During Link】";
+              bgColor = "#FFEE04";
+            } else if (cleanPart.includes("when link")) {
+              explanation = "【When Link】is the keyword for an effect that activates when this card is linked to another card.";
+              title = "【When Link】";
+              bgColor = "#FFEE04";
+            } else if (cleanPart.includes("destroyed")) {
+              explanation = "【Destroyed】is the keyword for an effect that activates when this card is destroyed and sent to the trash.";
+              title = "【Destroyed】";
+              bgColor = "#79B8BA";
+            } else if (cleanPart.includes("repair")) {
+              const value = part.match(/\d+/);
+              explanation = value 
+                ? `【Repair ${value[0]}】is the keyword for an effect that allows you to pay ${value[0]} cost when this card is destroyed to return it to your hand.`
+                : "【Repair】is the keyword for an effect that allows you to pay a cost when this card is destroyed to return it to your hand.";
+              title = value ? `【Repair ${value[0]}】` : "【Repair】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("once per turn")) {
+              explanation = "【Once per Turn】indicates that this effect can only be activated once during each of your turns.";
+              title = "【Once per Turn】";
+            } else if (cleanPart.includes("activate・main")) {
+              explanation = "【Activate・Main】is an effect that can be manually activated during your Main Phase.";
+              title = "【Activate・Main】";
+              bgColor = "#79B8BA";
+            } else if (cleanPart.includes("breach")) {
+              const value = part.match(/\d+/);
+              explanation = value 
+                ? `【Breach ${value[0]}】is the keyword for an effect that deals ${value[0]} additional damage when this Unit deals damage to the opponent's base.`
+                : "【Breach】is the keyword for an effect that deals additional damage when this Unit deals damage to the opponent's base.";
+              title = value ? `【Breach ${value[0]}】` : "【Breach】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("burst")) {
+              explanation = "【Burst】is an effect that activates when this card is triggered or revealed from the top of the deck.";
+              title = "【Burst】";
+              bgColor = "#DD8402";
+            } else if (cleanPart.includes("first strike")) {
+              explanation = "【First Strike】allows this Unit to deal damage before the opponent's Unit during battle.";
+              title = "【First Strike】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("high-maneuver")) {
+              explanation = "【High-Maneuver】means this Unit can only be blocked by other Units with 【High-Maneuver】.";
+              title = "【High-Maneuver】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("support")) {
+              const value = part.match(/\d+/);
+              explanation = value 
+                ? `【Support ${value[0]}】allows this Unit to grant +${value[0]} AP to the attacking Unit when it supports an attack.`
+                : "【Support】allows this Unit to grant additional AP to the attacking Unit when it supports an attack.";
+              title = value ? `【Support ${value[0]}】` : "【Support】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("blocker")) {
+              explanation = "【Blocker】allows you to exhaust this Unit to change the target of an opponent's attack to this Unit.";
+              title = "【Blocker】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
+            } else if (cleanPart.includes("suppression")) {
+              explanation = "【Suppression】is an effect that prevents opponent's Units from activating their effects or attacking.";
+              title = "【Suppression】";
+              bgColor = "#F8F9FA";
+              shadow = "0 1px 2px rgba(0,0,0,0.1)";
             }
 
             if (explanation) {
@@ -1748,8 +1838,6 @@ function AppContent() {
                     e.stopPropagation();
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = rect.left + rect.width / 2;
-                    // Clamp tooltip center between 140px and screen width - 140px
-                    // 128px is half of w-64 (256px), 12px for safety margin
                     const safeX = Math.max(140, Math.min(window.innerWidth - 140, x));
                     setActiveTooltip({
                       title,
@@ -1759,7 +1847,8 @@ function AppContent() {
                       originalX: x
                     });
                   }}
-                  className="bg-[#C86891] text-black px-1.5 py-0.5 rounded-sm font-bold not-italic inline-block mx-0.5 hover:bg-[#b05a7e] transition-colors cursor-help"
+                  style={{ backgroundColor: bgColor, boxShadow: shadow }}
+                  className="text-black px-1.5 py-0.5 rounded-sm font-bold not-italic inline-block mx-0.5 hover:opacity-80 transition-all cursor-help"
                 >
                   {part}
                 </button>
@@ -1769,7 +1858,8 @@ function AppContent() {
             return (
               <span 
                 key={i} 
-                className="bg-[#C86891] text-black px-1.5 py-0.5 rounded-sm font-bold not-italic inline-block mx-0.5"
+                style={{ backgroundColor: bgColor, boxShadow: shadow }}
+                className="text-black px-1.5 py-0.5 rounded-sm font-bold not-italic inline-block mx-0.5"
               >
                 {part}
               </span>
@@ -1935,11 +2025,20 @@ function AppContent() {
       {/* Header */}
       {currentTab === 'cards' && (
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 px-4 py-2">
-          <div className="max-w-md mx-auto flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10">
+          <div className={cn(
+            "max-w-md mx-auto flex items-center gap-2",
+            isDeckBuilderMode && "landscape:max-w-none"
+          )}>
+            <div className={cn(
+              "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10",
+              isDeckBuilderMode && "landscape:hidden"
+            )}>
               <Sparkles size={16} />
             </div>
-            <div className="relative flex-1">
+            <div className={cn(
+              "relative flex-1",
+              isDeckBuilderMode && "landscape:flex-none landscape:w-full landscape:max-w-[240px]"
+            )}>
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
               <input 
                 type="text"
@@ -2203,9 +2302,13 @@ function AppContent() {
         </div>
       )}
 
-      <main className={cn("max-w-md lg:max-w-none mx-auto px-4 lg:px-12 pt-4 pb-32", currentTab !== 'cards' && "hidden")}>
+      <main className={cn(
+        "max-w-md lg:max-w-none mx-auto px-4 lg:px-12 pt-4 pb-32 transition-all duration-300", 
+        currentTab !== 'cards' && (isDeckBuilderMode && currentTab === 'decks' ? "hidden landscape:block" : "hidden"),
+        isDeckBuilderMode && "landscape:w-1/2 landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
+      )}>
         {/* Filters */}
-        {currentTab === 'cards' && (
+        {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
           <>
             <div className="mb-6 space-y-4">
           {/* Active Filter Tags */}
@@ -2324,7 +2427,7 @@ function AppContent() {
             data={gridData}
             overscan={400}
             components={{
-              List: ListContainer
+              List: (props) => <ListContainer {...props} isDeckBuilderMode={isDeckBuilderMode} />
             }}
             itemContent={(index, card) => (
               <GridItem 
@@ -2363,7 +2466,7 @@ function AppContent() {
             initial={{ y: 50 }}
             animate={{ y: 0 }}
             exit={{ y: 50 }}
-            className="fixed bottom-[48px] left-0 right-0 z-[80] bg-white border-t border-stone-200 flex flex-col shadow-[0_-4px_12px_rgba(0,0,0,0.05)]"
+            className="fixed bottom-[48px] landscape:bottom-0 left-0 right-0 z-[80] bg-white border-t border-stone-200 flex flex-col shadow-[0_-4px_12px_rgba(0,0,0,0.05)]"
           >
             {/* Color Indicator Bar */}
             <div className="flex h-1 w-full">
@@ -2441,7 +2544,10 @@ function AppContent() {
       </div>
 
       {/* Sticky Footer Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1">
+      <div className={cn(
+        "fixed bottom-0 left-0 right-0 z-[100] bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1",
+        isDeckBuilderMode && "landscape:hidden"
+      )}>
         <div className="max-w-md mx-auto flex items-center justify-around px-4">
           <button 
             onClick={() => {
@@ -2804,14 +2910,14 @@ function AppContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#F5F5F0] overflow-y-auto overscroll-contain"
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] overflow-y-auto overscroll-contain landscape:overflow-hidden"
           >
             <div className={cn(
-              "max-w-md mx-auto min-h-screen flex flex-col",
-              isDeckBuilderMode ? "pb-40" : "pb-24"
+              "max-w-md mx-auto min-h-screen flex flex-col landscape:max-w-none landscape:h-screen landscape:overflow-hidden",
+              isDeckBuilderMode ? "pb-40 landscape:pb-12" : "pb-24 landscape:pb-12"
             )}>
               {/* Modal Header */}
-              <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex items-center justify-between">
+              <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex items-center justify-between landscape:w-full landscape:shrink-0">
                 <button 
                   onClick={() => {
                     setSelectedCard(null);
@@ -2859,113 +2965,114 @@ function AppContent() {
                 </div>
               </div>
 
-              <div className="relative w-full h-[372px] mt-1 flex items-center justify-center overflow-hidden">
-                <div className="relative w-full h-full flex items-center justify-center">
-                  {/* Previous Card Peek */}
-                  {currentIndex > 0 && (
-                    <div 
-                      key={`peek-prev-${gridData[currentIndex - 1].id}`}
-                      className="absolute left-0 -translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0"
-                    >
-                      <img 
-                        src={gridData[currentIndex - 1].imageUrl} 
-                        className="w-full h-full object-fill"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
-
-                  {/* Current Card with Swipe Logic */}
-                  <AnimatePresence initial={false} custom={swipeDirection} mode="popLayout">
-                    <motion.div
-                      key={selectedCard.id}
-                      custom={swipeDirection}
-                      variants={{
-                        enter: (direction: number) => ({
-                          x: direction > 0 ? 500 : direction < 0 ? -500 : 0,
-                          opacity: 0,
-                          scale: 0.9
-                        }),
-                        center: {
-                          x: 0,
-                          opacity: 1,
-                          scale: 1,
-                          zIndex: 10
-                        },
-                        exit: (direction: number) => ({
-                          x: direction < 0 ? 500 : direction > 0 ? -500 : 0,
-                          opacity: 0,
-                          scale: 0.9,
-                          zIndex: 0
-                        })
-                      }}
-                      initial="enter"
-                      animate="center"
-                      exit="exit"
-                      transition={{
-                        x: { type: "spring", stiffness: 300, damping: 30 },
-                        opacity: { duration: 0.2 }
-                      }}
-                      drag="x"
-                      dragConstraints={{ left: 0, right: 0 }}
-                      dragElastic={0.2}
-                      onDragEnd={(e, { offset }) => {
-                        if (offset.x < -50) handleSwipe(1);
-                        else if (offset.x > 50) handleSwipe(-1);
-                      }}
-                      className="relative w-full h-full flex items-center justify-center z-10 cursor-grab active:cursor-grabbing"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const threshold = rect.width * 0.25;
-                        if (x < threshold) handleSwipe(-1);
-                        else if (x > rect.width - threshold) handleSwipe(1);
-                      }}
-                    >
+              <div className="flex-1 flex flex-col landscape:flex-row landscape:overflow-hidden">
+                <div className="relative w-full h-[372px] mt-1 flex items-center justify-center overflow-hidden landscape:w-1/2 landscape:h-full landscape:mt-0">
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {/* Previous Card Peek */}
+                    {currentIndex > 0 && (
                       <div 
-                        className="relative w-[260px] aspect-[5/7] bg-stone-100 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 cursor-pointer group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsCardMaximized(true);
-                        }}
+                        key={`peek-prev-${gridData[currentIndex - 1].id}`}
+                        className="absolute left-0 -translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0 landscape:w-auto landscape:h-[75%] landscape:-translate-x-[60%]"
                       >
-                        {selectedCard.championshipParticipation && (
-                          <div className="absolute top-4 right-4 bg-blue-500 text-white p-1.5 rounded-full shadow-2xl z-20 border border-white/30 animate-in zoom-in duration-300">
-                            <Trophy size={14} strokeWidth={2} />
-                          </div>
-                        )}
-                        <SmartImage 
-                          src={
-                            selectedArtType === "Base art" 
-                              ? selectedCard.imageUrl 
-                              : selectedArtType === "Parallel" 
-                                ? selectedCard.altImageUrl || selectedCard.imageUrl
-                                : selectedCard.variants?.find(v => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
-                          } 
-                          alt={selectedCard.name}
-                          className="w-full h-full"
+                        <img 
+                          src={gridData[currentIndex - 1].imageUrl} 
+                          className="w-full h-full object-fill"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
-                    </motion.div>
-                  </AnimatePresence>
+                    )}
 
-                  {/* Next Card Peek */}
-                  {currentIndex < gridData.length - 1 && currentIndex !== -1 && (
-                    <div 
-                      key={`peek-next-${gridData[currentIndex + 1].id}`}
-                      className="absolute right-0 translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0"
-                    >
-                      <img 
-                        src={gridData[currentIndex + 1].imageUrl} 
-                        className="w-full h-full object-fill"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  )}
+                    {/* Current Card with Swipe Logic */}
+                    <AnimatePresence initial={false} custom={swipeDirection} mode="popLayout">
+                      <motion.div
+                        key={selectedCard.id}
+                        custom={swipeDirection}
+                        variants={{
+                          enter: (direction: number) => ({
+                            x: direction > 0 ? 500 : direction < 0 ? -500 : 0,
+                            opacity: 0,
+                            scale: 0.9
+                          }),
+                          center: {
+                            x: 0,
+                            opacity: 1,
+                            scale: 1,
+                            zIndex: 10
+                          },
+                          exit: (direction: number) => ({
+                            x: direction < 0 ? 500 : direction > 0 ? -500 : 0,
+                            opacity: 0,
+                            scale: 0.9,
+                            zIndex: 0
+                          })
+                        }}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{
+                          x: { type: "spring", stiffness: 300, damping: 30 },
+                          opacity: { duration: 0.2 }
+                        }}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.2}
+                        onDragEnd={(e, { offset }) => {
+                          if (offset.x < -50) handleSwipe(1);
+                          else if (offset.x > 50) handleSwipe(-1);
+                        }}
+                        className="relative w-full h-full flex items-center justify-center z-10 cursor-grab active:cursor-grabbing"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const x = e.clientX - rect.left;
+                          const threshold = rect.width * 0.25;
+                          if (x < threshold) handleSwipe(-1);
+                          else if (x > rect.width - threshold) handleSwipe(1);
+                        }}
+                      >
+                        <div 
+                          className="relative w-[260px] aspect-[5/7] bg-stone-100 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 cursor-pointer group landscape:w-auto landscape:h-[85%]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsCardMaximized(true);
+                          }}
+                        >
+                          {selectedCard.championshipParticipation && (
+                            <div className="absolute top-4 right-4 bg-blue-500 text-white p-1.5 rounded-full shadow-2xl z-20 border border-white/30 animate-in zoom-in duration-300">
+                              <Trophy size={14} strokeWidth={2} />
+                            </div>
+                          )}
+                          <SmartImage 
+                            src={
+                              selectedArtType === "Base art" 
+                                ? selectedCard.imageUrl 
+                                : selectedArtType === "Parallel" 
+                                  ? selectedCard.altImageUrl || selectedCard.imageUrl
+                                  : selectedCard.variants?.find(v => v.type === selectedArtType)?.imageUrl || selectedCard.imageUrl
+                            } 
+                            alt={selectedCard.name}
+                            className="w-full h-full"
+                          />
+                        </div>
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {/* Next Card Peek */}
+                    {currentIndex < gridData.length - 1 && currentIndex !== -1 && (
+                      <div 
+                        key={`peek-next-${gridData[currentIndex + 1].id}`}
+                        className="absolute right-0 translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0 landscape:w-auto landscape:h-[75%] landscape:translate-x-[60%]"
+                      >
+                        <img 
+                          src={gridData[currentIndex + 1].imageUrl} 
+                          className="w-full h-full object-fill"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-4 pb-20 space-y-6 flex-1">
+                <div className="p-4 pb-20 space-y-6 flex-1 landscape:w-1/2 landscape:h-full landscape:overflow-y-auto landscape:pb-10 landscape:bg-white/30">
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
@@ -3103,7 +3210,7 @@ function AppContent() {
                 {linkedCards.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                      <RefreshCw size={14} /> {selectedCard.type === 'Pilot' ? 'Linked Units' : 'Linked Pilot'}
+                      <RefreshCw size={14} /> {selectedCard.type.includes('Pilot') ? 'Linked Units' : 'Linked Pilot'}
                     </h4>
                     <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-show">
                       {linkedCards.map(card => (
@@ -3155,6 +3262,7 @@ function AppContent() {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -3462,6 +3570,16 @@ function AppContent() {
         )}
       </AnimatePresence>
 
+      {/* Proxy Printer Overlay */}
+      <AnimatePresence>
+        {printingDeck && (
+          <ProxyPrinter 
+            deck={printingDeck}
+            onClose={() => setPrintingDeck(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Deck Editor Overlay */}
       <AnimatePresence>
         {isDeckEditorOpen && activeDeckId && activeDeck && (
@@ -3475,6 +3593,7 @@ function AppContent() {
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
             onSetCover={setDeckCover}
+            isDeckBuilderMode={isDeckBuilderMode}
             onClose={() => {
               setIsDeckEditorOpen(false);
               if (isDeckBuilderMode) {
@@ -3490,6 +3609,7 @@ function AppContent() {
             priceMode={priceMode}
             onPriceModeChange={setPriceMode}
             onPlayModeChange={setIsDeckInPlayMode}
+            onPrintProxy={(deck) => setPrintingDeck(deck)}
             onDuplicateDeck={duplicateDeck}
             onImportDeck={importDeckFromText}
             onEnterBuilderMode={(types) => {
