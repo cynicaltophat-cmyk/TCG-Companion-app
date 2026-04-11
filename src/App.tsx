@@ -259,7 +259,7 @@ const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ..
     style={{ ...style }}
     className={cn(
       "grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32",
-      isDeckBuilderMode ? "landscape:grid-cols-2" : "landscape:grid-cols-6"
+      isDeckBuilderMode ? "landscape:grid-cols-3" : "landscape:grid-cols-6"
     )}
   >
     {children}
@@ -1463,7 +1463,7 @@ function AppContent() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const addToDeck = async (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
+  const addToDeck = React.useCallback(async (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return false;
 
@@ -1503,9 +1503,9 @@ function AppContent() {
       console.error("Error adding to deck:", error);
       return false;
     }
-  };
+  }, [decks, user]);
 
-  const removeFromDeck = async (deckId: string, cardId: string, artType: ArtVariantType) => {
+  const removeFromDeck = React.useCallback(async (deckId: string, cardId: string, artType: ArtVariantType) => {
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return;
 
@@ -1526,9 +1526,9 @@ function AppContent() {
     } catch (error) {
       console.error("Error removing from deck:", error);
     }
-  };
+  }, [decks, user]);
 
-  const updateDeckCount = async (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => {
+  const updateDeckCount = React.useCallback(async (deckId: string, cardId: string, artType: ArtVariantType, delta: number) => {
     const deck = decks.find(d => d.id === deckId);
     if (!deck) return;
 
@@ -1563,7 +1563,7 @@ function AppContent() {
     } catch (error) {
       console.error("Error updating deck count:", error);
     }
-  };
+  }, [decks, user]);
 
   const activeDeck = decks.find(d => d.id === activeDeckId);
   const displayDeckSize = activeDeck ? activeDeck.items.reduce((s, i) => s + i.count, 0) : 0;
@@ -1999,6 +1999,35 @@ function AppContent() {
     }
   }, [gridData]);
 
+  const virtuosoComponents = React.useMemo(() => ({
+    List: (props: any) => <ListContainer {...props} isDeckBuilderMode={isDeckBuilderMode} />
+  }), [isDeckBuilderMode]);
+
+  const renderGridItem = React.useCallback((index: number, card: GundamCard) => (
+    <GridItem 
+      key={card.id}
+      card={card}
+      onSelect={(c) => {
+        setSelectedCard(c);
+        setSelectedArtType(c.variantType || "Base art");
+        setSwipeDirection(0);
+      }}
+      onToggleExpanded={toggleExpanded}
+      isExpanded={expandedCardIds.includes(card.id)}
+      isDeckBuilderMode={isDeckBuilderMode}
+      activeDeck={activeDeck}
+      onAddToDeck={(c, art) => {
+        const originalCard = combinedCards.find(gc => gc.id === (c.parentId || c.id));
+        if (originalCard && activeDeckId) {
+          addToDeck(activeDeckId, originalCard, art);
+        }
+      }}
+      onRemoveFromDeck={(id, art) => activeDeckId && removeFromDeck(activeDeckId, id, art)}
+      onUpdateDeckCount={(id, art, delta) => activeDeckId && updateDeckCount(activeDeckId, id, art, delta)}
+      priceMode={priceMode}
+    />
+  ), [isDeckBuilderMode, activeDeck, activeDeckId, addToDeck, removeFromDeck, updateDeckCount, priceMode, expandedCardIds, toggleExpanded, combinedCards]);
+
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
       {/* Deck Mode Notification */}
@@ -2035,13 +2064,20 @@ function AppContent() {
             )}>
               <Sparkles size={16} />
             </div>
-            <div className={cn(
-              "relative flex-1",
-              isDeckBuilderMode && "landscape:flex-none landscape:w-full landscape:max-w-[240px]"
-            )}>
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                (e.currentTarget.querySelector('input') as HTMLInputElement)?.blur();
+              }}
+              className={cn(
+                "relative flex-1",
+                isDeckBuilderMode && "landscape:flex-none landscape:w-full landscape:max-w-[240px]"
+              )}
+            >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
               <input 
                 type="text"
+                enterKeyHint="search"
                 placeholder="Search cards..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -2049,13 +2085,14 @@ function AppContent() {
               />
               {searchQuery && (
                 <button 
+                  type="button"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
                 >
                   <X size={14} />
                 </button>
               )}
-            </div>
+            </form>
             <div className="flex items-center gap-0.5">
               <button 
                 onClick={() => setIsFilterOpen(true)}
@@ -2426,33 +2463,8 @@ function AppContent() {
             useWindowScroll
             data={gridData}
             overscan={400}
-            components={{
-              List: (props) => <ListContainer {...props} isDeckBuilderMode={isDeckBuilderMode} />
-            }}
-            itemContent={(index, card) => (
-              <GridItem 
-                key={card.id}
-                card={card}
-                onSelect={(c) => {
-                  setSelectedCard(c);
-                  setSelectedArtType(c.variantType || "Base art");
-                  setSwipeDirection(0);
-                }}
-                onToggleExpanded={toggleExpanded}
-                isExpanded={expandedCardIds.includes(card.id)}
-                isDeckBuilderMode={isDeckBuilderMode}
-                activeDeck={activeDeck}
-                onAddToDeck={(c, art) => {
-                  const originalCard = combinedCards.find(gc => gc.id === (c.parentId || c.id));
-                  if (originalCard && activeDeckId) {
-                    addToDeck(activeDeckId, originalCard, art);
-                  }
-                }}
-                onRemoveFromDeck={(id, art) => activeDeckId && removeFromDeck(activeDeckId, id, art)}
-                onUpdateDeckCount={(id, art, delta) => activeDeckId && updateDeckCount(activeDeckId, id, art, delta)}
-                priceMode={priceMode}
-              />
-            )}
+            components={virtuosoComponents}
+            itemContent={renderGridItem}
           />
         )}
       </>
