@@ -114,6 +114,17 @@
         }
       },
       "required": ["id", "name", "set", "cardNumber", "type", "color", "rarity", "cost", "ability", "imageUrl"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A user's bookmarked card.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user ID of the owner" },
+        "cardId": { "type": "string", "description": "The ID of the bookmarked card" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "cardId", "createdAt"]
     }
   },
   "firestore": {
@@ -136,6 +147,10 @@
     "cards/{cardId}": {
       "schema": "Card",
       "description": "The master list of all cards"
+    },
+    "bookmarks/{bookmarkId}": {
+      "schema": "Bookmark",
+      "description": "User bookmarked cards"
     }
   }
 }

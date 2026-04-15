@@ -105,6 +105,13 @@ service cloud.firestore {
              data.cardNumber is string;
     }
 
+    function isValidBookmark(data) {
+      return hasOnlyAllowedFields(['uid', 'cardId', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.cardId is string &&
+             data.createdAt is int;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -152,6 +159,12 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    match /bookmarks/{bookmarkId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidBookmark(request.resource.data) && bookmarkId == request.auth.uid + "_" + request.resource.data.cardId;
+      allow delete: if isDocOwner();
     }
   }
 }

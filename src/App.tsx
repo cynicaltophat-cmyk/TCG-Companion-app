@@ -45,7 +45,8 @@ import {
   Edit2,
   ShieldCheck,
   HelpCircle,
-  Zap
+  Zap,
+  Bookmark
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
@@ -276,7 +277,8 @@ const GridItem = React.memo(({
   onAddToDeck, 
   onRemoveFromDeck, 
   onUpdateDeckCount,
-  priceMode
+  priceMode,
+  isBookmarked
 }: { 
   card: any, 
   onSelect: (card: any) => void, 
@@ -287,7 +289,8 @@ const GridItem = React.memo(({
   onAddToDeck: (card: any, artType: ArtVariantType) => void,
   onRemoveFromDeck: (cardId: string, artType: ArtVariantType) => void,
   onUpdateDeckCount: (cardId: string, artType: ArtVariantType, delta: number) => void,
-  priceMode: PriceDisplayMode
+  priceMode: PriceDisplayMode,
+  isBookmarked: boolean
 }) => {
   const deckItem = activeDeck?.items.find(i => i.card.id === (card.parentId || card.id) && i.artType === (card.variantType || "Base art"));
   const count = deckItem ? deckItem.count : 0;
@@ -397,14 +400,12 @@ const GridItem = React.memo(({
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <RarityTag rarity={card.rarity} />
-            {/* MiniPrice hidden as requested */}
-            {/* <MiniPrice 
-              cardNumber={card.cardNumber} 
-              cardName={card.name} 
-              artType={card.variantType || "Base art"}
-              mode={priceMode}
-            /> */}
+            <div className="flex items-center gap-1">
+              <RarityTag rarity={card.rarity} />
+              {isBookmarked && (
+                <Bookmark size={10} className="text-amber-500 fill-amber-500" />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -904,6 +905,7 @@ function AppContent() {
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
+  const [deckBuilderView, setDeckBuilderView] = useState<'list' | 'editor'>('list');
   const [isDeckInPlayMode, setIsDeckInPlayMode] = useState(false);
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
   const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
@@ -1038,6 +1040,80 @@ function AppContent() {
   // Matches Listener
 
 
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+
+  // Bookmarks Listener
+  useEffect(() => {
+    if (!user) {
+      const savedBookmarks = localStorage.getItem('guest_bookmarks');
+      if (savedBookmarks) {
+        try {
+          setBookmarks(JSON.parse(savedBookmarks));
+        } catch (e) {
+          console.error("Error parsing guest bookmarks:", e);
+          setBookmarks([]);
+        }
+      } else {
+        setBookmarks([]);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(db, 'bookmarks'),
+      where('uid', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const bookmarkIds = snapshot.docs.map(doc => doc.data().cardId as string);
+      setBookmarks(bookmarkIds);
+    }, (error) => {
+      console.error("Bookmarks listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const toggleBookmark = async (cardId: string) => {
+    const isBookmarked = bookmarks.includes(cardId);
+    
+    if (!user) {
+      const nextBookmarks = isBookmarked 
+        ? bookmarks.filter(id => id !== cardId)
+        : [...bookmarks, cardId];
+      setBookmarks(nextBookmarks);
+      localStorage.setItem('guest_bookmarks', JSON.stringify(nextBookmarks));
+      showToast(isBookmarked ? "Removed bookmark" : "Bookmarked successfully");
+      return;
+    }
+
+    try {
+      if (isBookmarked) {
+        // Find the document to delete
+        const q = query(
+          collection(db, 'bookmarks'),
+          where('uid', '==', user.uid),
+          where('cardId', '==', cardId)
+        );
+        const snapshot = await getDocFromServer(doc(db, 'bookmarks', `${user.uid}_${cardId}`));
+        // Actually, I'll use a deterministic ID for bookmarks: userId_cardId
+        await deleteDoc(doc(db, 'bookmarks', `${user.uid}_${cardId}`));
+        showToast("Removed bookmark");
+      } else {
+        await setDoc(doc(db, 'bookmarks', `${user.uid}_${cardId}`), {
+          uid: user.uid,
+          cardId,
+          createdAt: Date.now()
+        });
+        showToast("Bookmarked successfully");
+      }
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      // Fallback for deterministic ID if it fails (e.g. if I didn't use deterministic ID before)
+      // But I'll stick to deterministic ID for simplicity
+    }
+  };
+
   const deckEditorRef = useRef<DeckEditorHandle>(null);
   
   // Filter State
@@ -1046,7 +1122,8 @@ function AppContent() {
     rarities: [] as string[],
     colors: [] as string[],
     types: [] as string[],
-    variants: [] as string[]
+    variants: [] as string[],
+    users: [] as string[]
   });
   
   // Deck Management
@@ -1597,7 +1674,8 @@ function AppContent() {
       rarities: [],
       colors: [],
       types: [],
-      variants: []
+      variants: [],
+      users: []
     });
     setSearchQuery("");
   };
@@ -1646,7 +1724,13 @@ function AppContent() {
                                return card.variants?.some(cv => cv.type === v);
                              });
 
-      return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants;
+      const matchesUsers = activeFilters.users.length === 0 || 
+                          activeFilters.users.some(u => {
+                            if (u === "Bookmark") return bookmarks.includes(card.id);
+                            return true;
+                          });
+
+      return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants && matchesUsers;
     }).sort((a, b) => {
       const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
       const normalizedSets = ALL_SETS.map(normalize);
@@ -2025,8 +2109,9 @@ function AppContent() {
       onRemoveFromDeck={(id, art) => activeDeckId && removeFromDeck(activeDeckId, id, art)}
       onUpdateDeckCount={(id, art, delta) => activeDeckId && updateDeckCount(activeDeckId, id, art, delta)}
       priceMode={priceMode}
+      isBookmarked={bookmarks.includes(card.id)}
     />
-  ), [isDeckBuilderMode, activeDeck, activeDeckId, addToDeck, removeFromDeck, updateDeckCount, priceMode, expandedCardIds, toggleExpanded, combinedCards]);
+  ), [isDeckBuilderMode, activeDeck, activeDeckId, addToDeck, removeFromDeck, updateDeckCount, priceMode, expandedCardIds, toggleExpanded, combinedCards, bookmarks]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
@@ -2341,7 +2426,9 @@ function AppContent() {
 
       <main className={cn(
         "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-4 lg:px-12 pt-4 pb-32 transition-all duration-300", 
-        currentTab !== 'cards' && (isDeckBuilderMode && currentTab === 'decks' ? "hidden landscape:block" : "hidden"),
+        isDeckBuilderMode 
+          ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
+          : (currentTab !== 'cards' ? "hidden" : "block"),
         isDeckBuilderMode && "landscape:w-1/2 landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
       )}>
         {/* Filters */}
@@ -2475,11 +2562,37 @@ function AppContent() {
       <AnimatePresence>
         {isDeckBuilderMode && (
           <motion.div 
-            initial={{ y: 50 }}
+            initial={{ y: 100 }}
             animate={{ y: 0 }}
-            exit={{ y: 50 }}
-            className="fixed bottom-[48px] landscape:bottom-0 left-0 right-0 z-[80] bg-white border-t border-stone-200 flex flex-col shadow-[0_-4px_12px_rgba(0,0,0,0.05)]"
+            exit={{ y: 100 }}
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
           >
+            {/* View Toggle Buttons */}
+            <div className="flex bg-stone-100/50 p-1 gap-1 landscape:hidden">
+              <button 
+                onClick={() => setDeckBuilderView('list')}
+                className={cn(
+                  "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  deckBuilderView === 'list' 
+                    ? "bg-white text-[#141414] shadow-sm ring-1 ring-black/5" 
+                    : "text-stone-400 hover:text-stone-600"
+                )}
+              >
+                Card List
+              </button>
+              <button 
+                onClick={() => setDeckBuilderView('editor')}
+                className={cn(
+                  "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                  deckBuilderView === 'editor' 
+                    ? "bg-white text-[#141414] shadow-sm ring-1 ring-black/5" 
+                    : "text-stone-400 hover:text-stone-600"
+                )}
+              >
+                Deck Editor
+              </button>
+            </div>
+
             {/* Color Indicator Bar */}
             <div className="flex h-1 w-full">
               {(() => {
@@ -2509,58 +2622,58 @@ function AppContent() {
                 } else if (colors.length === 1) {
                   return <div className={cn("w-full h-full", getColorBg(colors[0]))} />;
                 }
-                return null;
+                return <div className="w-full h-full bg-stone-100" />;
               })()}
             </div>
 
-            <div className="px-4 py-2 flex items-center gap-3">
+            {/* Deck Info Bar */}
+            <div className="px-4 py-2.5 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 bg-stone-100 rounded-lg overflow-hidden shrink-0 border border-stone-200">
+                  {activeDeck?.coverImageUrl ? (
+                    <img src={activeDeck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-stone-300">
+                      <Layout size={18} />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-[11px] font-black text-[#141414] truncate leading-tight">
+                    {activeDeck?.name || "Untitled Deck"}
+                  </h3>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-wider">Cards</span>
+                    <span className="text-[9px] font-black text-[#141414]">
+                      {activeDeck?.items.reduce((s, i) => s + i.count, 0) || 0}/50
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <button 
                 onClick={() => {
                   setIsDeckBuilderMode(false);
-                  setIsDeckEditorOpen(true);
+                  setDeckBuilderView('list');
                   setCurrentTab('decks');
+                  setIsDeckEditorOpen(true);
                 }}
-                className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-black text-[9px] uppercase tracking-wider transition-colors shrink-0 shadow-sm"
+                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-black text-[8px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
               >
-                Exit builder
+                Exit Builder
               </button>
-            
-            <div className="relative flex-1">
-              <select 
-                value={activeDeckId || ''}
-                onChange={(e) => setActiveDeckId(e.target.value)}
-                className="w-full appearance-none bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-[10px] font-bold text-stone-700 focus:outline-none pr-6"
-              >
-                {decks.length === 0 && <option value="">No Decks</option>}
-                {decks.map(deck => (
-                  <option key={deck.id} value={deck.id}>{deck.name}</option>
-                ))}
-              </select>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
-                <ChevronDown size={10} />
-              </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] font-black text-stone-400 uppercase leading-none">Cards</span>
-                <span className="text-[11px] font-black text-[#141414] leading-none">
-                  {activeDeck?.items.reduce((s, i) => s + i.count, 0) || 0}/50
-                </span>
-              </div>
-            </div>
-          </div>
           </motion.div>
         )}
       </AnimatePresence>
       </div>
 
       {/* Sticky Footer Navigation */}
-      <div className={cn(
-        "fixed bottom-0 left-0 right-0 z-[100] bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1",
-        isDeckBuilderMode && "landscape:hidden"
-      )}>
-        <div className="max-w-md mx-auto flex items-center justify-around px-4">
+      {!isDeckBuilderMode && (
+        <div className={cn(
+          "fixed bottom-0 left-0 right-0 z-[100] bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1"
+        )}>
+          <div className="max-w-md mx-auto flex items-center justify-around px-4">
           <button 
             onClick={() => {
               if (selectedCard) {
@@ -2762,6 +2875,7 @@ function AppContent() {
           </button>
         </div>
       </div>
+      )}
 
       <AnimatePresence>
         {toast && (
@@ -2973,6 +3087,19 @@ function AppContent() {
                   >
                     <Plus size={14} />
                     <span className="text-[9px] font-bold uppercase tracking-wider">Add to deck</span>
+                  </button>
+
+                  <button 
+                    onClick={() => toggleBookmark(selectedCard.id)}
+                    className={cn(
+                      "p-2 rounded-full transition-all active:scale-95 shadow-lg shadow-black/5 border",
+                      bookmarks.includes(selectedCard.id)
+                        ? "bg-amber-50 border-amber-200 text-amber-600"
+                        : "bg-white border-stone-200 text-stone-400 hover:text-stone-600"
+                    )}
+                    title={bookmarks.includes(selectedCard.id) ? "Remove bookmark" : "Bookmark card"}
+                  >
+                    <Bookmark size={18} className={cn(bookmarks.includes(selectedCard.id) && "fill-amber-600")} />
                   </button>
                 </div>
               </div>
@@ -3598,7 +3725,7 @@ function AppContent() {
           <DeckEditor 
             ref={deckEditorRef}
             deck={activeDeck}
-            visible={currentTab === 'decks'}
+            visible={isDeckBuilderMode ? deckBuilderView === 'editor' : currentTab === 'decks'}
             initialTab={isDeckInPlayMode ? 'play' : 'cards'}
             allCards={combinedCards}
             onUpdateCount={updateDeckCount}
@@ -3621,6 +3748,7 @@ function AppContent() {
             priceMode={priceMode}
             onPriceModeChange={setPriceMode}
             onPlayModeChange={setIsDeckInPlayMode}
+            onRenameDeck={renameDeck}
             onPrintProxy={(deck) => setPrintingDeck(deck)}
             onDuplicateDeck={duplicateDeck}
             onImportDeck={importDeckFromText}
@@ -3673,6 +3801,25 @@ function AppContent() {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-4 space-y-8 no-scrollbar">
+                {/* Users */}
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Users</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => toggleFilter('users', 'Bookmark')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1.5",
+                        activeFilters.users.includes('Bookmark')
+                          ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
+                          : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
+                      )}
+                    >
+                      <Bookmark size={12} className={cn(activeFilters.users.includes('Bookmark') && "fill-white")} />
+                      Bookmark
+                    </button>
+                  </div>
+                </div>
+
                 {/* Sets */}
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Sets</h3>

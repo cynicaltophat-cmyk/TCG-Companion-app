@@ -35,6 +35,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   autoStartCreate = false
 }) => {
   const [isCreating, setIsCreating] = useState(autoStartCreate);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -155,12 +156,25 @@ export const DeckList: React.FC<DeckListProps> = ({
             </button>
             <h2 className="font-bold text-lg tracking-tight">My Decks</h2>
           </div>
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="p-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg shadow-black/10 active:scale-95"
-          >
-            <Plus size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsDeleteMode(!isDeleteMode)}
+              className={cn(
+                "p-2 rounded-full transition-all active:scale-95 shadow-lg",
+                isDeleteMode 
+                  ? "bg-red-500 text-white shadow-red-500/20" 
+                  : "bg-white text-stone-400 border border-stone-200 shadow-black/5 hover:text-stone-600"
+              )}
+            >
+              <Trash2 size={20} />
+            </button>
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="p-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg shadow-black/10 active:scale-95"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -239,8 +253,11 @@ export const DeckList: React.FC<DeckListProps> = ({
 
                   <div className="flex items-stretch">
                     <div 
-                      onClick={() => onSelectDeck(deck.id)}
-                      className="flex-1 min-w-0 p-4 flex items-center gap-4 cursor-pointer hover:bg-stone-50/50 transition-colors"
+                      onClick={() => !isDeleteMode && onSelectDeck(deck.id)}
+                      className={cn(
+                        "flex-1 min-w-0 p-4 flex items-center gap-4 transition-colors",
+                        !isDeleteMode ? "cursor-pointer hover:bg-stone-50/50" : "cursor-default"
+                      )}
                     >
                       <div 
                         onClick={(e) => {
@@ -297,21 +314,24 @@ export const DeckList: React.FC<DeckListProps> = ({
 
                     {editingDeckId !== deck.id && (
                       <div className="flex items-stretch gap-0">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteConfirmId(deck.id);
-                          }}
-                          className="px-3 text-stone-300 hover:text-red-500 transition-colors flex items-center justify-center"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                        <button 
-                          onClick={() => onSelectDeck(deck.id)}
-                          className="w-14 bg-stone-50 border-l border-stone-100 flex items-center justify-center text-stone-300 hover:text-[#141414] hover:bg-stone-100 transition-all active:bg-stone-200"
-                        >
-                          <ChevronRight size={20} />
-                        </button>
+                        {isDeleteMode ? (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirmId(deck.id);
+                            }}
+                            className="px-6 bg-red-50 text-red-500 hover:bg-red-100 transition-colors flex items-center justify-center font-bold text-xs uppercase tracking-widest border-l border-red-100"
+                          >
+                            Delete
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => onSelectDeck(deck.id)}
+                            className="w-14 bg-stone-50 border-l border-stone-100 flex items-center justify-center text-stone-300 hover:text-[#141414] hover:bg-stone-100 transition-all active:bg-stone-200"
+                          >
+                            <ChevronRight size={20} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

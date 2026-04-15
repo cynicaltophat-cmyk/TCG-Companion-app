@@ -29,7 +29,9 @@ import {
   Upload,
   Copy,
   CopyPlus,
-  Printer
+  Printer,
+  Edit2,
+  Check
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, Deck, DeckItem } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
@@ -48,6 +50,7 @@ interface DeckEditorProps {
   onDuplicateDeck?: (deck: Deck) => void;
   onImportDeck?: (text: string) => void;
   onPrintProxy?: (deck: Deck) => void;
+  onRenameDeck?: (deckId: string, newName: string) => void;
   onSetCover?: (deckId: string, imageUrl: string) => void;
   allCards: GundamCard[];
   visible?: boolean;
@@ -191,6 +194,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   onDuplicateDeck,
   onImportDeck,
   onPrintProxy,
+  onRenameDeck,
   onSetCover,
   allCards,
   visible = true,
@@ -200,6 +204,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play'>(initialTab || 'cards');
   const [showCoverPicker, setShowCoverPicker] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [editName, setEditName] = React.useState(deck.name);
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [importText, setImportText] = React.useState('');
   const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
@@ -217,6 +223,13 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const [isAddHandModalOpen, setIsAddHandModalOpen] = React.useState(false);
   const [isStartingHandSetup, setIsStartingHandSetup] = React.useState(false);
   const [isExitPlayModalOpen, setIsExitPlayModalOpen] = React.useState(false);
+
+  const handleRename = () => {
+    if (editName.trim() && editName !== deck.name) {
+      onRenameDeck?.(deck.id, editName.trim());
+    }
+    setIsEditingName(false);
+  };
   const [resourceLevel, setResourceLevel] = React.useState(0);
   const [selectedHandIndex, setSelectedHandIndex] = React.useState(0);
   const [playTab, setPlayTab] = React.useState<'card_info' | 'hand_synergy'>('card_info');
@@ -523,10 +536,10 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
     >
       {/* Header */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-        <div className="w-full px-4 lg:px-12 py-4 flex flex-col gap-4 landscape:gap-3 landscape:py-3">
-          {/* Line 1: Back, Menu, Play Mode + Deck Info in Landscape */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
+        <div className="w-full px-4 lg:px-12 py-2 flex flex-col gap-2">
+          {/* Line 1: Back, Icon, Name, Menu */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <button 
                 onClick={() => {
                   if (activeTab === 'play') {
@@ -536,18 +549,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   }
                 }} 
                 className={cn(
-                  "p-2 hover:bg-stone-100 rounded-full transition-colors",
+                  "p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0",
                   isDeckBuilderMode && "landscape:hidden"
                 )}
               >
                 <ChevronRight className="rotate-180" size={24} />
               </button>
 
-              {/* Landscape only: Deck Icon, Name, Count */}
-              <div className={cn(
-                "hidden landscape:flex items-center gap-3 min-w-0",
-                isDeckBuilderMode && "landscape:hidden"
-              )}>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div 
                   onClick={() => setShowCoverPicker(true)}
                   className="w-8 h-8 bg-stone-100 rounded-lg flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
@@ -558,29 +567,61 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     <Layout size={16} />
                   )}
                 </div>
-                <h2 className="font-bold text-base truncate max-w-[200px]">{deck.name}</h2>
-                <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap",
-                  isValidSize ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                )}>
-                  {totalCards} / 50 Cards
-                </span>
+                
+                {isEditingName ? (
+                  <div className="flex items-center gap-1 flex-1 min-w-0 max-w-[200px]">
+                    <input 
+                      autoFocus
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onBlur={(e) => {
+                        // Only blur if we're not clicking the check button
+                        if (!e.relatedTarget?.classList.contains('confirm-rename')) {
+                          handleRename();
+                        }
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                      className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none min-w-0"
+                    />
+                    <button 
+                      onClick={handleRename}
+                      className="confirm-rename p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shrink-0"
+                    >
+                      <Check size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <h2 className="font-bold text-sm truncate">{deck.name}</h2>
+                    <button 
+                      onClick={() => {
+                        setEditName(deck.name);
+                        setIsEditingName(true);
+                      }}
+                      className="p-1 text-stone-300 hover:text-[#141414] transition-colors shrink-0"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className={cn(
-              "flex items-center gap-2",
+              "flex items-center gap-2 shrink-0",
               isDeckBuilderMode && "landscape:hidden"
             )}>
               <div className="relative">
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="p-2 hover:bg-stone-100 rounded-xl transition-colors text-stone-600 flex items-center gap-2"
+                  className="p-2 hover:bg-stone-100 rounded-xl transition-colors text-stone-600 flex items-center gap-1"
                   title="Deck Menu"
                 >
                   <MoreHorizontal size={20} />
-                  <span className="text-[10px] font-black uppercase tracking-wider">Menu</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider">Menu</span>
                 </button>
+                {/* ... existing menu AnimatePresence ... */}
 
                 <AnimatePresence>
                   {isMenuOpen && (
@@ -689,48 +730,22 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
             </div>
           </div>
 
-          {/* Line 2: Deck Name, Card Count (Hidden in landscape) */}
-          <div className="flex items-center justify-between landscape:hidden">
-            <div className="flex items-center gap-3 min-w-0">
-              <div 
-                onClick={() => setShowCoverPicker(true)}
-                className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
-              >
-                {deck.coverImageUrl ? (
-                  <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
-                ) : (
-                  <Layout size={20} />
-                )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Plus size={14} className="text-white" />
-                </div>
-              </div>
-              <h2 className="font-bold text-lg truncate max-w-[200px]">{deck.name}</h2>
-            </div>
-            <span className={cn(
-              "text-xs font-bold px-2 py-0.5 rounded-full",
-              isValidSize ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-            )}>
-              {totalCards} / 50 Cards
-            </span>
-          </div>
-
           {/* Tab Toggle */}
           {activeTab !== 'play' && (
             <div className="flex bg-stone-100 p-1 rounded-xl">
               <button 
                 onClick={() => setActiveTab('cards')}
                 className={cn(
-                  "flex-1 py-2 landscape:py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
                   activeTab === 'cards' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
-                Current Deck
+                Current Deck {totalCards}/50
               </button>
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
-                  "flex-1 py-2 landscape:py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
                   activeTab === 'stats' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
