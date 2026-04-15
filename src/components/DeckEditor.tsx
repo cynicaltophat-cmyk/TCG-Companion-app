@@ -550,7 +550,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 }} 
                 className={cn(
                   "p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0",
-                  isDeckBuilderMode && "landscape:hidden"
+                  isDeckBuilderMode && "hidden"
                 )}
               >
                 <ChevronRight className="rotate-180" size={24} />
