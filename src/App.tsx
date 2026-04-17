@@ -970,7 +970,7 @@ function AppContent() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const importData = params.get('import');
-    if (importData) {
+    if (importData && allCards.length > 0) {
       try {
         const decoded = atob(importData);
         const deckData = JSON.parse(decoded);
@@ -979,14 +979,27 @@ function AppContent() {
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
 
+        // Reconstruct items with full card data
+        const reconstructedItems = deckData.items.map((item: any) => {
+          const fullCard = allCards.find(c => c.cardNumber === (item.card.cardNumber || item.card.id));
+          if (fullCard) {
+            return {
+              ...item,
+              card: fullCard
+            };
+          }
+          return item;
+        });
+
         // Create the deck
         const importNewDeck = async () => {
           const deckId = Math.random().toString(36).substr(2, 9);
           const newDeck: Deck = {
             ...deckData,
+            items: reconstructedItems,
             id: deckId,
             lastModified: Date.now(),
-            name: `${deckData.name} (Imported)`
+            name: `${deckData.name || 'Imported Deck'} (Imported)`
           };
 
           if (!user) {
@@ -1012,7 +1025,7 @@ function AppContent() {
         console.error("Failed to import deck from URL:", e);
       }
     }
-  }, [user, isAuthReady]);
+  }, [user, isAuthReady, allCards]);
 
   // Auth Listener
   useEffect(() => {
@@ -3749,6 +3762,8 @@ function AppContent() {
             onPriceModeChange={setPriceMode}
             onPlayModeChange={setIsDeckInPlayMode}
             onRenameDeck={renameDeck}
+            userName={user?.displayName || undefined}
+            userPhotoUrl={user?.photoURL || undefined}
             onPrintProxy={(deck) => setPrintingDeck(deck)}
             onDuplicateDeck={duplicateDeck}
             onImportDeck={importDeckFromText}

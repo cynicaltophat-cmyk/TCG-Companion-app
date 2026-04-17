@@ -31,8 +31,11 @@ import {
   CopyPlus,
   Printer,
   Edit2,
-  Check
+  Check,
+  Image as ImageIcon
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { DeckImageExport } from './DeckImageExport';
 import { GundamCard, ArtVariantType, Deck, DeckItem } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
 
@@ -56,6 +59,8 @@ interface DeckEditorProps {
   visible?: boolean;
   initialTab?: 'cards' | 'stats' | 'play';
   isDeckBuilderMode?: boolean;
+  userName?: string;
+  userPhotoUrl?: string;
 }
 
 export interface DeckEditorHandle {
@@ -199,7 +204,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   allCards,
   visible = true,
   initialTab,
-  isDeckBuilderMode = false
+  isDeckBuilderMode = false,
+  userName,
+  userPhotoUrl
 }, ref) => {
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play'>(initialTab || 'cards');
   const [showCoverPicker, setShowCoverPicker] = React.useState(false);
@@ -209,6 +216,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [importText, setImportText] = React.useState('');
   const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
+  const [isImageExporting, setIsImageExporting] = React.useState(false);
+  const [exportImageData, setExportImageData] = React.useState<string | null>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = React.useState(false);
   const [exportText, setExportText] = React.useState('');
   const [playModeStep, setPlayModeStep] = React.useState<'setup_choice' | 'shuffle' | 'dice_roll' | 'draw_five' | 'starting_hand_tips' | 'mulligan_instruction' | 'shuffle_after_mulligan' | 'shield_setup' | 'ex_base_setup' | 'main_deck_setup' | 'resource_setup' | 'ex_resource_setup' | 'graveyard_setup' | 'final_setup_check' | 'playing'>('setup_choice');
   const [turnOrder, setTurnOrder] = React.useState<'first' | 'second' | null>(null);
@@ -223,6 +233,35 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const [isAddHandModalOpen, setIsAddHandModalOpen] = React.useState(false);
   const [isStartingHandSetup, setIsStartingHandSetup] = React.useState(false);
   const [isExitPlayModalOpen, setIsExitPlayModalOpen] = React.useState(false);
+
+  const exportRef = React.useRef<HTMLDivElement>(null);
+
+  const handleImageExport = async () => {
+    if (!exportRef.current) return;
+    
+    setIsImageExporting(true);
+    setIsMenuOpen(false);
+    showToast("Generating preview...");
+
+    try {
+      // Small delay to ensure everything is rendered
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const dataUrl = await toPng(exportRef.current, {
+        quality: 0.95,
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+      
+      setExportImageData(dataUrl);
+      setIsPreviewModalOpen(true);
+    } catch (err) {
+      console.error('Failed to generate preview:', err);
+      showToast("Failed to generate preview. Please try again.");
+    } finally {
+      setIsImageExporting(false);
+    }
+  };
 
   const handleRename = () => {
     if (editName.trim() && editName !== deck.name) {
@@ -455,6 +494,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const maxCost = Math.max(...Object.keys(costStats).map(Number), 0);
   const costCurve = Array.from({ length: Math.max(maxCost + 1, 6) }, (_, i) => costStats[i] || 0);
 
+  const levelStats = deck.items.reduce((acc, item) => {
+    if (item.card.level) {
+      const lvl = Number(item.card.level);
+      acc[lvl] = (acc[lvl] || 0) + item.count;
+    }
+    return acc;
+  }, {} as Record<number, number>);
+
   // Archetype Calculations
   const unitsLvl3OrLower = deck.items.reduce((sum, item) => {
     if (item.card.type.includes('Unit') && item.card.level && Number(item.card.level) <= 3) {
@@ -641,6 +688,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                       >
                         <div className="p-2 space-y-1">
                           <button 
+                            onClick={handleImageExport}
+                            disabled={isImageExporting}
+                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors disabled:opacity-50"
+                          >
+                            <ImageIcon size={16} />
+                            Export as Image (PNG)
+                          </button>
+                          <button 
                             onClick={() => {
                               setIsMenuOpen(false);
                               const text = deck.items.map(i => `${i.count}x ${i.card.cardNumber}`).join('\n');
@@ -757,6 +812,18 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       </header>
 
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pb-40">
+        {/* Hidden Export Container */}
+        <div className="fixed left-[-9999px] top-0 pointer-events-none">
+          <div ref={exportRef}>
+            <DeckImageExport 
+              deck={deck}
+              totalCards={totalCards}
+              userName={userName}
+              userPhotoUrl={userPhotoUrl}
+            />
+          </div>
+        </div>
+
         <AnimatePresence mode="wait">
           {activeTab === 'stats' ? (
             <motion.section 
@@ -2244,6 +2311,69 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <Info size={12} className="text-amber-400" />
               {toast}
             </motion.div>
+          )}
+        </AnimatePresence>
+        {/* Image Export Preview Modal */}
+        <AnimatePresence>
+          {isPreviewModalOpen && exportImageData && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl flex flex-col gap-4 max-h-[90vh]"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-black uppercase tracking-tight">Image Preview</h3>
+                    <p className="text-stone-500 text-xs">Review your deck list image before downloading.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsPreviewModalOpen(false)}
+                    className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto rounded-2xl border border-stone-200 bg-stone-50 p-2">
+                  <img 
+                    src={exportImageData} 
+                    alt="Deck Preview" 
+                    className="w-full h-auto rounded-lg shadow-sm"
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => setIsPreviewModalOpen(false)}
+                    className="flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-black uppercase tracking-widest text-sm active:scale-95 transition-all"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.download = `${deck.name || 'deck'}-list.png`;
+                      link.href = exportImageData;
+                      link.click();
+                      showToast("Image downloaded!");
+                    }}
+                    className="flex-[2] py-4 bg-[#141414] text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg shadow-black/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download size={18} />
+                    Download as PNG
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </div>
