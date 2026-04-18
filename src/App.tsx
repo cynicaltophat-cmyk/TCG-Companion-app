@@ -442,53 +442,53 @@ const GridItem = React.memo(({
             {card.variantType}
           </div>
         )}
-
-        {isDeckBuilderMode && activeDeck && (
-          <div 
-            className="absolute inset-x-0 bottom-0 p-2 bg-white/95 backdrop-blur-sm border-t border-stone-100 flex items-center justify-center gap-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button 
-              onClick={() => {
-                if (count === 1) {
-                  onRemoveFromDeck(card.parentId || card.id, card.variantType || "Base art");
-                } else if (count > 1) {
-                  onUpdateDeckCount(card.parentId || card.id, card.variantType || "Base art", -1);
-                }
-              }}
-              disabled={count === 0}
-              className={cn(
-                "w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90",
-                count > 0 
-                  ? "bg-white border border-stone-200 text-[#141414] shadow-sm hover:bg-stone-100" 
-                  : "text-stone-300 cursor-not-allowed opacity-50"
-              )}
-            >
-              <Minus size={14} />
-            </button>
-            
-            <span className={cn(
-              "text-sm font-black transition-colors min-w-[16px] text-center",
-              totalCount >= 4 ? "text-red-500" : "text-[#141414]"
-            )}>
-              {totalCount}
-            </span>
-            
-            <button 
-              onClick={() => onAddToDeck(card, card.variantType || "Base art")}
-              disabled={totalCount >= 4}
-              className={cn(
-                "w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90 shadow-sm",
-                totalCount < 4 
-                  ? "bg-[#141414] text-white hover:bg-stone-800" 
-                  : "bg-stone-200 text-stone-400 cursor-not-allowed"
-              )}
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        )}
       </div>
+
+      {isDeckBuilderMode && activeDeck && (
+        <div 
+          className="p-2 bg-white border-b border-stone-100 flex items-center justify-center gap-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            onClick={() => {
+              if (count === 1) {
+                onRemoveFromDeck(card.parentId || card.id, card.variantType || "Base art");
+              } else if (count > 1) {
+                onUpdateDeckCount(card.parentId || card.id, card.variantType || "Base art", -1);
+              }
+            }}
+            disabled={count === 0}
+            className={cn(
+              "w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-90",
+              count > 0 
+                ? "bg-white border border-stone-200 text-[#141414] shadow-sm hover:bg-stone-100" 
+                : "text-stone-300 cursor-not-allowed opacity-50"
+            )}
+          >
+            <Minus size={18} />
+          </button>
+          
+          <span className={cn(
+            "text-base font-black transition-colors min-w-[20px] text-center",
+            totalCount >= 4 ? "text-red-500" : "text-[#141414]"
+          )}>
+            {totalCount}
+          </span>
+          
+          <button 
+            onClick={() => onAddToDeck(card, card.variantType || "Base art")}
+            disabled={totalCount >= 4}
+            className={cn(
+              "w-10 h-10 flex items-center justify-center rounded-full transition-all active:scale-90 shadow-sm",
+              totalCount < 4 
+                ? "bg-[#141414] text-white hover:bg-stone-800" 
+                : "bg-stone-200 text-stone-400 cursor-not-allowed"
+            )}
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+      )}
       
       <div className="p-2 h-[76px] flex flex-col justify-between">
         <div>

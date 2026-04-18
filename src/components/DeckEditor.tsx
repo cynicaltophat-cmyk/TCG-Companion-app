@@ -141,38 +141,39 @@ const CardGridItem = React.memo(({
           }
         }}
       />
-      
-      {/* Count Controls Overlay */}
-      {!hideControls && (
-        <div className="absolute inset-x-0 bottom-0 p-1 bg-white/95 backdrop-blur-sm border-t border-stone-100 flex items-center justify-between gap-1">
-          <button 
-            onClick={() => {
-              if (item.count === 1) {
-                onRemove(deckId, item.card.id, item.artType);
-              } else {
-                onUpdateCount(deckId, item.card.id, item.artType, -1);
-              }
-            }}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-stone-100 text-stone-600 active:scale-90 transition-transform"
-          >
-            <Minus size={10} />
-          </button>
-          <span className={cn(
-            "text-[10px] font-black transition-colors",
-            item.count >= 4 ? "text-red-500" : "text-[#141414]"
-          )}>
-            {item.count}
-          </span>
-          <button 
-            onClick={() => onUpdateCount(deckId, item.card.id, item.artType, 1)}
-            disabled={item.count >= 4}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-[#141414] text-white active:scale-90 transition-transform disabled:opacity-30"
-          >
-            <Plus size={10} />
-          </button>
-        </div>
-      )}
     </div>
+
+    {/* Count Controls - Now below the image */}
+    {!hideControls && (
+      <div className="p-1 bg-white border-b border-stone-100 flex items-center justify-between gap-1">
+        <button 
+          onClick={() => {
+            if (item.count === 1) {
+              onRemove(deckId, item.card.id, item.artType);
+            } else {
+              onUpdateCount(deckId, item.card.id, item.artType, -1);
+            }
+          }}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-stone-100 text-stone-600 active:scale-90 transition-transform"
+        >
+          <Minus size={14} />
+        </button>
+        <span className={cn(
+          "text-xs font-black transition-colors px-1",
+          item.count >= 4 ? "text-red-500" : "text-[#141414]"
+        )}>
+          {item.count}
+        </span>
+        <button 
+          onClick={() => onUpdateCount(deckId, item.card.id, item.artType, 1)}
+          disabled={item.count >= 4}
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-[#141414] text-white active:scale-90 transition-transform disabled:opacity-30"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    )}
+
     <div className="p-1.5 flex flex-col gap-0.5">
       <h4 className="text-[10px] font-bold truncate leading-tight">{item.card.name}</h4>
       <div className="flex items-center justify-between">
@@ -228,7 +229,12 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const handCarouselRef = React.useRef<HTMLDivElement>(null);
   const [currentHand, setCurrentHand] = React.useState<(DeckItem & { handId: string })[]>([]);
   const sortedHand = React.useMemo(() => {
-    return [...currentHand].sort((a, b) => Number(a.card.level || 0) - Number(b.card.level || 0));
+    return [...currentHand].sort((a, b) => {
+      const lvlA = Number(a.card.level || 0);
+      const lvlB = Number(b.card.level || 0);
+      if (lvlA !== lvlB) return lvlA - lvlB;
+      return a.card.cardNumber.localeCompare(b.card.cardNumber);
+    });
   }, [currentHand]);
   const [isAddHandModalOpen, setIsAddHandModalOpen] = React.useState(false);
   const [isStartingHandSetup, setIsStartingHandSetup] = React.useState(false);
@@ -1890,16 +1896,25 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
                   isDeckBuilderMode ? "landscape:grid-cols-8" : "landscape:grid-cols-6"
                 )}>
-                  {deck.items.filter(i => i.card.type.includes('Unit')).map((item) => (
-                    <CardGridItem 
-                      key={`${item.card.id}-${item.artType}`} 
-                      item={item} 
-                      deckId={deck.id}
-                      onPreviewCard={onPreviewCard}
-                      onRemove={onRemove}
-                      onUpdateCount={onUpdateCount}
-                    />
-                  ))}
+                  {deck.items
+                    .filter(i => i.card.type.includes('Unit'))
+                    .sort((a, b) => {
+                      const lvlA = Number(a.card.level || 0);
+                      const lvlB = Number(b.card.level || 0);
+                      if (lvlA !== lvlB) return lvlA - lvlB;
+                      return a.card.cardNumber.localeCompare(b.card.cardNumber);
+                    })
+                    .map((item) => (
+                      <CardGridItem 
+                        key={`${item.card.id}-${item.artType}`} 
+                        item={item} 
+                        deckId={deck.id}
+                        onPreviewCard={onPreviewCard}
+                        onRemove={onRemove}
+                        onUpdateCount={onUpdateCount}
+                      />
+                    ))
+                  }
                   {/* Add Unit Button */}
                   <button 
                     onClick={() => onEnterBuilderMode(['Unit'])}
@@ -1926,16 +1941,25 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
                   isDeckBuilderMode ? "landscape:grid-cols-8" : "landscape:grid-cols-6"
                 )}>
-                  {deck.items.filter(i => !i.card.type.includes('Unit')).map((item) => (
-                    <CardGridItem 
-                      key={`${item.card.id}-${item.artType}`} 
-                      item={item} 
-                      deckId={deck.id}
-                      onPreviewCard={onPreviewCard}
-                      onRemove={onRemove}
-                      onUpdateCount={onUpdateCount}
-                    />
-                  ))}
+                  {deck.items
+                    .filter(i => !i.card.type.includes('Unit'))
+                    .sort((a, b) => {
+                      const lvlA = Number(a.card.level || 0);
+                      const lvlB = Number(b.card.level || 0);
+                      if (lvlA !== lvlB) return lvlA - lvlB;
+                      return a.card.cardNumber.localeCompare(b.card.cardNumber);
+                    })
+                    .map((item) => (
+                      <CardGridItem 
+                        key={`${item.card.id}-${item.artType}`} 
+                        item={item} 
+                        deckId={deck.id}
+                        onPreviewCard={onPreviewCard}
+                        onRemove={onRemove}
+                        onUpdateCount={onUpdateCount}
+                      />
+                    ))
+                  }
                   {/* Add Others Button */}
                   <button 
                     onClick={() => onEnterBuilderMode(['Pilot', 'Command', 'Base'])}
