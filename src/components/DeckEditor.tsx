@@ -577,7 +577,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       className={cn(
         "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col transition-all duration-300",
         !visible && !isDeckBuilderMode && "hidden",
-        isDeckBuilderMode && "landscape:left-1/2 landscape:w-1/2 landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
+        isDeckBuilderMode && "landscape:left-[35%] landscape:w-[65%] landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
         !visible && isDeckBuilderMode && "hidden landscape:flex"
       )}
     >
@@ -926,7 +926,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Price Mode</span>
                   <div className="flex bg-stone-100 border border-stone-200 rounded-lg p-0.5">
-                    {(['JPY', 'SGD130', 'SGD120'] as PriceDisplayMode[]).map((m) => (
+                    {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
                       <button
                         key={m}
                         onClick={() => onPriceModeChange(m)}
@@ -937,7 +937,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                             : "text-stone-400 hover:text-stone-600"
                         )}
                       >
-                        {m === 'JPY' ? '¥' : m === 'SGD130' ? 'YYT/130' : 'YYT/120'}
+                        {m === 'JPY' ? '¥' : 'YYT/120'}
                       </button>
                     ))}
                   </div>
@@ -1888,7 +1888,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
                 <div className={cn(
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
-                  isDeckBuilderMode ? "landscape:grid-cols-3" : "landscape:grid-cols-6"
+                  isDeckBuilderMode ? "landscape:grid-cols-8" : "landscape:grid-cols-6"
                 )}>
                   {deck.items.filter(i => i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 
@@ -1924,7 +1924,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
                 <div className={cn(
                   "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2",
-                  isDeckBuilderMode ? "landscape:grid-cols-3" : "landscape:grid-cols-6"
+                  isDeckBuilderMode ? "landscape:grid-cols-8" : "landscape:grid-cols-6"
                 )}>
                   {deck.items.filter(i => !i.card.type.includes('Unit')).map((item) => (
                     <CardGridItem 

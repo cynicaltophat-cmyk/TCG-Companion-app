@@ -46,7 +46,8 @@ import {
   ShieldCheck,
   HelpCircle,
   Zap,
-  Bookmark
+  Bookmark,
+  Upload
 } from 'lucide-react';
 import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
@@ -233,21 +234,76 @@ const RarityTag = ({ rarity }: { rarity: GundamCard['rarity'] }) => {
 };
 
 const CardPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode, onModeChange }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode, onModeChange: (mode: PriceDisplayMode) => void }) => {
-  // Automatic price fetching disabled due to Vercel blocking Yuyutei
+  const [price, setPrice] = useState<string | null>(getCachedPrice(cardNumber, cardName, artType));
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const cached = getCachedPrice(cardNumber, cardName, artType);
+    if (cached) {
+      setPrice(cached);
+      setLoading(false);
+      return;
+    }
+
+    if (cardNumber.startsWith('GD04-')) {
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchPrice = async () => {
+      setLoading(true);
+      try {
+        const fetched = await getCardPrice(cardNumber, cardName, false, artType);
+        if (isMounted) setPrice(fetched);
+      } catch (e) {
+        console.error("Price fetch error:", e);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchPrice();
+    return () => { isMounted = false; };
+  }, [cardNumber, cardName, artType]);
+
+  const displayPrice = price ? formatPrice(price, mode) : null;
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <a 
-            href={`https://yuyu-tei.jp/sell/gcg/s/search?search_word=${cardNumber}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-full transition-all border border-amber-200 shadow-sm"
-          >
-            <ExternalLink size={12} />
-            View Price on Yuyu-tei
-          </a>
+          {loading ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full">
+              <Loader2 size={10} className="animate-spin text-stone-400" />
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Checking...</span>
+            </div>
+          ) : displayPrice ? (
+            <button 
+              onClick={() => onModeChange(mode === 'JPY' ? 'SGD120' : 'JPY')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-full transition-all shadow-sm active:scale-95 group border border-amber-600/20"
+            >
+              <span className="text-xs font-black">{displayPrice}</span>
+              <span className="text-[8px] opacity-60 font-black">
+                {mode === 'JPY' ? 'JPY' : 'SGD/YYT120'}
+              </span>
+            </button>
+          ) : (
+            <div className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+              Price N/A
+            </div>
+          )}
         </div>
+        
+        <a 
+          href={`https://yuyu-tei.jp/sell/gcg/s/search?search_word=${cardNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-[10px] font-bold text-stone-400 hover:text-amber-600 transition-colors w-fit group"
+        >
+          <ExternalLink size={10} className="group-hover:scale-110 transition-transform" />
+          Official Yuyu-tei Listing
+        </a>
       </div>
     </div>
   );
@@ -259,13 +315,59 @@ const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ..
     {...props}
     style={{ ...style }}
     className={cn(
-      "grid gap-2 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32",
-      isDeckBuilderMode ? "landscape:grid-cols-3" : "landscape:grid-cols-6"
+      "grid gap-2 sm:gap-2.5 lg:gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 pb-32",
+      isDeckBuilderMode ? "landscape:grid-cols-3 landscape:gap-3" : "landscape:grid-cols-6"
     )}
   >
     {children}
   </div>
 ));
+
+const PricePreview = React.memo(({ cardNumber, cardName, artType = "Base art", mode }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode }) => {
+  const [price, setPrice] = useState<string | null>(getCachedPrice(cardNumber, cardName, artType));
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const cached = getCachedPrice(cardNumber, cardName, artType);
+    if (cached) {
+      setPrice(cached);
+      setLoading(false);
+      return;
+    }
+
+    if (cardNumber.startsWith('GD04-')) {
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setLoading(true);
+    getCardPrice(cardNumber, cardName, false, artType).then(fetched => {
+      if (isMounted) {
+        setPrice(fetched);
+        setLoading(false);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [cardNumber, cardName, artType]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-stone-50 rounded-md border border-stone-100 animate-pulse transition-all">
+        <span className="text-[7px] font-bold text-stone-400 uppercase tracking-tighter whitespace-nowrap">Fetching price...</span>
+      </div>
+    );
+  }
+
+  const displayPrice = price ? formatPrice(price, mode) : null;
+  if (!displayPrice) return null;
+
+  return (
+    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md border border-amber-200 animate-in fade-in zoom-in duration-300">
+      <span className="text-[9px] font-black text-amber-700">{displayPrice}</span>
+    </div>
+  );
+});
 
 const GridItem = React.memo(({ 
   card, 
@@ -400,8 +502,14 @@ const GridItem = React.memo(({
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 overflow-hidden">
               <RarityTag rarity={card.rarity} />
+              <PricePreview 
+                cardNumber={card.cardNumber} 
+                cardName={card.name} 
+                artType={card.variantType || "Base art"} 
+                mode={priceMode} 
+              />
               {isBookmarked && (
                 <Bookmark size={10} className="text-amber-500 fill-amber-500" />
               )}
@@ -899,9 +1007,7 @@ function AppContent() {
 
   const [priceMode, setPriceMode] = useState<PriceDisplayMode>('JPY');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [lastScanTime, setLastScanTime] = useState(0);
-  const SCAN_COOLDOWN = 1500; // 1.5 seconds between manual scans
-  const [isAutoScan, setIsAutoScan] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
@@ -1128,6 +1234,90 @@ function AppContent() {
   };
 
   const deckEditorRef = useRef<DeckEditorHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const multiUploadInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCardUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    captureAndIdentify(file);
+  };
+
+  const handleMultiCardUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsAnalyzing(true);
+    const newDeckId = Math.random().toString(36).substr(2, 9);
+    const newDeck: Deck = {
+      id: newDeckId,
+      name: "Scanned deck",
+      items: [],
+      lastModified: Date.now()
+    };
+
+    const identifiedItems: DeckItem[] = [];
+    const filesArray = Array.from(files);
+
+    for (let i = 0; i < filesArray.length; i++) {
+      const file = filesArray[i];
+      setAnalysisProgress(`Scanning card ${i + 1} of ${filesArray.length}...`);
+
+      // Add a small delay between multiple AI calls to prevent rate limiting
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+
+        const base64 = await base64Promise;
+        const identified = await identifyCard(base64, combinedCards);
+
+        if (identified) {
+          const existing = identifiedItems.find(item => item.card.id === identified!.card.id);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            identifiedItems.push({
+              card: identified.card,
+              count: 1,
+              artType: "Base art"
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`Error scanning file ${i + 1}:`, err);
+      }
+    }
+
+    if (identifiedItems.length > 0) {
+      newDeck.items = identifiedItems;
+      newDeck.coverImageUrl = identifiedItems[0].card.imageUrl;
+      
+      const updatedDecks = [newDeck, ...decks];
+      setDecks(updatedDecks);
+      setActiveDeckId(newDeckId);
+      
+      showToast(`Created deck with ${identifiedItems.reduce((acc, curr) => acc + curr.count, 0)} cards`);
+      
+      // Close scanner and open deck editor
+      setIsScanning(false);
+      setIsDeckEditorOpen(true);
+      setOpenedEditorFromList(true);
+    } else {
+      showToast("Could not identify any cards from the photos.");
+    }
+
+    setIsAnalyzing(false);
+    setAnalysisProgress("");
+    if (multiUploadInputRef.current) multiUploadInputRef.current.value = '';
+  };
   
   // Filter State
   const [activeFilters, setActiveFilters] = useState({
@@ -1184,7 +1374,6 @@ function AppContent() {
   const [showDeckSelector, setShowDeckSelector] = useState(false);
   const [printingDeck, setPrintingDeck] = useState<Deck | null>(null);
   const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
-  const [isContinuousScanMode, setIsContinuousScanMode] = useState(false);
   
   // Sync activeDeckId if it's null but decks exist
   useEffect(() => {
@@ -1193,7 +1382,6 @@ function AppContent() {
     }
   }, [decks, activeDeckId]);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -1968,120 +2156,44 @@ function AppContent() {
     );
   };
 
-  const startCamera = async () => {
-    setIsScanning(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error("Camera error:", err);
-      alert("Could not access camera. Please check permissions.");
-      setIsScanning(false);
-      setCurrentTab('cards');
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-    }
-    setIsScanning(false);
-    setCurrentTab('cards');
-  };
-
-  const captureAndIdentify = async (silent = false) => {
-    if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
-    
-    const now = Date.now();
-    if (!silent && now - lastScanTime < SCAN_COOLDOWN) return;
-
+  const captureAndIdentify = async (file: File) => {
+    if (isAnalyzing) return;
     setIsAnalyzing(true);
-    if (!silent) setLastScanTime(now);
-
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
+    setAnalysisProgress("Uploading photo...");
     
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-      setIsAnalyzing(false);
-      return;
-    }
-
-    // Optimization: Crop to center and reduce resolution to save quota/tokens
-    // 600x900 is plenty for OCR while being much smaller than full 4K/1080p frames
-    const targetWidth = 600;
-    const targetHeight = 900;
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-
-    if (ctx) {
-      // Calculate crop area (center 2:3 aspect ratio to match the UI frame)
-      let sourceWidth, sourceHeight, sourceX, sourceY;
-      const targetAspect = 2/3;
-      const videoAspect = videoWidth / videoHeight;
-
-      if (videoAspect > targetAspect) {
-        sourceHeight = videoHeight;
-        sourceWidth = videoHeight * targetAspect;
-        sourceX = (videoWidth - sourceWidth) / 2;
-        sourceY = 0;
-      } else {
-        sourceWidth = videoWidth;
-        sourceHeight = videoWidth / targetAspect;
-        sourceX = 0;
-        sourceY = (videoHeight - sourceHeight) / 2;
-      }
-
-      ctx.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight);
-      const base64Image = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = (e.target?.result as string).split(',')[1];
       
       try {
-        const identified = await identifyCard(base64Image, combinedCards);
-        if (identified) {
-          if (isContinuousScanMode && activeDeckId) {
-            const success = addToDeck(activeDeckId, identified.card, "Base art");
-            if (success) {
-              showToast(`1x ${identified.card.name} added successfully`);
-            }
-            // In continuous mode, we don't stop the camera or set selected card
-          } else {
-            setSelectedCard(identified.card);
-            setSelectedArtType("Base art");
-            stopCamera();
-          }
-        } else if (!silent) {
-          alert("Could not identify card. Try again with better lighting.");
-        }
-      } catch (err) {
-        console.error("Identification error:", err);
-        if (!silent) alert("An error occurred during identification.");
-      }
-    }
-    setIsAnalyzing(false);
-  };
+        setAnalysisProgress("Translating & Identifying card...");
+        const identified = await identifyCard(base64, combinedCards);
 
-  // Auto-scan effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isScanning && isAutoScan && !selectedCard) {
-      interval = setInterval(() => {
-        if (!isAnalyzing) {
-          captureAndIdentify(true);
+        if (identified) {
+          showToast(`Identified: ${identified.card.name}`);
+          setSelectedCard(identified.card);
+          setSelectedArtType("Base art");
+          setIsScanning(false);
+        } else {
+          showToast(`Could not identify card. Make sure the photo is clear.`);
         }
-      }, 3000); // Scan every 3 seconds
-    }
-    return () => {
-      if (interval) clearInterval(interval);
+      } catch (err: any) {
+        console.error("Identification error:", err);
+        if (err.message?.includes('429') || err.status === 429) {
+          showToast("AI Rate limit hit. Please try again in 1 minute.");
+        } else {
+          showToast("An error occurred during identification.");
+        }
+      } finally {
+        setIsAnalyzing(false);
+        setAnalysisProgress("");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (cameraInputRef.current) cameraInputRef.current.value = '';
+      }
     };
-  }, [isScanning, isAutoScan, isAnalyzing, selectedCard]);
+    reader.readAsDataURL(file);
+  };
 
   // Preload first batch of images
   useEffect(() => {
@@ -2255,7 +2367,6 @@ function AppContent() {
                   onClick={() => {
                     setCurrentTab('scan');
                     setIsScanning(true);
-                    startCamera();
                   }}
                   className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
                 >
@@ -2438,11 +2549,11 @@ function AppContent() {
       )}
 
       <main className={cn(
-        "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-4 lg:px-12 pt-4 pb-32 transition-all duration-300", 
+        "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pt-4 pb-32 transition-all duration-300", 
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-1/2 landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-24 landscape:pb-20 builder-mode"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
@@ -2485,7 +2596,7 @@ function AppContent() {
             </p>
             {/* Price mode switcher hidden as requested */}
             {/* <div className="flex bg-white border border-stone-200 rounded-lg p-0.5">
-              {(['JPY', 'SGD130', 'SGD120'] as PriceDisplayMode[]).map((m) => (
+              {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setPriceMode(m)}
@@ -2496,7 +2607,7 @@ function AppContent() {
                       : "text-stone-400 hover:text-stone-600"
                   )}
                 >
-                  {m === 'JPY' ? '¥' : m === 'SGD130' ? 'YYT/130' : 'YYT/120'}
+                  {m === 'JPY' ? '¥' : 'YYT/120'}
                 </button>
               ))}
             </div> */}
@@ -2698,7 +2809,7 @@ function AppContent() {
                 setOpenedEditorFromList(false);
                 setIsDeckEditorOpen(false);
               }
-              if (currentTab === 'scan') stopCamera();
+              if (currentTab === 'scan') setIsScanning(false);
               setCurrentTab('cards');
               setShowFeedback(false);
               setShowAdminPanel(false);
@@ -2733,7 +2844,7 @@ function AppContent() {
                 deckEditorRef.current.requestClose();
                 return;
               }
-              if (currentTab === 'scan') stopCamera();
+              if (currentTab === 'scan') setIsScanning(false);
               
               if (isDeckInPlayMode) {
                 setCurrentTab('decks');
@@ -2789,7 +2900,7 @@ function AppContent() {
                 setOpenedEditorFromList(false);
                 setIsDeckEditorOpen(false);
               }
-              if (currentTab === 'scan') stopCamera();
+              if (currentTab === 'scan') setIsScanning(false);
               setCurrentTab('quick-start');
               setShowFeedback(false);
               setShowAdminPanel(false);
@@ -2824,13 +2935,12 @@ function AppContent() {
                 setOpenedEditorFromList(false);
                 setIsDeckEditorOpen(false);
               }
-              if (currentTab === 'scan') stopCamera();
+              if (currentTab === 'scan') setIsScanning(false);
               setCurrentTab('scan');
               setShowFeedback(false);
               setShowAdminPanel(false);
               setIsScanning(true);
               setShowDeckList(false);
-              startCamera();
             }}
             className="flex flex-col items-center gap-0 group transition-all active:scale-95"
           >
@@ -2858,7 +2968,7 @@ function AppContent() {
                 setIsScanning(false);
                 setShowDeckList(false);
                 setIsDeckEditorOpen(false);
-                if (currentTab === 'scan') stopCamera();
+                if (currentTab === 'scan') setIsScanning(false);
               } else {
                 login();
               }
@@ -2913,131 +3023,104 @@ function AppContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black flex flex-col"
+            className="fixed inset-0 z-[60] bg-[#050505] flex flex-col font-sans"
           >
-            <div className="relative flex-1">
-              <video 
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              
-              {/* Scanner Frame */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-64 h-96 border-2 border-white/50 rounded-2xl relative">
-                  <div className="absolute inset-0 border-2 border-amber-400 rounded-2xl animate-pulse" />
-                  
-                  {/* Top Text */}
-                  <div className="absolute -top-14 left-0 right-0 text-center flex flex-col gap-1">
-                    {isContinuousScanMode ? (
-                      <>
-                        <span className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">Continuous Scan Active</span>
-                        <span className="text-white/60 text-[10px] font-medium uppercase tracking-tight">Adding to: {activeDeck?.name}</span>
-                      </>
-                    ) : (
-                      <span className="text-white text-sm font-medium">Align card within frame</span>
-                    )}
-                  </div>
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <button 
+                onClick={() => setIsScanning(false)}
+                className="p-2 -ml-2 text-white/60 hover:text-white transition-colors"
+              >
+                <ChevronLeft size={28} />
+              </button>
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/40">Gundam Card Scanner</h2>
+              <div className="w-10" />
+            </div>
 
-                  {/* Status/Controls below frame */}
-                  <div className="absolute -bottom-32 left-0 right-0 flex flex-col items-center gap-4 pointer-events-auto">
-                    {isContinuousScanMode && (
-                      <button 
-                        onClick={() => captureAndIdentify()}
-                        disabled={isAnalyzing}
-                        className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
-                      >
-                        {isAnalyzing ? (
-                          <Loader2 className="text-white animate-spin" size={24} />
-                        ) : (
-                          <div className="w-12 h-12 bg-white rounded-full" />
-                        )}
-                      </button>
-                    )}
-
-                    <div className="text-center space-y-2 w-full max-w-[180px]">
-                      <p className="text-white/90 text-[10px] font-black uppercase tracking-[0.2em]">
-                        {isAnalyzing 
-                          ? "Analyzing card, please wait" 
-                          : !isContinuousScanMode 
-                            ? (isAutoScan ? "Searching for card..." : "Manual Scan Mode")
-                            : ""}
-                      </p>
-                      
-                      {isAnalyzing && (
-                        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ x: "-100%" }}
-                            animate={{ x: "100%" }}
-                            transition={{ 
-                              repeat: Infinity, 
-                              duration: 1.5, 
-                              ease: "linear" 
-                            }}
-                            className="w-full h-full bg-emerald-500"
-                          />
-                        </div>
-                      )}
-
-                      {(isAutoScan || isContinuousScanMode) && !isAnalyzing && (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-1 h-1 bg-amber-500 rounded-full animate-ping" />
-                          <p className="text-white/40 text-[8px] uppercase tracking-widest font-bold">
-                            Position card in frame
-                          </p>
-                        </div>
-                      )}
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto w-full">
+              {isAnalyzing ? (
+                <div className="space-y-8 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full border-2 border-amber-500/20 flex items-center justify-center">
+                      <Loader2 className="text-amber-500 animate-spin" size={40} strokeWidth={1.5} />
                     </div>
+                    <div className="absolute inset-0 rounded-full border border-amber-500/10 animate-ping" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium text-white">{analysisProgress}</p>
+                    <p className="text-xs text-white/40 uppercase tracking-widest leading-relaxed">
+                      Cross-referencing database &<br />translating Japanese text
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-4 w-full">
+                    <button 
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="w-full py-6 bg-amber-500 hover:bg-amber-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-amber-500/10"
+                    >
+                      <Camera size={20} fill="currentColor" />
+                      Take Photo & Identify
+                    </button>
 
-              <div className="absolute top-6 left-6 flex items-center gap-3">
-                <button 
-                  onClick={() => {
-                    if (isContinuousScanMode) {
-                      setIsContinuousScanMode(false);
-                    }
-                    stopCamera();
-                  }}
-                  className="p-2 bg-black/50 text-white rounded-full backdrop-blur-md border border-white/10 active:scale-95 transition-all"
-                >
-                  {isContinuousScanMode ? <ChevronLeft size={24} /> : <X size={24} />}
-                </button>
-                
-                {!isContinuousScanMode && (
-                  <button 
-                    onClick={() => setIsAutoScan(!isAutoScan)}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all backdrop-blur-md border",
-                      isAutoScan 
-                        ? "bg-amber-500 text-white border-amber-400" 
-                        : "bg-black/50 text-white/60 border-white/20"
-                    )}
-                  >
-                    Auto Scan: {isAutoScan ? "ON" : "OFF"}
-                  </button>
-                )}
-              </div>
-            </div>
+                    <button 
+                      onClick={() => multiUploadInputRef.current?.click()}
+                      className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-emerald-500/10"
+                    >
+                      <Layout size={20} fill="currentColor" />
+                      Build deck from photos
+                    </button>
 
-            <div className="bg-black p-8 pb-20 flex flex-col items-center gap-6">
-              {!isAutoScan && !isContinuousScanMode && (
-                <button 
-                  onClick={() => captureAndIdentify()}
-                  disabled={isAnalyzing}
-                  className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
-                >
-                  {isAnalyzing ? (
-                    <Loader2 className="text-white animate-spin" size={32} />
-                  ) : (
-                    <div className="w-16 h-16 bg-white rounded-full" />
-                  )}
-                </button>
+                    <div className="flex flex-col gap-2">
+                       <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-4 text-white/40 hover:text-white/60 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Upload size={14} />
+                        Upload single from Gallery
+                      </button>
+                      <p className="text-[9px] text-white/20 font-medium uppercase tracking-widest text-center px-4">
+                        Instruction: Take the photos of your unique cards beforehand and upload it through the gallery.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-12 w-full p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                    <Sparkles size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-500/70 font-medium text-left leading-relaxed uppercase tracking-widest">
+                      AI translates Japanese cards to English and finds the correct card in our database instantly.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Hidden stuff moved inside too */}
             <canvas ref={canvasRef} className="hidden" />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleCardUpload} 
+              accept="image/*" 
+              className="hidden" 
+            />
+            <input 
+              type="file" 
+              ref={cameraInputRef} 
+              onChange={handleCardUpload} 
+              accept="image/*" 
+              capture="environment"
+              className="hidden" 
+            />
+            <input 
+              type="file" 
+              ref={multiUploadInputRef} 
+              onChange={handleMultiCardUpload} 
+              accept="image/*" 
+              multiple
+              className="hidden" 
+            />
           </motion.div>
         )}
       </AnimatePresence>

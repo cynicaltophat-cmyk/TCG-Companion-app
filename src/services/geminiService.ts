@@ -37,15 +37,45 @@ export interface IdentifiedCard {
   isAlt: boolean;
 }
 
+async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 5): Promise<T> {
+  let delay = 2000;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const errorStr = JSON.stringify(error).toLowerCase();
+      const errorMsg = (error?.message || "").toLowerCase();
+      
+      const isRateLimit = 
+        error?.status === 429 || 
+        error?.code === 429 ||
+        errorMsg.includes('429') || 
+        errorMsg.includes('quota') ||
+        errorMsg.includes('resource_exhausted') ||
+        errorStr.includes('429') ||
+        errorStr.includes('quota');
+
+      if (isRateLimit && i < maxRetries - 1) {
+        console.warn(`Gemini Rate Limit (429) hit attempt ${i + 1}. Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded for AI operation due to rate limits.');
+}
+
 export async function analyzeCardImage(base64Image: string): Promise<Partial<GundamCard> | null> {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await callWithRetry(() => ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
       contents: [
         {
           parts: [
             {
-              text: "Analyze this Gundam TCG card and extract all its details. "
+              text: "Analyze this Gundam TCG card and extract all its details. Be extremely precise with alphanumeric codes, names, and abilities. Look at the bottom corners for the card number."
             },
             {
               inlineData: {
@@ -57,43 +87,30 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
         }
       ],
       config: {
-        systemInstruction: `You are a Gundam TCG expert. Your task is to extract all details from a card image.
+        systemInstruction: `You are a Gundam TCG expert researcher. Your task is to extract every detail from a card image with 100% accuracy.
+        
+        Card numbers (e.g., ST01-001, GD01-044) are the highest priority. Look closely at small text.
         
         Fields to extract:
         - name: The card's name.
         - cardNumber: The card's number (e.g., ST01-001, GD01-045).
-        - type: An array of strings. Choose from: "Unit", "Pilot", "Command", "Base". A card can have multiple types (e.g., both "Pilot" and "Command").
+        - type: An array of strings. Choose from: "Unit", "Pilot", "Command", "Base".
         - color: One of "Red", "Blue", "Green", "White", "Black", "Yellow", "Purple".
         - rarity: One of "C", "U", "R", "SR", "UR", "LR".
         - cost: The numeric cost.
-        - level: The numeric level (if applicable).
-        - ap: The numeric attack power (if applicable).
-        - hp: The numeric health points (if applicable).
+        - level: The numeric level.
+        - ap: The numeric attack power.
+        - hp: The numeric health points.
         - ability: The full text of the card's ability/effect.
-        - traits: An array of strings representing the card's traits (e.g., ["MS", "Gundam", "Earth Federation"]).
+        - traits: An array of strings representing the card's traits.
         - zones: An array of strings representing the card's zones. Choose from: "Earth", "Space".
         - set: The set code. Choose from these valid sets: ${ALL_SETS.join(", ")}.
         
-        Return ONLY a JSON object matching this structure:
-        {
-          "name": "string",
-          "cardNumber": "string",
-          "type": ["Unit" | "Pilot" | "Command" | "Base"],
-          "color": "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple",
-          "rarity": "C" | "U" | "R" | "SR" | "UR" | "LR",
-          "cost": number,
-          "level": number,
-          "ap": number,
-          "hp": number,
-          "ability": "string",
-          "traits": ["string"],
-          "zones": ["Earth" | "Space"],
-          "set": "string"
-        }`,
+        Return ONLY a JSON object.`,
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
       }
-    });
+    }));
 
     const text = response.text?.trim() || "{}";
     return JSON.parse(text);
@@ -105,13 +122,22 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
 
 export async function identifyCard(base64Image: string, cards: GundamCard[]): Promise<IdentifiedCard | null> {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await callWithRetry(() => ai.models.generateContent({
+      model: "gemini-3.1-pro-preview",
       contents: [
         {
           parts: [
             {
-              text: "Identify the Gundam TCG card in this image. Focus on the card number (e.g., ST01-001, GD01-045) and the card name. The card number is the most important field for identification."
+              text: `Identify the Gundam TCG card in this image. 
+              
+              YOUR GOAL: 
+              1. Extract the exact Card Number (e.g., ST01-001, GD01-044) from the corners.
+              2. Translate the Card Name to English (e.g., if it's 'クシャトリヤ', translate to 'Kshatriya').
+              3. Identify if the version is 'base' or 'alt' (alternative art/parallel).
+              
+              CRITICAL: 
+              - Card Number is the absolute most reliable field. 
+              - Many cards share names (like 'Kshatriya'), so you MUST use the Card Number to distinguish them.`
             },
             {
               inlineData: {
@@ -123,7 +149,7 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
         }
       ],
       config: {
-        systemInstruction: "You are a Gundam TCG expert. Identify the card name, card number, and whether it is base or alt art.",
+        systemInstruction: "You are a world-class Gundam TCG identifier. You excel at reading small, fine text in card corners and matching mecha designs to their correct card numbers. You prioritize exact character matching for card numbers over mecha visual identification.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -137,9 +163,9 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
           },
           required: ["name", "cardNumber", "version"]
         },
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
       }
-    });
+    }));
 
     const text = response.text?.trim() || "{}";
     const result = JSON.parse(text);
@@ -147,22 +173,35 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
     if (!result.cardNumber && !result.name) return null;
 
     // Try to find the card in our database
-    const found = cards.find(c => {
-      if (result.cardNumber) {
-        const targetNum = result.cardNumber.toLowerCase();
-        const cardNum = c.cardNumber.toLowerCase();
-        if (cardNum === targetNum) return true;
-        
-        // Try normalized match (remove hyphens/spaces)
-        const normalizedTarget = targetNum.replace(/[^a-z0-9]/g, '');
-        const normalizedCard = cardNum.replace(/[^a-z0-9]/g, '');
-        if (normalizedCard === normalizedTarget) return true;
-      }
+    // 1. First Pass: Try exact match on Card Number (High Confidence)
+    let found = cards.find(c => {
+      if (!result.cardNumber) return false;
+      const targetNum = result.cardNumber.toLowerCase();
+      const cardNum = c.cardNumber.toLowerCase();
+      if (cardNum === targetNum) return true;
       
-      if (result.name && c.name.toLowerCase() === result.name.toLowerCase()) return true;
-      
-      return false;
+      const normalizedTarget = targetNum.replace(/[^a-z0-9]/g, '');
+      const normalizedCard = cardNum.replace(/[^a-z0-9]/g, '');
+      return normalizedCard === normalizedTarget;
     });
+
+    // 2. Second Pass: If no card number match, try Name (Lower Confidence, especially for same-name cards)
+    if (!found && result.name) {
+      const nameMatches = cards.filter(c => c.name.toLowerCase() === result.name.toLowerCase());
+      
+      if (nameMatches.length === 1) {
+        // Only fallback to name if there's exactly one card with that name
+        found = nameMatches[0];
+      } else if (nameMatches.length > 1 && result.cardNumber) {
+        // If multiple cards have the same name, we MUST rely on the card number
+        // (Even if non-exact, we can try to find the "best" match among the name candidates)
+        const targetNum = result.cardNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
+        found = nameMatches.find(c => {
+          const cardNum = c.cardNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return cardNum.includes(targetNum) || targetNum.includes(cardNum);
+        });
+      }
+    }
 
     if (found) {
       return {
@@ -212,11 +251,11 @@ export async function getCardPrice(
   forceRefresh = false, 
   artType: ArtVariantType = "Base art"
 ): Promise<string | null> {
-  // Automatic price fetching disabled due to Vercel blocking Yuyutei
-  // Users can still view prices via the direct link in card details
-  return null;
+  // Temporary skip for set GD04
+  if (cardNumber.startsWith('GD04-')) {
+    return null;
+  }
 
-  /* Original fetching logic disabled:
   // Check cache first unless forcing refresh
   const cacheKey = `${cardNumber}_${cardName}_${artType}`;
   if (!forceRefresh && priceCache[cacheKey]) {
@@ -266,5 +305,4 @@ export async function getCardPrice(
     priceQueue.push(request);
     processQueue();
   });
-  */
 }

@@ -18,7 +18,7 @@ export function getColorBg(color: string) {
   }
 }
 
-export type PriceDisplayMode = 'JPY' | 'SGD120' | 'SGD130';
+export type PriceDisplayMode = 'JPY' | 'SGD120';
 
 export function formatPrice(price: string | null, mode: PriceDisplayMode) {
   if (!price) return null;
@@ -27,12 +27,10 @@ export function formatPrice(price: string | null, mode: PriceDisplayMode) {
   const yenValue = parseInt(price.replace(/[¥,]/g, ''));
   if (isNaN(yenValue)) return null;
   
-  const divisor = mode === 'SGD120' ? 120 : 130;
-  return `S$${(yenValue / divisor).toFixed(2)}`;
+  return `S$${(yenValue / 120).toFixed(2)}`;
 }
 
 export function formatCurrency(yenValue: number, mode: PriceDisplayMode) {
   if (mode === 'JPY') return `¥${yenValue.toLocaleString()}`;
-  const divisor = mode === 'SGD120' ? 120 : 130;
-  return `S$${(yenValue / divisor).toFixed(2)}`;
+  return `S$${(yenValue / 120).toFixed(2)}`;
 }
