@@ -35,6 +35,7 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() &&
+        request.auth.token.email_verified == true &&
         request.auth.token.email.matches("(?i)^(inkytophat|cynicaltophat)@gmail\\.com$");
     }
 
@@ -84,16 +85,15 @@ service cloud.firestore {
 
     function isValidFeedback(data) {
       return hasOnlyAllowedFields(['id', 'uid', 'userEmail', 'userName', 'category', 'message', 'cardId', 'cardName', 'createdAt', 'status']) &&
-             (
-               (isAuthenticated() && data.uid == request.auth.uid) ||
-               (!isAuthenticated() && data.uid == 'anonymous')
-             ) &&
+             data.uid is string &&
+             (data.userEmail == null || data.userEmail is string) &&
+             (data.userName == null || data.userName is string) &&
              data.category in [
                'Bug', 'Feature Request', 'General', 'Other',
                'Incorrect ability effect', 'Incorrect color', 'Incorrect/Missing links',
                'Incorrect stats', 'Incorrect ID number', 'Incorrect trait'
              ] &&
-             data.message is string && data.message.size() >= 0 && data.message.size() <= 2000 &&
+             data.message is string && data.message.size() <= 2000 &&
              data.createdAt is int &&
              data.status in ['New', 'In Progress', 'Resolved', 'Closed'];
     }
@@ -112,6 +112,15 @@ service cloud.firestore {
              data.createdAt is int;
     }
 
+    function isValidProduct(data) {
+      return data.id is string &&
+             data.name is string &&
+             data.category in ['Starter Deck', 'Booster box', 'Other'] &&
+             data.imageUrl is string &&
+             data.releaseDate is string &&
+             data.msrp is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -119,6 +128,11 @@ service cloud.firestore {
     match /cards/{cardId} {
       allow read: if true; // Cards are public
       allow write: if isAdmin(); // Only admins can manage cards
+    }
+
+    match /products/{productId} {
+      allow read: if true; // Products are public
+      allow write: if isAdmin() && isValidProduct(request.resource.data);
     }
 
     match /decks/{deckId} {
@@ -139,7 +153,10 @@ service cloud.firestore {
       // Users can only read their own feedback, admins can read all
       allow read: if isDocOwner() || isAdmin();
       // Any user can create feedback
-      allow create: if isValidFeedback(request.resource.data);
+      allow create: if isValidFeedback(request.resource.data) && (
+        (isAuthenticated() && request.resource.data.uid == request.auth.uid) ||
+        (request.resource.data.uid == 'anonymous')
+      );
       // Only admins can update feedback (e.g., change status)
       allow update: if isAdmin() && isValidFeedback(request.resource.data);
       // Only admins can delete feedback
@@ -150,7 +167,10 @@ service cloud.firestore {
       // Users can only read their own feedback, admins can read all
       allow read: if isDocOwner() || isAdmin();
       // Any user can create feedback
-      allow create: if isValidFeedback(request.resource.data);
+      allow create: if isValidFeedback(request.resource.data) && (
+        (isAuthenticated() && request.resource.data.uid == request.auth.uid) ||
+        (request.resource.data.uid == 'anonymous')
+      );
       // Only admins can update feedback (e.g., change status)
       allow update: if isAdmin() && isValidFeedback(request.resource.data);
       // Only admins can delete feedback

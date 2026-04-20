@@ -41,15 +41,17 @@ import {
   Clock,
   CheckCircle,
   Circle,
+  ShoppingBag,
   Trash2,
   Edit2,
   ShieldCheck,
   HelpCircle,
   Zap,
   Bookmark,
-  Upload
+  Upload,
+  Package
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory } from './types';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -58,6 +60,9 @@ import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { QuickSetup } from './components/QuickSetup';
 import { DeckList } from './components/DeckList';
 import { ProxyPrinter } from './components/ProxyPrinter';
+import { ProductList } from './components/products/ProductList';
+import { ProductDetails } from './components/products/ProductDetails';
+import { ProductManager } from './components/products/ProductManager';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -270,41 +275,39 @@ const CardPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode
   const displayPrice = price ? formatPrice(price, mode) : null;
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          {loading ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full">
-              <Loader2 size={10} className="animate-spin text-stone-400" />
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Checking...</span>
-            </div>
-          ) : displayPrice ? (
-            <button 
-              onClick={() => onModeChange(mode === 'JPY' ? 'SGD120' : 'JPY')}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-full transition-all shadow-sm active:scale-95 group border border-amber-600/20"
-            >
-              <span className="text-xs font-black">{displayPrice}</span>
-              <span className="text-[8px] opacity-60 font-black">
-                {mode === 'JPY' ? 'JPY' : 'SGD/YYT120'}
-              </span>
-            </button>
-          ) : (
-            <div className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-              Price N/A
-            </div>
-          )}
-        </div>
-        
-        <a 
-          href={`https://yuyu-tei.jp/sell/gcg/s/search?search_word=${cardNumber}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-[10px] font-bold text-stone-400 hover:text-amber-600 transition-colors w-fit group"
-        >
-          <ExternalLink size={10} className="group-hover:scale-110 transition-transform" />
-          Official Yuyu-tei Listing
-        </a>
+    <div className="flex items-center gap-3 pt-1">
+      <div className="flex items-center gap-2">
+        {loading ? (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full">
+            <Loader2 size={10} className="animate-spin text-stone-400" />
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Checking...</span>
+          </div>
+        ) : displayPrice ? (
+          <button 
+            onClick={() => onModeChange(mode === 'JPY' ? 'SGD120' : 'JPY')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-full transition-all shadow-sm active:scale-95 group border border-amber-600/20"
+          >
+            <span className="text-xs font-black">{displayPrice}</span>
+            <span className="text-[8px] opacity-60 font-black">
+              {mode === 'JPY' ? 'JPY' : 'SGD/YYT120'}
+            </span>
+          </button>
+        ) : (
+          <div className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+            Price N/A
+          </div>
+        )}
       </div>
+      
+      <a 
+        href={`https://yuyu-tei.jp/sell/gcg/s/search?search_word=${cardNumber}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 text-[10px] font-black text-amber-600 hover:text-amber-700 transition-colors uppercase tracking-wider group"
+      >
+        Yu-yu-tei
+        <ExternalLink size={10} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+      </a>
     </div>
   );
 });
@@ -1006,6 +1009,7 @@ function AppContent() {
   }, [searchQuery, debouncedSetSearch]);
 
   const [priceMode, setPriceMode] = useState<PriceDisplayMode>('JPY');
+  const [showPriceFaq, setShowPriceFaq] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState("");
   const [toast, setToast] = useState<string | null>(null);
@@ -1016,7 +1020,10 @@ function AppContent() {
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
   const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
   const [quickStartMode, setQuickStartMode] = useState<'play' | 'stats' | null>(null);
-  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile'>('cards');
+  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'product-list' | 'product-details'>('cards');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showProductManager, setShowProductManager] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
   const isAdmin = useMemo(() => {
@@ -1070,6 +1077,19 @@ function AppContent() {
       unsubscribe2();
     };
   }, [isAdmin, user]);
+
+  // Products Listener
+  useEffect(() => {
+    const q = query(collection(db, 'products'), orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
+      setProducts(data);
+    }, (error) => {
+      console.error("Products listener error:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Handle Deck Import from URL
@@ -2381,6 +2401,24 @@ function AppContent() {
                   </div>
                   <ChevronRight size={20} className="text-stone-300" />
                 </button>
+
+                <button 
+                  onClick={() => {
+                    setCurrentTab('product-list');
+                  }}
+                  className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 group-hover:scale-110 transition-transform">
+                      <ListIcon size={20} />
+                    </div>
+                    <div className="text-left">
+                      <span className="block font-bold text-sm text-[#141414]">Product list</span>
+                      <span className="block text-[10px] text-stone-400 font-medium">Browse sets and starter decks</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={20} className="text-stone-300" />
+                </button>
               </div>
             </div>
 
@@ -2530,6 +2568,24 @@ function AppContent() {
                       )}
                     </AnimatePresence>
                   </div>
+
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => setShowProductManager(true)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                          <Package size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-[#141414]">Product Management</p>
+                          <p className="text-[10px] text-stone-500 font-medium">Add or edit set listings</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-400" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -2590,28 +2646,36 @@ function AppContent() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
-              {cardsLoading ? "..." : filteredCards.length} Cards Found
-            </p>
-            {/* Price mode switcher hidden as requested */}
-            {/* <div className="flex bg-white border border-stone-200 rounded-lg p-0.5">
-              {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setPriceMode(m)}
-                  className={cn(
-                    "px-2 py-1 rounded-md text-[9px] font-bold transition-all",
-                    priceMode === m 
-                      ? "bg-amber-600 text-white shadow-sm" 
-                      : "text-stone-400 hover:text-stone-600"
-                  )}
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
+                {cardsLoading ? "..." : filteredCards.length} Cards Found
+              </p>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowPriceFaq(true)}
+                  className="text-stone-400 hover:text-stone-600 transition-colors p-1"
                 >
-                  {m === 'JPY' ? '¥' : 'YYT/120'}
+                  <HelpCircle size={14} />
                 </button>
-              ))}
-            </div> */}
-          </div>
+                <div className="flex bg-white border border-stone-200 rounded-xl p-0.5 shadow-sm">
+                  {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setPriceMode(m)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-tight transition-all uppercase whitespace-nowrap",
+                        priceMode === m 
+                          ? "bg-[#141414] text-white shadow-sm" 
+                          : "text-stone-400 hover:text-stone-600 hover:bg-stone-50"
+                      )}
+                    >
+                      {m === 'JPY' ? 'JPY' : 'SGD/YYT120'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
         </div>
 
         {/* Card Grid */}
@@ -3351,6 +3415,43 @@ function AppContent() {
                     onModeChange={setPriceMode}
                   />
 
+                  {/* Where to get it */}
+                  {(() => {
+                    const product = products.find(p => p.id === selectedCard.set);
+                    if (!product) return null;
+
+                    return (
+                      <div className="space-y-2 pt-2">
+                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                          <ShoppingBag size={14} /> Where to get it
+                        </h4>
+                        <button 
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setCurrentTab('product-details');
+                            setSelectedCard(null);
+                          }}
+                          className="w-full flex items-center justify-between p-3 bg-white border border-stone-200 rounded-2xl hover:bg-stone-50 transition-all group overflow-hidden relative shadow-sm"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 aspect-[3/4] bg-stone-100 rounded-lg overflow-hidden border border-stone-100 shrink-0">
+                              <img src={product.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-[11px] font-black text-[#141414] uppercase tracking-tight">
+                                {product.id} {product.name.toLowerCase().startsWith(product.id.toLowerCase()) 
+                                  ? product.name.replace(new RegExp(`^${product.id}\\s*[-\\s]*`, 'i'), '')
+                                  : product.name}
+                              </p>
+                              <p className="text-[9px] font-bold text-stone-400 capitalize">{product.category}</p>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="text-stone-300 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
+                        </button>
+                      </div>
+                    );
+                  })()}
+
                   {/* Artist Info */}
                   {(() => {
                     let currentArtist;
@@ -4057,6 +4158,39 @@ function AppContent() {
         />
       )}
 
+      {/* Product Manager */}
+      {showProductManager && isAdmin && (
+        <ProductManager 
+          onClose={() => setShowProductManager(false)} 
+          allCards={combinedCards}
+        />
+      )}
+
+      {/* Product Views */}
+      {currentTab === 'product-list' && (
+        <ProductList 
+          products={products}
+          onSelectProduct={(p) => {
+            setSelectedProduct(p);
+            setCurrentTab('product-details');
+          }}
+          onBack={() => setCurrentTab('quick-start')}
+        />
+      )}
+
+      {currentTab === 'product-details' && selectedProduct && (
+        <ProductDetails 
+          product={selectedProduct}
+          allCards={combinedCards}
+          onBack={() => setCurrentTab('product-list')}
+          onSelectCard={(card) => {
+            setSelectedCard(card);
+            setSelectedArtType("Base art");
+            setSwipeDirection(0);
+          }}
+        />
+      )}
+
       {/* Card Feedback Popup */}
       <AnimatePresence>
         {showFeedbackPopup && selectedCard && (
@@ -4066,6 +4200,8 @@ function AppContent() {
           />
         )}
       </AnimatePresence>
+
+      <PriceFaqModal isOpen={showPriceFaq} onClose={() => setShowPriceFaq(false)} />
 
       {/* Keyword Tooltip */}
       <AnimatePresence>
@@ -4118,3 +4254,59 @@ function AppContent() {
     </div>
   );
 }
+
+const PriceFaqModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl border border-white/20"
+          >
+            <div className="p-8 space-y-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500">
+                  <HelpCircle size={32} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-[#141414] uppercase tracking-tight">Currency Conversion</h3>
+                  <div className="h-0.5 w-12 bg-amber-500 mx-auto rounded-full" />
+                </div>
+              </div>
+              
+              <div className="space-y-4 text-stone-600 leading-relaxed text-center">
+                <p className="text-sm font-medium">
+                  Japanese Gundam card prices are typically referenced from <span className="font-bold text-[#141414]">Yuyutei</span>.
+                </p>
+                <p className="text-sm font-medium">
+                  While exchange rates between Japanese Yen and Singapore Dollars fluctuate, the local community commonly uses a simplified conversion of <span className="font-bold text-[#141414]">¥120 to SGD $1</span>.
+                </p>
+                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex flex-col items-center gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Formula Used</span>
+                  <span className="text-lg font-black text-amber-600 tracking-tight">SGD = YYT ÷ 120</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={onClose}
+                className="w-full py-4 bg-[#141414] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-stone-800 transition-all shadow-lg active:scale-[0.98]"
+              >
+                Got it
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};

@@ -48,6 +48,7 @@ interface AdminCardManagerProps {
 export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adminFeedback, onUpdateFeedbackStatus, initialCardId }) => {
   const [cards, setCards] = useState<GundamCard[]>([]);
   const mainRef = React.useRef<HTMLElement>(null);
+  const abilityRef = React.useRef<HTMLTextAreaElement>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -59,6 +60,8 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [traitsInput, setTraitsInput] = useState("");
+  const [traitSuggestions, setTraitSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
 
@@ -83,6 +86,14 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     );
     return () => unsubscribe();
   }, []);
+
+  const allUniqueTraits = React.useMemo(() => {
+    const set = new Set<string>();
+    cards.forEach(c => {
+      c.traits?.forEach(t => set.add(t));
+    });
+    return Array.from(set).sort();
+  }, [cards]);
 
   useEffect(() => {
     if (initialCardId && cards.length > 0) {
@@ -375,8 +386,8 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     }
   };
 
-  const handleSaveCard = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveCard = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!editingCard || !editingCard.id) return;
 
     try {
@@ -390,6 +401,29 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
       console.error("Error saving card:", error);
       alert("Failed to save card.");
     }
+  };
+
+  const addBrackets = () => {
+    const textarea = abilityRef.current;
+    if (!textarea || !editingCard) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = editingCard.ability || "";
+
+    if (start === end) return; // No selection
+
+    const selectedText = text.substring(start, end);
+    const newText = text.substring(0, start) + "【" + selectedText + "】" + text.substring(end);
+    
+    setEditingCard({ ...editingCard, ability: newText });
+    setHasUnsavedChanges(true);
+
+    // Focus back and restore selection (optional, but nice)
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start, end + 2);
+    }, 0);
   };
 
   const handleDeleteCard = async () => {
@@ -567,31 +601,47 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                 <h3 className="text-sm font-black uppercase tracking-widest text-stone-400">
                   Edit card
                 </h3>
-                {!editingCard.id && (
-                  <label className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold cursor-pointer hover:bg-amber-100 transition-all border border-amber-100",
-                    isAnalyzing && "opacity-50 cursor-not-allowed"
-                  )}>
-                    {isAnalyzing ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={12} />
-                    )}
-                    {isAnalyzing ? "Analyzing..." : "Identify with AI"}
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={handleAIIdentify}
-                      disabled={isAnalyzing}
-                    />
-                  </label>
-                )}
               </div>
-              <button onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600">
-                <X size={20} />
-              </button>
-            </div>
+              <div className="flex items-center gap-3">
+                  {!editingCard.id && (
+                    <label className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold cursor-pointer hover:bg-amber-100 transition-all border border-amber-100",
+                      isAnalyzing && "opacity-50 cursor-not-allowed"
+                    )}>
+                      {isAnalyzing ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      {isAnalyzing ? "Analyzing..." : "Identify with AI"}
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleAIIdentify}
+                        disabled={isAnalyzing}
+                      />
+                    </label>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => handleSaveCard()}
+                    disabled={uploading || !hasUnsavedChanges}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm",
+                      hasUnsavedChanges 
+                        ? "bg-amber-500 text-white hover:bg-amber-600" 
+                        : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                    )}
+                  >
+                    <Save size={12} />
+                    {uploading ? "Uploading..." : hasUnsavedChanges ? "Save Card" : "Saved"}
+                  </button>
+                  <button type="button" onClick={() => setShowForm(false)} className="text-stone-400 hover:text-stone-600 p-1">
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
 
             <form onSubmit={handleSaveCard} className="space-y-8">
               {/* Feedback Section at the top */}
@@ -864,20 +914,64 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
 
                   {/* Line 3: Traits, Linked Card Name */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1 relative">
                       <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Traits (comma separated)</label>
                       <input 
                         type="text" 
                         value={traitsInput} 
                         onChange={e => {
-                          setTraitsInput(e.target.value);
-                          const traits = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                          setEditingCard({...editingCard, traits});
+                          const val = e.target.value;
+                          setTraitsInput(val);
+                          const traits = val.split(',').map(s => s.trim()).filter(Boolean);
+                          setEditingCard(prev => prev ? {...prev, traits} : null);
                           setHasUnsavedChanges(true);
+
+                          // Handle suggestions
+                          const parts = val.split(',');
+                          const currentPart = parts[parts.length - 1].trim();
+                          if (currentPart.length >= 2) {
+                            const filtered = allUniqueTraits.filter(t => 
+                              t.toLowerCase().includes(currentPart.toLowerCase()) && 
+                              !traits.includes(t)
+                            ).slice(0, 5);
+                            setTraitSuggestions(filtered);
+                            setShowSuggestions(filtered.length > 0);
+                          } else {
+                            setTraitSuggestions([]);
+                            setShowSuggestions(false);
+                          }
+                        }}
+                        onBlur={() => {
+                          // Small delay to allow click on suggestion
+                          setTimeout(() => setShowSuggestions(false), 200);
                         }}
                         placeholder="e.g. Mobile Suit, Zeon, Char Aznable"
                         className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
                       />
+                      {showSuggestions && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                          {traitSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                const parts = traitsInput.split(',').map(s => s.trim());
+                                parts[parts.length - 1] = suggestion;
+                                const newVal = parts.join(', ') + ', ';
+                                setTraitsInput(newVal);
+                                const traits = newVal.split(',').map(s => s.trim()).filter(Boolean);
+                                setEditingCard(prev => prev ? {...prev, traits} : null);
+                                setTraitSuggestions([]);
+                                setShowSuggestions(false);
+                              }}
+                              className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between"
+                            >
+                              {suggestion}
+                              <Plus size={10} className="text-amber-400" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Linked Card Name (e.g. Amuro Ray)</label>
@@ -895,8 +989,18 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
 
                   {/* Line 4: Ability Text */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Ability Text</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Ability Text</label>
+                      <button 
+                        type="button"
+                        onClick={addBrackets}
+                        className="px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded-lg text-[10px] font-black text-amber-600 transition-colors flex items-center gap-1.5"
+                      >
+                        Add 【Brackets】
+                      </button>
+                    </div>
                     <textarea 
+                      ref={abilityRef}
                       value={editingCard.ability} 
                       onChange={e => {
                         setEditingCard({...editingCard, ability: e.target.value});

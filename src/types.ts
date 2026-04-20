@@ -53,6 +53,19 @@ export const ALL_SETS = [
   "ST01"
 ];
 
+export interface Product {
+  id: string;
+  name: string;
+  category: "Starter Deck" | "Booster box" | "Other";
+  imageUrl: string;
+  releaseDate: string;
+  msrp: string;
+  whereToBuy: { name: string; url: string }[];
+  featuredCards: { cardId: string; count: number }[];
+  contents: string[];
+  order: number;
+}
+
 export interface DeckItem {
   card: GundamCard;
   count: number;
