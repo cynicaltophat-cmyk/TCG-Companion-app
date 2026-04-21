@@ -9,13 +9,15 @@ interface ProductDetailsProps {
   allCards: GundamCard[];
   onBack: () => void;
   onSelectCard: (card: GundamCard) => void;
+  onViewAll: (setId: string) => void;
 }
 
 export const ProductDetails: React.FC<ProductDetailsProps> = ({ 
   product, 
   allCards, 
   onBack,
-  onSelectCard
+  onSelectCard,
+  onViewAll
 }) => {
   const [showMsrpTooltip, setShowMsrpTooltip] = useState(false);
 
@@ -132,8 +134,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
 
             {/* Featured Cards */}
             <div className="pt-4 space-y-3">
-              <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Featured cards</h3>
-              <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6 scrollbar-none">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Featured cards</h3>
+                <button 
+                  onClick={() => onViewAll(product.id)}
+                  className="text-[10px] font-black text-amber-500 uppercase tracking-widest hover:text-amber-600 transition-colors"
+                >
+                  View all
+                </button>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-show">
                 {featuredCards.length > 0 ? (
                   featuredCards.map((card: any) => (
                     <div 

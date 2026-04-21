@@ -220,7 +220,7 @@ export const ProductManager: React.FC<ProductManagerProps> = ({ onClose, allCard
         </div>
       </header>
 
-      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 space-y-6">
+      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 pb-32 space-y-6">
         {showForm && editingProduct && (
           <div className="bg-stone-50 border border-stone-200 rounded-3xl p-6 space-y-6 animate-in slide-in-from-top-4 duration-300">
             <div className="flex items-center justify-between">

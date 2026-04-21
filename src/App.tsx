@@ -3925,11 +3925,19 @@ function AppContent() {
             visible={isDeckBuilderMode ? deckBuilderView === 'editor' : currentTab === 'decks'}
             initialTab={isDeckInPlayMode ? 'play' : 'cards'}
             allCards={combinedCards}
+            allProducts={products}
             onUpdateCount={updateDeckCount}
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
             onSetCover={setDeckCover}
             isDeckBuilderMode={isDeckBuilderMode}
+            onViewProduct={(product) => {
+              setSelectedProduct(product);
+              setCurrentTab('product-details'); // Change tab immediately
+              setIsDeckEditorOpen(false);
+              setShowDeckList(false); // Close the underlying deck list if it was open
+            }}
+            getCardPrice={getCardPrice}
             onClose={() => {
               setIsDeckEditorOpen(false);
               if (isDeckBuilderMode) {
@@ -4167,29 +4175,57 @@ function AppContent() {
       )}
 
       {/* Product Views */}
-      {currentTab === 'product-list' && (
-        <ProductList 
-          products={products}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            setCurrentTab('product-details');
-          }}
-          onBack={() => setCurrentTab('quick-start')}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        {currentTab === 'product-list' && (
+          <motion.div
+            key="product-list"
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+          >
+            <ProductList 
+              products={products}
+              onSelectProduct={(p) => {
+                setSelectedProduct(p);
+                setCurrentTab('product-details');
+              }}
+              onBack={() => setCurrentTab('quick-start')}
+            />
+          </motion.div>
+        )}
 
-      {currentTab === 'product-details' && selectedProduct && (
-        <ProductDetails 
-          product={selectedProduct}
-          allCards={combinedCards}
-          onBack={() => setCurrentTab('product-list')}
-          onSelectCard={(card) => {
-            setSelectedCard(card);
-            setSelectedArtType("Base art");
-            setSwipeDirection(0);
-          }}
-        />
-      )}
+        {currentTab === 'product-details' && selectedProduct && (
+          <motion.div
+            key={`product-details-${selectedProduct.id}`}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+          >
+            <ProductDetails 
+              product={selectedProduct}
+              allCards={combinedCards}
+              onBack={() => setCurrentTab('product-list')}
+              onSelectCard={(card) => {
+                setSelectedCard(card);
+                setSelectedArtType("Base art");
+                setSwipeDirection(0);
+              }}
+              onViewAll={(setId) => {
+                setSearchQuery("");
+                setActiveFilters({
+                  sets: [setId],
+                  rarities: [],
+                  colors: [],
+                  types: [],
+                  variants: [],
+                  users: []
+                });
+                setCurrentTab('cards');
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Card Feedback Popup */}
       <AnimatePresence>

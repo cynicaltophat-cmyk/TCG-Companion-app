@@ -153,6 +153,44 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     }
   };
 
+  const fixGD01Sets = async () => {
+    const gd01Cards = cards.filter(c => c.cardNumber.toUpperCase().startsWith("GD01") && c.set !== "GD01");
+    
+    if (gd01Cards.length === 0) {
+      setStatusMessage("All GD01 cards are already correctly paired!");
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+
+    if (!window.confirm(`Found ${gd01Cards.length} cards with cardNumber GD01 but incorrect set. Update them all to set "GD01"?`)) return;
+
+    setIsBulkImporting(true);
+    setStatusMessage("Fixing GD01 set pairings...");
+
+    try {
+      const batchSize = 500;
+      for (let i = 0; i < gd01Cards.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = gd01Cards.slice(i, i + batchSize);
+        
+        chunk.forEach(card => {
+          const cardRef = doc(db, 'cards', card.id);
+          batch.update(cardRef, { set: "GD01" });
+        });
+        
+        await batch.commit();
+      }
+
+      setStatusMessage(`Fixed ${gd01Cards.length} cards!`);
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Fix error:", error);
+      setStatusMessage(`Fix failed: ${error.message}`);
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
   const normalizeKeywords = async () => {
     if (!window.confirm(`This will scan all ${cards.length} cards and add brackets to keywords like Attack, Deploy, Main, etc. where missing. Continue?`)) return;
 
@@ -518,6 +556,19 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
           >
             <Sparkles size={14} className="text-amber-500" />
             Normalize
+          </button>
+
+          <button 
+            onClick={fixGD01Sets}
+            disabled={isBulkImporting}
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all",
+              isBulkImporting && "opacity-50 cursor-not-allowed"
+            )}
+            title="Fix GD01 Set Pairings"
+          >
+            <CheckCircle2 size={14} className="text-green-500" />
+            Fix GD01
           </button>
 
           <button 
