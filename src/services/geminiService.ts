@@ -95,7 +95,11 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
         - name: The card's name.
         - cardNumber: The card's number (e.g., ST01-001, GD01-045).
         - type: An array of strings. Choose from: "Unit", "Pilot", "Command", "Base".
-        - color: One of "Red", "Blue", "Green", "White", "Black", "Yellow", "Purple".
+        - color: One of "Red", "Blue", "Green", "White", "Black", "Yellow", "Purple". 
+          CRITICAL: Always determine color by the BAR/BORDER color (left side and corners). 
+          Gundam TCG uses a specific magenta/dark pink tone for "Red" in many sets (especially Neo Zeon). 
+          DO NOT identify these as "Purple". "Purple" is rarely used and is a much darker, pure violet. 
+          If you see a magenta or dark pink border, it is "Red".
         - rarity: One of "C", "U", "R", "SR", "UR", "LR".
         - cost: The numeric cost.
         - level: The numeric level.

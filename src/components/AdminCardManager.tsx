@@ -105,6 +105,226 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     }
   }, [initialCardId, cards]);
 
+  const importST02Cards = async () => {
+    const st02Cards: GundamCard[] = [
+      {
+        id: "st02-003",
+        name: "Gundam Heavyarms",
+        set: "ST02",
+        cardNumber: "ST02-003",
+        type: ["Unit"],
+        color: "Green",
+        rarity: "C",
+        cost: 3,
+        level: 5,
+        ap: 3,
+        hp: 4,
+        ability: "【During Pair】 During your turn, when this Unit destroys an enemy Unit with battle damage, deal 1 damage to all enemy Units that are Lv.3 or lower.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-003.png",
+        traits: ["Operation Meteor"],
+        link: "[Trowa Barton]"
+      },
+      {
+        id: "st02-004",
+        name: "Gundam Sandrock",
+        set: "ST02",
+        cardNumber: "ST02-004",
+        type: ["Unit"],
+        color: "Green",
+        rarity: "C",
+        cost: 2,
+        level: 4,
+        ap: 4,
+        hp: 3,
+        ability: "",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-004.png",
+        traits: ["Operation Meteor"],
+        link: "[Quatre Raberba Winner]"
+      },
+      {
+        id: "st02-005",
+        name: "Maganac",
+        set: "ST02",
+        cardNumber: "ST02-005",
+        type: ["Unit"],
+        color: "Green",
+        rarity: "C",
+        cost: 2,
+        level: 2,
+        ap: 3,
+        hp: 2,
+        ability: "",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-005.png",
+        traits: ["Maganac Corps"]
+      },
+      {
+        id: "st02-006",
+        name: "Tallgeese",
+        set: "ST02",
+        cardNumber: "ST02-006",
+        type: ["Unit"],
+        color: "Blue",
+        rarity: "LR",
+        cost: 4,
+        level: 5,
+        ap: 4,
+        hp: 4,
+        ability: "【Activate・Main】 【Once per Turn】 4: Set this Unit as active.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-006.png",
+        traits: ["OZ"],
+        link: "[Zechs Merquise]"
+      },
+      {
+        id: "st02-007",
+        name: "Leo",
+        set: "ST02",
+        cardNumber: "ST02-007",
+        type: ["Unit"],
+        color: "Blue",
+        rarity: "C",
+        cost: 2,
+        level: 2,
+        ap: 2,
+        hp: 2,
+        ability: "",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-007.png",
+        traits: ["OZ"],
+        link: "(OZ) Trait"
+      },
+      {
+        id: "st02-008",
+        name: "Aries",
+        set: "ST02",
+        cardNumber: "ST02-008",
+        type: ["Unit"],
+        color: "Blue",
+        rarity: "C",
+        cost: 2,
+        level: 2,
+        ap: 2,
+        hp: 1,
+        ability: "【Blocker】 (Rest this Unit to change the attack target to it.)",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-008.png",
+        traits: ["OZ"],
+        link: "(OZ)"
+      },
+      {
+        id: "st02-009",
+        name: "Tragos",
+        set: "ST02",
+        cardNumber: "ST02-009",
+        type: ["Unit"],
+        color: "Blue",
+        rarity: "C",
+        cost: 1,
+        level: 1,
+        ap: 1,
+        hp: 1,
+        ability: "【Blocker】 (Rest this Unit to change the attack target to it.)",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-009.png",
+        traits: ["OZ"],
+        link: "(OZ)"
+      },
+      {
+        id: "st02-011",
+        name: "Zechs Merquise",
+        set: "ST02",
+        cardNumber: "ST02-011",
+        type: ["Pilot"],
+        color: "Blue",
+        rarity: "C",
+        cost: 1,
+        level: 5,
+        ap: "+2",
+        hp: "+1",
+        ability: "【Burst】 Add this card to your hand. 【During Link】 During your turn, when this Unit destroys an enemy Unit with battle damage, draw 1.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-011.png",
+        traits: ["OZ"]
+      },
+      {
+        id: "st02-012",
+        name: "Simultaneous Fire",
+        set: "ST02",
+        cardNumber: "ST02-012",
+        type: ["Command"],
+        color: "Green",
+        rarity: "C",
+        cost: 1,
+        level: 4,
+        ap: "+1",
+        hp: "+1",
+        ability: "【Main】 Choose 1 of your Units. It gains 【Breach 3】 during this turn. (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-012.png",
+        link: "Trowa Barton (Operation Meteor)"
+      },
+      {
+        id: "st02-013",
+        name: "Peaceful Timbre",
+        set: "ST02",
+        cardNumber: "ST02-013",
+        type: ["Command"],
+        color: "Green",
+        rarity: "C",
+        cost: 1,
+        level: 4,
+        ap: "+1",
+        hp: "+1",
+        ability: "【Action】 During this battle, your shield area cards can't receive damage from enemy Units that are Lv.4 or lower.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-013.png",
+        link: "Quatre Raberba Winner (Operation Meteor)"
+      },
+      {
+        id: "st02-014",
+        name: "Siege Ploy",
+        set: "ST02",
+        cardNumber: "ST02-014",
+        type: ["Command"],
+        color: "Blue",
+        rarity: "C",
+        cost: 1,
+        level: 3,
+        ability: "【Burst】 Activate this card's 【Main】. 【Main / Action】 Choose 1 enemy Unit with 5 or less HP. Rest it.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-014.png"
+      },
+      {
+        id: "st02-015",
+        name: "Saint Gabriel Institute",
+        set: "ST02",
+        cardNumber: "ST02-015",
+        type: ["Base"],
+        color: "Green",
+        rarity: "C",
+        cost: 2,
+        level: 2,
+        hp: 5,
+        ability: "【Burst】 【Deploy】 this card. 【Deploy】 Add 1 of your Shields to your hand. Then, look at the top 2 cards of your deck and return 1 to the top and 1 to the bottom.",
+        imageUrl: "https://images.gundam-tcg.com/cards/ST02-015.png",
+        traits: ["Academy", "Stronghold"]
+      }
+    ];
+
+    if (!window.confirm(`Import 12 cards for ST02 set? Existing cards with same IDs will be overwritten.`)) return;
+
+    setIsBulkImporting(true);
+    setStatusMessage("Importing ST02 cards...");
+
+    try {
+      const batch = writeBatch(db);
+      st02Cards.forEach(card => {
+        const cardRef = doc(db, 'cards', card.id);
+        batch.set(cardRef, card);
+      });
+      await batch.commit();
+      setStatusMessage("Successfully imported 12 ST02 cards!");
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Import error:", error);
+      setStatusMessage(`Import failed: ${error.message}`);
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
   const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -545,64 +765,21 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
             </div>
           )}
 
-          <button 
-            onClick={normalizeKeywords}
-            disabled={isBulkImporting}
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all",
-              isBulkImporting && "opacity-50 cursor-not-allowed"
-            )}
-            title="Add brackets to keywords in all cards"
-          >
-            <Sparkles size={14} className="text-amber-500" />
-            Normalize
-          </button>
-
-          <button 
-            onClick={fixGD01Sets}
-            disabled={isBulkImporting}
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all",
-              isBulkImporting && "opacity-50 cursor-not-allowed"
-            )}
-            title="Fix GD01 Set Pairings"
-          >
-            <CheckCircle2 size={14} className="text-green-500" />
-            Fix GD01
-          </button>
-
-          <button 
-            onClick={exportAllCards}
-            className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all"
-            title="Export All Cards to JSON"
-          >
-            <Download size={14} className="rotate-180" />
-            Export
-          </button>
-
-          <button 
-            onClick={downloadTemplate}
-            className="flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold hover:bg-stone-200 transition-all"
-            title="Download JSON Template"
-          >
-            <Download size={14} />
-            Template
-          </button>
-
-          <label className={cn(
-            "flex items-center gap-2 px-3 py-2 bg-stone-100 text-stone-600 rounded-xl text-[10px] font-bold cursor-pointer hover:bg-stone-200 transition-all",
-            isBulkImporting && "opacity-50 cursor-not-allowed"
-          )}>
-            {isBulkImporting ? <Loader2 size={14} className="animate-spin" /> : <FileJson size={14} />}
-            Bulk Import
-            <input 
-              type="file" 
-              accept=".json" 
-              className="hidden" 
-              onChange={handleBulkImport}
-              disabled={isBulkImporting}
-            />
-          </label>
+          {showForm && (
+            <button 
+              onClick={() => handleSaveCard()}
+              disabled={uploading || !hasUnsavedChanges}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all animate-in fade-in zoom-in-95",
+                hasUnsavedChanges 
+                  ? "bg-amber-500 text-white hover:bg-amber-600" 
+                  : "bg-stone-200 text-stone-400 cursor-not-allowed"
+              )}
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {uploading ? "Saving..." : hasUnsavedChanges ? "Save Changes" : "Saved"}
+            </button>
+          )}
           
           <button 
             onClick={() => {
@@ -644,7 +821,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
         </div>
       </header>
 
-      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 space-y-6">
+      <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-48 space-y-6">
         {showForm && editingCard && (
           <div className="bg-stone-50 border border-stone-200 rounded-3xl p-6 space-y-6 animate-in slide-in-from-top-4 duration-300">
             <div className="flex items-center justify-between">
@@ -1417,41 +1594,6 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end items-center gap-4 pt-6 border-t border-stone-200">
-                {hasUnsavedChanges && (
-                  <span className="text-[10px] font-bold text-amber-600 uppercase animate-pulse">Unsaved Changes</span>
-                )}
-                <div className="flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      if (hasUnsavedChanges) {
-                        if (confirm("You have unsaved changes. Are you sure you want to cancel?")) {
-                          setShowForm(false);
-                        }
-                      } else {
-                        setShowForm(false);
-                      }
-                    }}
-                    className="px-6 py-2 rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-100 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={uploading || !hasUnsavedChanges}
-                    className={cn(
-                      "px-8 py-2 rounded-xl text-xs font-bold shadow-sm transition-all",
-                      hasUnsavedChanges 
-                        ? "bg-amber-500 text-white hover:bg-amber-600" 
-                        : "bg-stone-200 text-stone-400 cursor-not-allowed"
-                    )}
-                  >
-                    {uploading ? "Uploading..." : hasUnsavedChanges ? "Save Card" : "Saved"}
-                  </button>
                 </div>
               </div>
             </form>

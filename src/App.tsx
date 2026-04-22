@@ -51,7 +51,7 @@ import {
   Upload,
   Package
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product } from './types';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
@@ -1028,9 +1028,680 @@ function AppContent() {
 
   const isAdmin = useMemo(() => {
     if (!user) return false;
-    const adminEmails = ["inkytophat@gmail.com", "cynicaltophat@gmail.com"];
+    const adminEmails = ["inkytophat@gmail.com", "cynicaltophat@gmail.com", "angkaiyan@gmail.com"];
     return adminEmails.includes(user.email?.toLowerCase() || "");
   }, [user]);
+
+  // Auto-import ST02 cards if missing (Admin only)
+  useEffect(() => {
+    if (!isAdmin || cardsLoading || allCards.length === 0) return;
+    
+    const st02CardsInDb = allCards.filter(c => c.set === "ST02");
+    if (st02CardsInDb.length < 10) {
+      console.log("Triggering auto-import for missing ST02 cards...");
+      const st02Cards: GundamCard[] = [
+        {
+          id: "st02-003",
+          name: "Gundam Heavyarms",
+          set: "ST02",
+          cardNumber: "ST02-003",
+          type: ["Unit"],
+          color: "Green",
+          rarity: "C",
+          cost: 3,
+          level: 5,
+          ap: 3,
+          hp: 4,
+          ability: "【During Pair】 During your turn, when this Unit destroys an enemy Unit with battle damage, deal 1 damage to all enemy Units that are Lv.3 or lower.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-003.png",
+          traits: ["Operation Meteor"],
+          link: "[Trowa Barton]"
+        },
+        {
+          id: "st02-004",
+          name: "Gundam Sandrock",
+          set: "ST02",
+          cardNumber: "ST02-004",
+          type: ["Unit"],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 4,
+          ap: 4,
+          hp: 3,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-004.png",
+          traits: ["Operation Meteor"],
+          link: "[Quatre Raberba Winner]"
+        },
+        {
+          id: "st02-005",
+          name: "Maganac",
+          set: "ST02",
+          cardNumber: "ST02-005",
+          type: ["Unit"],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          ap: 3,
+          hp: 2,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-005.png",
+          traits: ["Maganac Corps"]
+        },
+        {
+          id: "st02-006",
+          name: "Tallgeese",
+          set: "ST02",
+          cardNumber: "ST02-006",
+          type: ["Unit"],
+          color: "Blue",
+          rarity: "LR",
+          cost: 4,
+          level: 5,
+          ap: 4,
+          hp: 4,
+          ability: "【Activate・Main】 【Once per Turn】 4: Set this Unit as active.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-006.png",
+          traits: ["OZ"],
+          link: "[Zechs Merquise]"
+        },
+        {
+          id: "st02-007",
+          name: "Leo",
+          set: "ST02",
+          cardNumber: "ST02-007",
+          type: ["Unit"],
+          color: "Blue",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          ap: 2,
+          hp: 2,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-007.png",
+          traits: ["OZ"],
+          link: "(OZ) Trait"
+        },
+        {
+          id: "st02-008",
+          name: "Aries",
+          set: "ST02",
+          cardNumber: "ST02-008",
+          type: ["Unit"],
+          color: "Blue",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          ap: 2,
+          hp: 1,
+          ability: "【Blocker】 (Rest this Unit to change the attack target to it.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-008.png",
+          traits: ["OZ"],
+          link: "(OZ)"
+        },
+        {
+          id: "st02-009",
+          name: "Tragos",
+          set: "ST02",
+          cardNumber: "ST02-009",
+          type: ["Unit"],
+          color: "Blue",
+          rarity: "C",
+          cost: 1,
+          level: 1,
+          ap: 1,
+          hp: 1,
+          ability: "【Blocker】 (Rest this Unit to change the attack target to it.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-009.png",
+          traits: ["OZ"],
+          link: "(OZ)"
+        },
+        {
+          id: "st02-011",
+          name: "Zechs Merquise",
+          set: "ST02",
+          cardNumber: "ST02-011",
+          type: ["Pilot"],
+          color: "Blue",
+          rarity: "C",
+          cost: 1,
+          level: 5,
+          ap: "+2",
+          hp: "+1",
+          ability: "【Burst】 Add this card to your hand. 【During Link】 During your turn, when this Unit destroys an enemy Unit with battle damage, draw 1.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-011.png",
+          traits: ["OZ"]
+        },
+        {
+          id: "st02-012",
+          name: "Simultaneous Fire",
+          set: "ST02",
+          cardNumber: "ST02-012",
+          type: ["Command"],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 4,
+          ap: "+1",
+          hp: "+1",
+          ability: "【Main】 Choose 1 of your Units. It gains 【Breach 3】 during this turn. (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-012.png",
+          link: "Trowa Barton (Operation Meteor)"
+        },
+        {
+          id: "st02-013",
+          name: "Peaceful Timbre",
+          set: "ST02",
+          cardNumber: "ST02-013",
+          type: ["Command"],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 4,
+          ap: "+1",
+          hp: "+1",
+          ability: "【Action】 During this battle, your shield area cards can't receive damage from enemy Units that are Lv.4 or lower.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-013.png",
+          link: "Quatre Raberba Winner (Operation Meteor)"
+        },
+        {
+          id: "st02-014",
+          name: "Siege Ploy",
+          set: "ST02",
+          cardNumber: "ST02-014",
+          type: ["Command"],
+          color: "Blue",
+          rarity: "C",
+          cost: 1,
+          level: 3,
+          ability: "【Burst】 Activate this card's 【Main】. 【Main / Action】 Choose 1 enemy Unit with 5 or less HP. Rest it.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-014.png"
+        },
+        {
+          id: "st02-015",
+          name: "Saint Gabriel Institute",
+          set: "ST02",
+          cardNumber: "ST02-015",
+          type: ["Base"],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          hp: 5,
+          ability: "【Burst】 【Deploy】 this card. 【Deploy】 Add 1 of your Shields to your hand. Then, look at the top 2 cards of your deck and return 1 to the top and 1 to the bottom.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST02-015.png",
+          traits: ["Academy", "Stronghold"]
+        }
+      ];
+
+      const batch = writeBatch(db);
+      st02Cards.forEach(card => {
+        const cardRef = doc(db, 'cards', card.id);
+        batch.set(cardRef, card);
+      });
+      batch.commit().then(() => {
+        console.log("Auto-import of ST02 cards successful!");
+      }).catch(err => {
+        console.error("Auto-import failed:", err);
+      });
+    }
+  }, [isAdmin, cardsLoading, allCards.length]);
+
+  // Auto-import ST03 cards if missing (Admin only)
+  useEffect(() => {
+    if (!isAdmin || cardsLoading || allCards.length === 0) return;
+    
+    const targetCards = ['st03-012', 'st03-014'];
+    const missingCards = targetCards.filter(id => !allCards.some(c => c.id === id));
+    
+    if (missingCards.length > 0) {
+      console.log("Seeding missing ST03 cards:", missingCards);
+      const st03Cards: GundamCard[] = [
+        {
+          id: "st03-012",
+          name: "Indignation",
+          set: "ST03",
+          cardNumber: "ST03-012",
+          type: ["Command"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 2,
+          ap: "+1",
+          hp: "+0",
+          ability: "【Main / Action】 Choose 1 friendly Unit. It gets AP+2 during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST03-012.png",
+          traits: ["Neo Zeon"],
+          link: "Angelo Sauper"
+        } as GundamCard,
+        {
+          id: "st03-014",
+          name: "The Blue Giant",
+          set: "ST03",
+          cardNumber: "ST03-014",
+          type: ["Command"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 4,
+          ap: "+1",
+          hp: "+1",
+          ability: "【Action】 Choose 1 friendly Unit. It can't receive battle damage from enemy Units with 2 or less AP during this battle.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST03-014.png",
+          traits: ["Zeon"],
+          link: "Ramba Ral"
+        } as GundamCard
+      ].filter(c => missingCards.includes(c.id));
+
+      if (st03Cards.length > 0) {
+        const batch = writeBatch(db);
+        st03Cards.forEach(card => {
+          const cardRef = doc(db, 'cards', card.id);
+          batch.set(cardRef, card);
+        });
+        batch.commit().then(() => {
+          console.log("Auto-import of ST03 cards successful!");
+        }).catch(err => {
+          console.error("Auto-import ST03 failed:", err);
+        });
+      }
+    }
+  }, [isAdmin, cardsLoading, allCards.length]);
+
+  // Auto-import ST06 cards if missing (Admin only)
+  useEffect(() => {
+    if (!isAdmin || cardsLoading || allCards.length === 0) return;
+    
+    const st06CardsInDb = allCards.filter(c => c.set === "ST06");
+    if (st06CardsInDb.length < 10) {
+      console.log("Triggering auto-import for missing ST06 cards...");
+      const st06Cards: GundamCard[] = [
+        {
+          id: "st06-001",
+          name: "GQuuuuuuX (Omega Psycommu)",
+          set: "ST06",
+          cardNumber: "ST06-001",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "LR",
+          cost: 3,
+          level: 5,
+          ap: 4,
+          hp: 4,
+          ability: "【When Linked】 If another friendly (Clan) Unit is in play, this gains 【First Strike】 during this turn. (While this Unit is attacking, it deals damage before the enemy Unit.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-001.png",
+          traits: ["Clan", "Space", "Earth"],
+          link: "[Amate Yuzuriha (Machu)]"
+        } as GundamCard,
+        {
+          id: "st06-002",
+          name: "GQuuuuuuX (Omega Psycommu)",
+          set: "ST06",
+          cardNumber: "ST06-002",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 3,
+          level: 4,
+          ap: 4,
+          hp: 2,
+          ability: "【Deploy】 If another friendly (Clan) Unit is in play, choose 1 enemy Unit. Deal 1 damage to it.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-002.png",
+          traits: ["Clan", "Space", "Earth"],
+          link: "[Amate Yuzuriha (Machu)]"
+        } as GundamCard,
+        {
+          id: "st06-003",
+          name: "Gaia's Rick Dom (GQ)",
+          set: "ST06",
+          cardNumber: "ST06-003",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          ap: 2,
+          hp: 2,
+          ability: "【Activate・Main】 【Support 1】 (Rest this Unit. 1 other friendly Unit gets AP+(specified amount) during this turn.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-003.png",
+          traits: ["Clan", "Space"],
+          link: "[Gaia]"
+        } as GundamCard,
+        {
+          id: "st06-004",
+          name: "Gelgoog (GQ)",
+          set: "ST06",
+          cardNumber: "ST06-004",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 2,
+          ap: 2,
+          hp: 2,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-004.png",
+          traits: ["Zeon", "Space", "Earth"]
+        } as GundamCard,
+        {
+          id: "st06-005",
+          name: "Red Gundam",
+          set: "ST06",
+          cardNumber: "ST06-005",
+          type: ["Unit"] as CardType[],
+          color: "Green",
+          rarity: "LR",
+          cost: 3,
+          level: 4,
+          ap: 4,
+          hp: 3,
+          ability: "【Breach 1】 (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.) 【Attack】 Choose 1 to 2 friendly (Clan) Units. They get AP+2 during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-005.png",
+          traits: ["Clan", "Space", "Earth"],
+          link: "[Shuji Ito]"
+        } as GundamCard,
+        {
+          id: "st06-006",
+          name: "Red Gundam",
+          set: "ST06",
+          cardNumber: "ST06-006",
+          type: ["Unit"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 4,
+          ap: 3,
+          hp: 4,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-006.png",
+          traits: ["Clan", "Space", "Earth"],
+          link: "[Shuji Ito]"
+        } as GundamCard,
+        {
+          id: "st06-007",
+          name: "Ortega's Rick Dom (GQ)",
+          set: "ST06",
+          cardNumber: "ST06-007",
+          type: ["Unit"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 3,
+          ap: 3,
+          hp: 2,
+          ability: "【Deploy】 Choose 1 of your other (Clan) Units. During this turn, it may choose an active enemy Unit with 3 or less AP as its attack target.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-007.png",
+          traits: ["Clan", "Space"],
+          link: "[Ortega]"
+        } as GundamCard,
+        {
+          id: "st06-008",
+          name: "Sugai's Gelgoog (GQ)",
+          set: "ST06",
+          cardNumber: "ST06-008",
+          type: ["Unit"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 3,
+          ap: 3,
+          hp: 3,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-008.png",
+          traits: ["Clan", "Space", "Earth"],
+          link: "(Clan) Trait"
+        } as GundamCard,
+        {
+          id: "st06-009",
+          name: "Amate Yuzuriha (Machu)",
+          set: "ST06",
+          cardNumber: "ST06-009",
+          type: ["Pilot"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 4,
+          ap: "+2",
+          hp: "+1",
+          ability: "【Burst】 Add this card to your hand. 【When Linked】 Look at the top card of your deck. If it is a (Clan) card, you may reveal it and add it to your hand. Return any remaining card to the bottom of your deck.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-009.png",
+          traits: ["Clan", "Newtype"]
+        } as GundamCard,
+        {
+          id: "st06-010",
+          name: "Shuji Ito",
+          set: "ST06",
+          cardNumber: "ST06-010",
+          type: ["Pilot"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 4,
+          ap: "+1",
+          hp: "+2",
+          ability: "【Burst】 Add this card to your hand. 【During Link】 【Attack】 If you have a (Clan) Unit in play, look at the top card of your deck. Return it to the top or bottom of your deck.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-010.png",
+          traits: ["Clan", "Newtype"]
+        } as GundamCard,
+        {
+          id: "st06-011",
+          name: "Ruthless Tactics",
+          set: "ST06",
+          cardNumber: "ST06-011",
+          type: ["Command"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 3,
+          ap: "+1",
+          hp: "+0",
+          ability: "【Main / Action】 Choose 1 to 2 friendly (Clan) Units. They get AP+2 during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-011.png",
+          traits: ["Clan"],
+          link: "Gaia (GQ)"
+        } as GundamCard,
+        {
+          id: "st06-012",
+          name: "Schoolgirl and Smuggler",
+          set: "ST06",
+          cardNumber: "ST06-012",
+          type: ["Command"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 1,
+          ability: "【Main】 Look at the top 3 cards of your deck. You may reveal 1 (Clan) Unit card/Pilot card among them and add it to your hand. Return the remaining cards randomly to the bottom of your deck.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-012.png"
+        } as GundamCard,
+        {
+          id: "st06-013",
+          name: "Fierce Unity",
+          set: "ST06",
+          cardNumber: "ST06-013",
+          type: ["Command"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 1,
+          level: 3,
+          ap: "+1",
+          hp: "+0",
+          ability: "【Action】 Choose 1 to 2 friendly (Clan) Units. They can't receive battle damage from enemy Units that are Lv.2 or lower during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-013.png",
+          traits: ["Clan"],
+          link: "Ortega (GQ)"
+        } as GundamCard,
+        {
+          id: "st06-014",
+          name: "Clan Battle",
+          set: "ST06",
+          cardNumber: "ST06-014",
+          type: ["Base"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 3,
+          hp: 5,
+          ability: "【Burst】 【Deploy】 this card. 【Deploy】 Add 1 of your Shields to your hand. 【Activate・Main】 Rest this Base: If a friendly (Clan) Link Unit is in play, choose 1 friendly Unit. It gets AP+2 during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-014.png",
+          traits: ["Clan", "Stronghold", "Space"]
+        } as GundamCard,
+        {
+          id: "st06-015",
+          name: "Kaneban Co., Ltd.",
+          set: "ST06",
+          cardNumber: "ST06-015",
+          type: ["Base"] as CardType[],
+          color: "Green",
+          rarity: "C",
+          cost: 2,
+          level: 4,
+          hp: 5,
+          ability: "【Burst】 【Deploy】 this card. 【Deploy】 Add 1 of your Shields to your hand. 【Once per Turn】 When a friendly (Clan) Unit links, it gains 【Breach 3】 during this turn. (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST06-015.png",
+          traits: ["Clan", "Stronghold", "Space"]
+        } as GundamCard
+      ];
+
+      const batch = writeBatch(db);
+      st06Cards.forEach(card => {
+        const cardRef = doc(db, 'cards', card.id);
+        batch.set(cardRef, card);
+      });
+      batch.commit().then(() => {
+        console.log("Auto-import of ST06 cards successful!");
+      }).catch(err => {
+        console.error("Auto-import ST06 failed:", err);
+      });
+    }
+  }, [isAdmin, cardsLoading, allCards.length]);
+
+  // Auto-import ST08 cards if missing (Admin only)
+  useEffect(() => {
+    if (!isAdmin || cardsLoading || allCards.length === 0) return;
+    
+    const targetCards = ['st08-003', 'st08-004', 'st08-009', 'st08-012', 'st08-013', 'st08-014'];
+    const missingCards = targetCards.filter(id => !allCards.some(c => c.id === id));
+    
+    if (missingCards.length > 0) {
+      console.log("Seeding missing ST08 cards:", missingCards);
+      const st08Cards: GundamCard[] = [
+        {
+          id: "st08-003",
+          name: "Messer (Type-F Naked) (Commander Type)",
+          set: "ST08",
+          cardNumber: "ST08-003",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 2,
+          level: 4,
+          ap: 4,
+          hp: 3,
+          ability: "",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-003.png",
+          traits: ["Mafty"],
+          zones: ["Space", "Earth"]
+        } as GundamCard,
+        {
+          id: "st08-004",
+          name: "Messer Type-F01",
+          set: "ST08",
+          cardNumber: "ST08-004",
+          type: ["Unit"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 2,
+          level: 2,
+          ap: 2,
+          hp: 1,
+          ability: "【Attack】 If this Unit is attacking an enemy Unit, choose 1 enemy Unit. Deal 1 damage to it.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-004.png",
+          traits: ["Mafty"],
+          zones: ["Space", "Earth"]
+        } as GundamCard,
+        {
+          id: "st08-009",
+          name: "Jegan Ground Type-A (Man Hunter)",
+          set: "ST08",
+          cardNumber: "ST08-009",
+          type: ["Unit"] as CardType[],
+          color: "Blue",
+          rarity: "C",
+          cost: 1,
+          level: 1,
+          ap: 0,
+          hp: 1,
+          ability: "【Deploy】 Choose 1 rested enemy Unit that is Lv.2 or lower. It won't be set as active during the start phase of your opponent's next turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-009.png",
+          traits: ["Earth Federation"],
+          zones: ["Earth"]
+        } as GundamCard,
+        {
+          id: "st08-012",
+          name: "Words for Hathaway",
+          set: "ST08",
+          cardNumber: "ST08-012",
+          type: ["Command"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 3,
+          ap: "+1",
+          hp: "+0",
+          ability: "【Main】 Choose 1 friendly Link Unit. It gains 【Breach 1】 during this turn. (When this Unit's attack destroys an enemy Unit, deal the specified amount of damage to the first card in that opponent's shield area.)",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-012.png",
+          traits: ["Mafty"],
+          link: "Gawman Nobile"
+        } as GundamCard,
+        {
+          id: "st08-013",
+          name: "Lady Luck",
+          set: "ST08",
+          cardNumber: "ST08-013",
+          type: ["Command"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 5,
+          ability: "【Main / Action】 Choose 1 enemy Unit. Deal 1 damage to it. If a friendly (Mafty) Link Unit is in play, deal 2 damage instead.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-013.png"
+        } as GundamCard,
+        {
+          id: "st08-014",
+          name: "Valiant",
+          set: "ST08",
+          cardNumber: "ST08-014",
+          type: ["Base"] as CardType[],
+          color: "Red",
+          rarity: "C",
+          cost: 1,
+          level: 2,
+          hp: 5,
+          ability: "【Burst】 【Deploy】 this card. 【Deploy】 Add 1 of your Shields to your hand. Then, choose 1 of your Units. It gets AP+2 during this turn.",
+          imageUrl: "https://images.gundam-tcg.com/cards/ST08-014.png",
+          traits: ["Mafty", "Warship"],
+          zones: ["Earth"]
+        } as GundamCard
+      ].filter(c => missingCards.includes(c.id));
+
+      if (st08Cards.length > 0) {
+        const batch = writeBatch(db);
+        st08Cards.forEach(card => {
+          const cardRef = doc(db, 'cards', card.id);
+          batch.set(cardRef, card);
+        });
+        batch.commit().then(() => {
+          console.log("Auto-import of ST08 cards successful!");
+        }).catch(err => {
+          console.error("Auto-import ST08 failed:", err);
+        });
+      }
+    }
+  }, [isAdmin, cardsLoading, allCards.length]);
+
+
 
   // Admin Feedback Fetching
   useEffect(() => {
@@ -4181,7 +4852,7 @@ function AppContent() {
             key="product-list"
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[60] bg-white flex flex-col overflow-y-auto"
           >
             <ProductList 
               products={products}
@@ -4199,7 +4870,7 @@ function AppContent() {
             key={`product-details-${selectedProduct.id}`}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+            className="fixed inset-0 z-[60] bg-white flex flex-col overflow-y-auto"
           >
             <ProductDetails 
               product={selectedProduct}
