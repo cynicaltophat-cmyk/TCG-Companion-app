@@ -41,6 +41,7 @@ import { toPng } from 'html-to-image';
 import { DeckImageExport } from './DeckImageExport';
 import { GundamCard, ArtVariantType, Deck, DeckItem, Product } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
+import { ProgressiveImage } from './ProgressiveImage';
 
 interface DeckEditorProps {
   deck: Deck;
@@ -123,29 +124,16 @@ const CardGridItem = React.memo(({
   <motion.div 
     className="bg-white rounded-xl overflow-hidden shadow-sm border border-stone-200 flex flex-col"
   >
-    <div className="relative aspect-[2/3] bg-stone-100 flex items-center justify-center">
-      <img 
+    <div className="relative aspect-[2/3] bg-stone-100 flex items-center justify-center cursor-pointer" onClick={() => onPreviewCard(item.card)}>
+      <ProgressiveImage 
         src={
           item.card.variants 
             ? item.card.variants.find(v => v.type === item.artType)?.imageUrl || item.card.imageUrl
             : (item.artType === "Parallel" && item.card.altImageUrl ? item.card.altImageUrl : item.card.imageUrl)
         } 
         alt={item.card.name}
-        className="w-full h-full object-cover cursor-pointer"
-        onClick={() => onPreviewCard(item.card)}
-        crossOrigin="anonymous"
-        loading="lazy"
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = 'none';
-          const parent = target.parentElement;
-          if (parent) {
-            const errorMsg = document.createElement('div');
-            errorMsg.className = "text-[8px] text-gray-500 font-medium text-center p-2 leading-tight";
-            errorMsg.innerText = "Card images will be uploaded in future updates!";
-            parent.appendChild(errorMsg);
-          }
-        }}
+        className="w-full h-full"
+        referrerPolicy="no-referrer"
       />
     </div>
 

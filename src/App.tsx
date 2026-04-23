@@ -80,64 +80,14 @@ import {
   writeBatch
 } from 'firebase/firestore';
 
+import { ProgressiveImage } from './components/ProgressiveImage';
+
 const COMMON_VARIANTS: ArtVariantType[] = ["Parallel", "Beta", "Beta Parallel", "Premium", "Championship", "Double Plus (++)", "Championship Participation"];
 const RARITIES = ["C", "U", "R", "LR"];
 const COLORS = ["Red", "Blue", "Green", "White", "Purple"];
 const TYPES = ["Base", "Unit", "Pilot", "Command"];
 
 // --- Components ---
-
-const SmartImage = React.memo(({ src, alt, className, priority = false }: { src: string, alt: string, className?: string, priority?: boolean }) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!src) return;
-    const img = new Image();
-    img.src = src;
-    img.onload = () => setIsLoaded(true);
-    img.onerror = () => setError(true);
-  }, [src]);
-
-  return (
-    <div className={cn("relative overflow-hidden bg-stone-100", className)}>
-      <AnimatePresence mode="wait">
-        {!isLoaded && !error && (
-          <motion.div
-            key="placeholder"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center"
-          >
-            <Loader2 size={16} className="text-stone-300 animate-spin" />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      {src && !error && (
-        <motion.img
-          src={src}
-          alt={alt}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isLoaded ? 1 : 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className={cn("w-full h-full object-cover", isLoaded ? "visible" : "invisible")}
-          referrerPolicy="no-referrer"
-          onLoad={() => setIsLoaded(true)}
-        />
-      )}
-
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
-          <p className="text-[8px] text-stone-400 font-medium leading-tight">
-            Image unavailable
-          </p>
-        </div>
-      )}
-    </div>
-  );
-});
 
 const MiniPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode }) => {
   const [price, setPrice] = useState<string | null>(() => getCachedPrice(cardNumber, cardName, artType));
@@ -417,7 +367,7 @@ const GridItem = React.memo(({
             <Trophy size={10} strokeWidth={2} />
           </div>
         )}
-        <SmartImage 
+        <ProgressiveImage 
           src={card.imageUrl} 
           alt={card.name}
           className="w-full h-full"
@@ -2689,10 +2639,18 @@ function AppContent() {
     );
   };
 
+  const gridDataIndices = useMemo(() => {
+    const map = new Map<string, number>();
+    gridData.forEach((item, index) => {
+      map.set(item.id, index);
+    });
+    return map;
+  }, [gridData]);
+
   const currentIndex = useMemo(() => {
     if (!selectedCard) return -1;
-    return gridData.findIndex(item => item.id === selectedCard.id);
-  }, [selectedCard, gridData]);
+    return gridDataIndices.get(selectedCard.id) ?? -1;
+  }, [selectedCard, gridDataIndices]);
 
   const handleSwipe = (direction: number) => {
     const newIndex = currentIndex + direction;
@@ -4011,7 +3969,7 @@ function AppContent() {
                               <Trophy size={14} strokeWidth={2} />
                             </div>
                           )}
-                          <SmartImage 
+                          <ProgressiveImage 
                             src={
                               selectedArtType === "Base art" 
                                 ? selectedCard.imageUrl 
