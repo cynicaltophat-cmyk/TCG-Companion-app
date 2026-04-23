@@ -2912,7 +2912,10 @@ function AppContent() {
       )}>
       {/* Header */}
       {currentTab === 'cards' && (
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 px-4 py-2">
+        <header className={cn(
+          "sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 py-2 transition-all duration-300",
+          isDeckBuilderMode ? "landscape:w-[35%] landscape:px-6" : "px-4"
+        )}>
           <div className={cn(
             "max-w-md landscape:max-w-none mx-auto flex items-center gap-2",
             isDeckBuilderMode && "landscape:max-w-none"
@@ -2930,7 +2933,7 @@ function AppContent() {
               }}
               className={cn(
                 "relative flex-1",
-                isDeckBuilderMode && "landscape:flex-none landscape:w-full landscape:max-w-[240px]"
+                isDeckBuilderMode && "landscape:w-full"
               )}
             >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
@@ -3238,7 +3241,7 @@ function AppContent() {
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-24 landscape:pb-20 builder-mode"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
