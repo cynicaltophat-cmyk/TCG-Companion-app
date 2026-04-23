@@ -2025,14 +2025,6 @@ function AppContent() {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    if (isDeckBuilderMode) {
-      setShowDeckModeNotification(true);
-      const timer = setTimeout(() => setShowDeckModeNotification(false), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [isDeckBuilderMode]);
-
   // --- Navigation History Management ---
   const isPoppingState = useRef(false);
   
@@ -2151,7 +2143,11 @@ function AppContent() {
   // Persistence Removed - Handled by Firestore Listeners
 
   useEffect(() => {
-    if (selectedCard || isScanning || showDeckList || (isDeckEditorOpen && currentTab === 'decks') || isFilterOpen) {
+    // Only lock scroll if the editor is actually visible as a fullscreen overlay,
+    // or if we are in a mode that requires a locked background.
+    const isEditorEffectivelyOpen = isDeckEditorOpen && currentTab === 'decks' && (!isDeckBuilderMode || deckBuilderView === 'editor');
+    
+    if (selectedCard || isScanning || showDeckList || isEditorEffectivelyOpen || isFilterOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -2159,7 +2155,7 @@ function AppContent() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [selectedCard, isScanning, showDeckList, isDeckEditorOpen, isFilterOpen, currentTab]);
+  }, [selectedCard, isScanning, showDeckList, isDeckEditorOpen, isFilterOpen, currentTab, isDeckBuilderMode, deckBuilderView]);
 
   const login = async () => {
     const provider = new GoogleAuthProvider();
@@ -2647,6 +2643,24 @@ function AppContent() {
     return map;
   }, [gridData]);
 
+  const deckStats = useMemo(() => {
+    if (!activeDeck) return { units: 0, pilots: 0, commands: 0, bases: 0, total: 0, colors: [] as string[] };
+    const colors = new Set<string>();
+    const stats = activeDeck.items.reduce((acc, item) => {
+      const type = Array.isArray(item.card.type) ? item.card.type[0] : item.card.type;
+      if (item.card.color) colors.add(item.card.color);
+      
+      if (type.includes('Unit')) acc.units += item.count;
+      else if (type.includes('Pilot')) acc.pilots += item.count;
+      else if (type.includes('Command')) acc.commands += item.count;
+      else if (type.includes('Base')) acc.bases += item.count;
+      acc.total += item.count;
+      return acc;
+    }, { units: 0, pilots: 0, commands: 0, bases: 0, total: 0 });
+
+    return { ...stats, colors: Array.from(colors).sort() };
+  }, [activeDeck]);
+
   const currentIndex = useMemo(() => {
     if (!selectedCard) return -1;
     return gridDataIndices.get(selectedCard.id) ?? -1;
@@ -2889,40 +2903,21 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
-      {/* Deck Mode Notification */}
-      <AnimatePresence>
-        {showDeckModeNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none"
-          >
-            <div className="bg-[#141414] text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
-              <Layout size={18} className="text-amber-500" />
-              <span className="text-sm font-bold tracking-tight">Entering deck building mode</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className={cn(
         "transition-all duration-300", 
         isFilterOpen && "blur-[2px] brightness-95"
       )}>
       {/* Header */}
-      {currentTab === 'cards' && (
+      {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
         <header className={cn(
-          "sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 py-2 transition-all duration-300",
-          isDeckBuilderMode ? "landscape:w-[35%] landscape:px-6" : "px-4"
+          "sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 py-2 transition-all duration-300 px-4",
+          isDeckBuilderMode && "landscape:w-[35%]"
         )}>
           <div className={cn(
-            "max-w-md landscape:max-w-none mx-auto flex items-center gap-2",
-            isDeckBuilderMode && "landscape:max-w-none"
+            "max-w-md landscape:max-w-none mx-auto flex items-center gap-2"
           )}>
             <div className={cn(
-              "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10",
-              isDeckBuilderMode && "landscape:hidden"
+              "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10"
             )}>
               <Sparkles size={16} />
             </div>
@@ -3241,7 +3236,7 @@ function AppContent() {
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-6 landscape:pb-20 builder-mode"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-20 pb-52 builder-mode"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
@@ -3377,324 +3372,355 @@ function AppContent() {
       </>
     )}
   </main>
+  </div>
 
-      {/* Sticky Deck Builder Bar */}
-      <AnimatePresence>
-        {isDeckBuilderMode && (
-          <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-0 left-0 right-0 z-[100] bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
-          >
-            {/* View Toggle Buttons */}
-            <div className="flex bg-stone-100/50 p-1 gap-1 landscape:hidden">
-              <button 
-                onClick={() => setDeckBuilderView('list')}
-                className={cn(
-                  "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                  deckBuilderView === 'list' 
-                    ? "bg-white text-[#141414] shadow-sm ring-1 ring-black/5" 
-                    : "text-stone-400 hover:text-stone-600"
-                )}
-              >
-                Card List
-              </button>
-              <button 
-                onClick={() => setDeckBuilderView('editor')}
-                className={cn(
-                  "flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                  deckBuilderView === 'editor' 
-                    ? "bg-white text-[#141414] shadow-sm ring-1 ring-black/5" 
-                    : "text-stone-400 hover:text-stone-600"
-                )}
-              >
-                Deck Editor
-              </button>
-            </div>
-
-            {/* Color Indicator Bar */}
-            <div className="flex h-1 w-full">
-              {(() => {
-                const colors = Array.from(new Set(activeDeck?.items.map(i => i.card.color) || []));
-                const getColorBg = (color: string) => {
-                  switch (color) {
-                    case 'Red': return 'bg-red-500';
-                    case 'Blue': return 'bg-blue-500';
-                    case 'Green': return 'bg-emerald-500';
-                    case 'White': return 'bg-stone-200';
-                    case 'Black': return 'bg-stone-900';
-                    case 'Yellow': return 'bg-amber-400';
-                    case 'Purple': return 'bg-purple-500';
-                    default: return 'bg-stone-200';
-                  }
-                };
-
-                if (colors.length >= 3) {
-                  return <div className="w-full h-full" style={{ background: 'linear-gradient(to right, #3b82f6, #ef4444, #a855f7, #ffffff, #10b981)' }} />;
-                } else if (colors.length === 2) {
-                  return (
-                    <>
-                      <div className={cn("flex-1 h-full", getColorBg(colors[0]))} />
-                      <div className={cn("flex-1 h-full", getColorBg(colors[1]))} />
-                    </>
-                  );
-                } else if (colors.length === 1) {
-                  return <div className={cn("w-full h-full", getColorBg(colors[0]))} />;
-                }
-                return <div className="w-full h-full bg-stone-100" />;
-              })()}
-            </div>
-
-            {/* Deck Info Bar */}
-            <div className="px-4 py-2.5 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 bg-stone-100 rounded-lg overflow-hidden shrink-0 border border-stone-200">
-                  {activeDeck?.coverImageUrl ? (
-                    <img src={activeDeck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-300">
-                      <Layout size={18} />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-[11px] font-black text-[#141414] truncate leading-tight">
-                    {activeDeck?.name || "Untitled Deck"}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-wider">Cards</span>
-                    <span className="text-[9px] font-black text-[#141414]">
-                      {activeDeck?.items.reduce((s, i) => s + i.count, 0) || 0}/50
-                    </span>
+      {/* Sticky Bottom Interface */}
+      <div className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col pointer-events-none">
+        {/* Sticky Deck Builder Bar */}
+        <AnimatePresence>
+          {isDeckBuilderMode && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="pointer-events-auto bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)] landscape:hidden border-t border-stone-200"
+            >
+              {/* Stats Bar */}
+              <div className="px-4 py-2 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Units</span>
+                    <span className="text-[10px] font-black text-[#141414]">{deckStats.units}</span>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Pilots</span>
+                    <span className="text-[10px] font-black text-[#141414]">{deckStats.pilots}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Command</span>
+                    <span className="text-[10px] font-black text-[#141414]">{deckStats.commands}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Base</span>
+                    <span className="text-[10px] font-black text-[#141414]">{deckStats.bases}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-full border border-stone-200">
+                  <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Total</span>
+                  <span className={cn(
+                    "text-[10px] font-black",
+                    deckStats.total === 50 ? "text-emerald-600" : deckStats.total > 50 ? "text-red-500" : "text-[#141414]"
+                  )}>
+                    {deckStats.total}/50
+                  </span>
                 </div>
               </div>
 
-              <button 
-                onClick={() => {
-                  setIsDeckBuilderMode(false);
-                  setDeckBuilderView('list');
-                  setCurrentTab('decks');
-                  setIsDeckEditorOpen(true);
-                }}
-                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-black text-[8px] uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-              >
-                Exit Builder
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
+              {/* View Toggle row */}
+              <div className="flex border-b border-stone-100 flex-col bg-white">
+                <div className="px-4 py-2 bg-[#F5F5F0]/50">
+                  <div className="flex items-center relative">
+                    <button 
+                      onClick={() => setDeckBuilderView('list')}
+                      className="flex-1 py-1.5 relative z-10"
+                    >
+                      <div className={cn(
+                        "text-[10px] font-black uppercase tracking-widest transition-all text-center",
+                        deckBuilderView === 'list' ? "text-stone-900" : "text-stone-400"
+                      )}>
+                        Card List
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setDeckBuilderView('editor');
+                        setIsDeckEditorOpen(true);
+                      }}
+                      className="flex-1 py-1.5 relative z-10"
+                    >
+                      <div className={cn(
+                        "text-[10px] font-black uppercase tracking-widest transition-all text-center",
+                        deckBuilderView === 'editor' ? "text-stone-900" : "text-stone-400"
+                      )}>
+                        Deck Editor
+                      </div>
+                    </button>
+                    
+                    {/* Active Tab Highlight Card */}
+                    <motion.div 
+                      layoutId="builder-tab-pill"
+                      className="absolute inset-y-0 bg-white rounded-xl shadow-sm border border-stone-200"
+                      style={{
+                        width: 'calc(50%)',
+                        left: deckBuilderView === 'list' ? '0%' : '50%',
+                      }}
+                      transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+                    />
+                  </div>
+                </div>
 
-      {/* Sticky Footer Navigation */}
-      {!isDeckBuilderMode && (
+                {/* Deck Color Indicator Bar */}
+                <div className="h-1 w-full flex">
+                  {deckStats.colors.length === 0 ? (
+                    <div className="flex-1 bg-stone-200" />
+                  ) : (
+                    deckStats.colors.map(color => (
+                      <div 
+                        key={color} 
+                        className={cn(
+                          "flex-1",
+                          color === 'Red' && "bg-red-500",
+                          color === 'Blue' && "bg-blue-500",
+                          color === 'Green' && "bg-emerald-500",
+                          color === 'White' && "bg-amber-100/50",
+                          color === 'Black' && "bg-stone-900",
+                          color === 'Yellow' && "bg-amber-400",
+                          color === 'Purple' && "bg-purple-500"
+                        )} 
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Global Nav Footer */}
         <div className={cn(
-          "fixed bottom-0 left-0 right-0 z-[100] bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1"
+          "pointer-events-auto bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1 transition-all",
+          isDeckBuilderMode && "landscape:hidden"
         )}>
           <div className="max-w-md mx-auto flex items-center justify-around px-4">
-          <button 
-            onClick={() => {
-              if (selectedCard) {
-                setSelectedCard(null);
-                setSelectedArtType("Base art");
-                setShowAnatomy(false);
-              }
-              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
-                setOpenedEditorFromList(false);
-                setIsDeckEditorOpen(false);
-              }
-              if (currentTab === 'scan') setIsScanning(false);
-              setCurrentTab('cards');
-              setShowFeedback(false);
-              setShowAdminPanel(false);
-              setShowDeckList(false);
-              setIsScanning(false);
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              currentTab === 'cards' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              <Grid size={16} className={cn(
-                "transition-colors",
-                currentTab === 'cards' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'cards' ? 2 : 1.5} />
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'cards' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Cards</span>
-          </button>
-
-          <button 
-            onClick={() => {
-              if (selectedCard) {
-                setSelectedCard(null);
-                setSelectedArtType("Base art");
-                setShowAnatomy(false);
-              }
-              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
-                deckEditorRef.current.requestClose();
-                return;
-              }
-              if (currentTab === 'scan') setIsScanning(false);
-              
-              if (isDeckInPlayMode) {
-                setCurrentTab('decks');
-                setIsDeckEditorOpen(true);
-                setShowFeedback(false);
-                setShowAdminPanel(false);
-              } else if (isDeckBuilderMode && activeDeckId) {
-                setIsDeckEditorOpen(true);
-                setShowDeckList(false);
-                setCurrentTab('decks');
-                setShowFeedback(false);
-                setShowAdminPanel(false);
-              } else {
-                setShowDeckList(true);
-                setIsDeckEditorOpen(false);
-                setCurrentTab('decks');
-                setShowFeedback(false);
-                setShowAdminPanel(false);
-              }
-
-              setIsScanning(false);
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              currentTab === 'decks' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              <Layout size={16} className={cn(
-                "transition-colors",
-                currentTab === 'decks' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'decks' ? 2 : 1.5} />
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'decks' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Decks</span>
-            {decks.length > 0 && (
-              <span className="absolute top-0 right-0 w-3 h-3 bg-amber-500 text-white text-[6px] font-black rounded-full flex items-center justify-center border-2 border-[#F5F5F0]">
-                {decks.length}
-              </span>
-            )}
-          </button>
-
-          <button 
-            onClick={() => {
-              if (selectedCard) {
-                setSelectedCard(null);
-                setSelectedArtType("Base art");
-                setShowAnatomy(false);
-              }
-              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
-                setOpenedEditorFromList(false);
-                setIsDeckEditorOpen(false);
-              }
-              if (currentTab === 'scan') setIsScanning(false);
-              setCurrentTab('quick-start');
-              setShowFeedback(false);
-              setShowAdminPanel(false);
-              setShowDeckList(false);
-              setIsScanning(false);
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              currentTab === 'quick-start' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              <Sparkles size={16} className={cn(
-                "transition-colors",
-                currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'quick-start' ? 2 : 1.5} />
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Quick start</span>
-          </button>
-
-          <button 
-            onClick={() => {
-              if (selectedCard) {
-                setSelectedCard(null);
-                setSelectedArtType("Base art");
-                setShowAnatomy(false);
-              }
-              if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
-                setOpenedEditorFromList(false);
-                setIsDeckEditorOpen(false);
-              }
-              if (currentTab === 'scan') setIsScanning(false);
-              setCurrentTab('scan');
-              setShowFeedback(false);
-              setShowAdminPanel(false);
-              setIsScanning(true);
-              setShowDeckList(false);
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              currentTab === 'scan' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              <Scan size={16} className={cn(
-                "transition-colors",
-                currentTab === 'scan' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
-              )} strokeWidth={currentTab === 'scan' ? 2 : 1.5} />
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              currentTab === 'scan' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>Scan</span>
-          </button>
-
-          <button 
-            onClick={() => {
-              if (user) {
-                setCurrentTab('profile');
-                setShowFeedback(false);
-                setShowAdminPanel(false);
-                setIsScanning(false);
-                setShowDeckList(false);
-                setIsDeckEditorOpen(false);
+            <button 
+              onClick={() => {
+                if (selectedCard) {
+                  setSelectedCard(null);
+                  setSelectedArtType("Base art");
+                  setShowAnatomy(false);
+                }
+                if (isDeckBuilderMode) {
+                  setIsDeckBuilderMode(false);
+                  setIsDeckEditorOpen(false);
+                  setDeckBuilderView('list');
+                  setCurrentTab('cards');
+                  return;
+                }
+                if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode) {
+                  setOpenedEditorFromList(false);
+                  setIsDeckEditorOpen(false);
+                }
                 if (currentTab === 'scan') setIsScanning(false);
-              } else {
-                login();
-              }
-            }}
-            className="flex flex-col items-center gap-0 group transition-all active:scale-95"
-          >
-            <div className={cn(
-              "p-1 rounded-lg transition-colors",
-              (user && currentTab === 'profile') ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
-            )}>
-              {user ? (
-                user.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-4 h-4 rounded-full" referrerPolicy="no-referrer" />
-                ) : (
-                  <UserIcon size={16} className={cn(currentTab === 'profile' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]")} />
-                )
-              ) : (
-                <LogIn size={16} className="text-stone-500 group-hover:text-[#141414]" />
+                setCurrentTab('cards');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
+                setShowDeckList(false);
+                setIsScanning(false);
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                currentTab === 'cards' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                <Grid size={16} className={cn(
+                  "transition-colors",
+                  currentTab === 'cards' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                )} strokeWidth={currentTab === 'cards' ? 2 : 1.5} />
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                currentTab === 'cards' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>Cards</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (selectedCard) {
+                  setSelectedCard(null);
+                  setSelectedArtType("Base art");
+                  setShowAnatomy(false);
+                }
+                if (isDeckBuilderMode) {
+                  setDeckBuilderView('editor');
+                  setIsDeckEditorOpen(true);
+                  return;
+                }
+                if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode) {
+                  deckEditorRef.current.requestClose();
+                  return;
+                }
+                if (currentTab === 'scan') setIsScanning(false);
+                
+                if (isDeckInPlayMode) {
+                  setCurrentTab('decks');
+                  setIsDeckEditorOpen(true);
+                  setShowFeedback(false);
+                  setShowAdminPanel(false);
+                } else if (isDeckBuilderMode && activeDeckId) {
+                  setIsDeckEditorOpen(true);
+                  setShowDeckList(false);
+                  setCurrentTab('decks');
+                  setShowFeedback(false);
+                  setShowAdminPanel(false);
+                } else {
+                  setShowDeckList(true);
+                  setIsDeckEditorOpen(false);
+                  setCurrentTab('decks');
+                  setShowFeedback(false);
+                  setShowAdminPanel(false);
+                }
+
+                setIsScanning(false);
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                (currentTab === 'decks' || isDeckBuilderMode) ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                <Layout size={16} className={cn(
+                  "transition-colors",
+                  (currentTab === 'decks' || isDeckBuilderMode) ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                )} strokeWidth={(currentTab === 'decks' || isDeckBuilderMode) ? 2 : 1.5} />
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                (currentTab === 'decks' || isDeckBuilderMode) ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>Decks</span>
+              {decks.length > 0 && (
+                <span className="absolute top-0 right-0 w-3 h-3 bg-amber-500 text-white text-[6px] font-black rounded-full flex items-center justify-center border-2 border-[#F5F5F0]">
+                  {decks.length}
+                </span>
               )}
-            </div>
-            <span className={cn(
-              "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-              (user && currentTab === 'profile') ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
-            )}>
-              {user ? "Profile" : "Login"}
-            </span>
-          </button>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (selectedCard) {
+                  setSelectedCard(null);
+                  setSelectedArtType("Base art");
+                  setShowAnatomy(false);
+                }
+                if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
+                  setOpenedEditorFromList(false);
+                  setIsDeckEditorOpen(false);
+                }
+                if (isDeckBuilderMode) {
+                  setIsDeckBuilderMode(false);
+                  setIsDeckEditorOpen(false);
+                  setDeckBuilderView('list');
+                }
+                if (currentTab === 'scan') setIsScanning(false);
+                setCurrentTab('quick-start');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
+                setShowDeckList(false);
+                setIsScanning(false);
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                currentTab === 'quick-start' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                <Sparkles size={16} className={cn(
+                  "transition-colors",
+                  currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                )} strokeWidth={currentTab === 'quick-start' ? 2 : 1.5} />
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                currentTab === 'quick-start' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>Quick start</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (selectedCard) {
+                  setSelectedCard(null);
+                  setSelectedArtType("Base art");
+                  setShowAnatomy(false);
+                }
+                if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
+                  setOpenedEditorFromList(false);
+                  setIsDeckEditorOpen(false);
+                }
+                if (isDeckBuilderMode) {
+                  setIsDeckBuilderMode(false);
+                  setIsDeckEditorOpen(false);
+                  setDeckBuilderView('list');
+                }
+                if (currentTab === 'scan') setIsScanning(false);
+                setCurrentTab('scan');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
+                setIsScanning(true);
+                setShowDeckList(false);
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                currentTab === 'scan' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                <Scan size={16} className={cn(
+                  "transition-colors",
+                  currentTab === 'scan' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                )} strokeWidth={currentTab === 'scan' ? 2 : 1.5} />
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                currentTab === 'scan' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>Scan</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (user) {
+                  if (isDeckBuilderMode) {
+                    setIsDeckBuilderMode(false);
+                    setIsDeckEditorOpen(false);
+                    setDeckBuilderView('list');
+                  }
+                  setCurrentTab('profile');
+                  setShowFeedback(false);
+                  setShowAdminPanel(false);
+                  setIsScanning(false);
+                  setShowDeckList(false);
+                  setIsDeckEditorOpen(false);
+                  if (currentTab === 'scan') setIsScanning(false);
+                } else {
+                  login();
+                }
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                (user && currentTab === 'profile') ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                {user ? (
+                  user.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-4 h-4 rounded-full" referrerPolicy="no-referrer" />
+                  ) : (
+                    <UserIcon size={16} className={cn(currentTab === 'profile' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]")} />
+                  )
+                ) : (
+                  <LogIn size={16} className="text-stone-500 group-hover:text-[#141414]" />
+                )}
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                (user && currentTab === 'profile') ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>
+                {user ? "Profile" : "Login"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
-      )}
 
       <AnimatePresence>
         {toast && (
@@ -4421,10 +4447,10 @@ function AppContent() {
             decks={decks}
             onSelectDeck={(id) => {
               setActiveDeckId(id);
+              setIsDeckBuilderMode(true);
+              setDeckBuilderView('editor');
               setIsDeckEditorOpen(true);
-              setOpenedEditorFromList(true);
-              // We don't close the list immediately to avoid flashing the landing page
-              // The editor has a higher z-index and will cover it
+              setShowDeckList(false);
             }}
             onCreateDeck={createDeck}
             onDeleteDeck={deleteDeck}
@@ -4571,10 +4597,16 @@ function AppContent() {
             }}
             getCardPrice={getCardPrice}
             onClose={() => {
-              setIsDeckEditorOpen(false);
               if (isDeckBuilderMode) {
-                setCurrentTab('cards');
-              } else if (openedEditorFromList) {
+                setIsDeckBuilderMode(false);
+                setIsDeckEditorOpen(false);
+                setDeckBuilderView('list');
+                setCurrentTab('decks');
+                setShowDeckList(true);
+                return;
+              }
+              setIsDeckEditorOpen(false);
+              if (openedEditorFromList) {
                 setShowDeckList(true);
                 setOpenedEditorFromList(false);
               } else {

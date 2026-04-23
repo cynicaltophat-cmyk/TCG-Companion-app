@@ -619,10 +619,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     onClose();
                   }
                 }} 
-                className={cn(
-                  "p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0",
-                  isDeckBuilderMode && "hidden"
-                )}
+                className="p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0"
               >
                 <ChevronRight className="rotate-180" size={24} />
               </button>
@@ -815,29 +812,29 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('cards')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
                   activeTab === 'cards' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
-                Current Deck {totalCards}/50
+                CURRENT DECK
               </button>
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
                   activeTab === 'stats' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
-                Deck Info
+                DECK INFO
               </button>
               <button 
                 onClick={() => setActiveTab('product')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all",
+                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
                   activeTab === 'product' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
                 )}
               >
-                Product
+                PRODUCT
               </button>
             </div>
           )}
