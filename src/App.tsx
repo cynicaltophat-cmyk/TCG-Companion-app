@@ -3384,7 +3384,7 @@ function AppContent() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="pointer-events-auto bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)] landscape:hidden border-t border-stone-200"
+              className="pointer-events-auto bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-stone-200"
             >
               {/* Stats Bar */}
               <div className="px-4 py-2 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
@@ -3489,8 +3489,7 @@ function AppContent() {
 
         {/* Global Nav Footer */}
         <div className={cn(
-          "pointer-events-auto bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1 transition-all",
-          isDeckBuilderMode && "landscape:hidden"
+          "pointer-events-auto bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1 transition-all"
         )}>
           <div className="max-w-md mx-auto flex items-center justify-around px-4">
             <button 
@@ -4594,6 +4593,13 @@ function AppContent() {
               setCurrentTab('product-details'); // Change tab immediately
               setIsDeckEditorOpen(false);
               setShowDeckList(false); // Close the underlying deck list if it was open
+              setIsDeckBuilderMode(false); // Exit deck builder mode
+            }}
+            onViewProductList={() => {
+              setCurrentTab('product-list');
+              setIsDeckEditorOpen(false);
+              setShowDeckList(false);
+              setIsDeckBuilderMode(false); // Exit deck builder mode
             }}
             getCardPrice={getCardPrice}
             onClose={() => {

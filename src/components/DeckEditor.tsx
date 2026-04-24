@@ -31,6 +31,7 @@ import {
   Copy,
   CopyPlus,
   Printer,
+  Package,
   Edit2,
   Check,
   Palette,
@@ -62,6 +63,7 @@ interface DeckEditorProps {
   onRenameDeck?: (deckId: string, newName: string) => void;
   onSetCover?: (deckId: string, imageUrl: string) => void;
   onViewProduct?: (product: Product) => void;
+  onViewProductList?: () => void;
   getCardPrice?: (cardNumber: string, cardName: string, forceRefresh?: boolean, artType?: ArtVariantType) => Promise<string | null>;
   allCards: GundamCard[];
   allProducts: Product[];
@@ -206,6 +208,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   userPhotoUrl,
   allProducts,
   onViewProduct,
+  onViewProductList,
   getCardPrice
 }, ref) => {
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play' | 'product'>(initialTab as any || 'cards');
@@ -601,18 +604,18 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className={cn(
-        "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col",
-        isDeckBuilderMode && "landscape:left-[35%] landscape:w-[65%] landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
+        "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col transition-all duration-300 ease-in-out",
+        isDeckBuilderMode && "landscape:left-[35%] landscape:w-[65%] landscape:bottom-[132px] landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
         !visible && !isDeckBuilderMode && "hidden",
         !visible && isDeckBuilderMode && "hidden landscape:flex"
       )}
     >
       {/* Header */}
-      <header className="relative w-full overflow-hidden border-b border-stone-200 sticky top-0 z-[60]">
-        {/* Background Cover */}
-        <div className="absolute inset-0 z-0">
+      <header className="relative w-full border-b border-stone-200 sticky top-0 z-[60]">
+        {/* Background Cover - Isolated overflow-hidden container */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           {deck.coverImageUrl ? (
-            <img src={deck.coverImageUrl} className="w-full h-full object-cover object-[center_15%]" referrerPolicy="no-referrer" />
+            <img src={deck.coverImageUrl} className="w-full h-full object-cover object-[center_30%]" referrerPolicy="no-referrer" />
           ) : (
             <div className="w-full h-full bg-stone-800" />
           )}
@@ -620,49 +623,50 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80" />
         </div>
 
-        <div className="relative z-10 w-full px-4 lg:px-12 pt-6 pb-4 flex flex-col gap-8">
+        <div className="relative z-10 w-full px-4 lg:px-12 pt-3 pb-2 flex flex-col gap-4">
           {/* Top Row: Back, Name, Menu */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              <button 
-                onClick={() => {
-                  if (activeTab === 'play') {
-                    setIsExitPlayModalOpen(true);
-                  } else {
-                    onClose();
-                  }
-                }} 
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
-              >
-                <ChevronLeft size={24} strokeWidth={3} />
-              </button>
+          <div className="flex items-center justify-between gap-3 min-h-[36px]">
+            {isEditingName ? (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <input 
+                  autoFocus
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={(e) => {
+                    if (!e.relatedTarget?.classList.contains('confirm-rename')) {
+                      handleRename();
+                    }
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                  className="flex-1 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl px-3 py-1.5 text-sm font-black uppercase focus:outline-none placeholder:text-white/50"
+                  placeholder="Enter deck name..."
+                />
+                <button 
+                  onClick={handleRename}
+                  className="confirm-rename w-9 h-9 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-colors shrink-0"
+                >
+                  <Check size={20} strokeWidth={3} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 min-w-0 flex-1 h-full">
+                  <button 
+                    onClick={() => {
+                      if (activeTab === 'play') {
+                        setIsExitPlayModalOpen(true);
+                      } else {
+                        onClose();
+                      }
+                    }} 
+                    className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
+                  >
+                    <ChevronLeft size={20} strokeWidth={3} />
+                  </button>
 
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                {isEditingName ? (
-                  <div className="flex items-center gap-2 flex-1 min-w-0 max-w-[240px]">
-                    <input 
-                      autoFocus
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onBlur={(e) => {
-                        if (!e.relatedTarget?.classList.contains('confirm-rename')) {
-                          handleRename();
-                        }
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                      className="flex-1 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl px-3 py-1.5 text-base font-black uppercase focus:outline-none placeholder:text-white/50"
-                    />
-                    <button 
-                      onClick={handleRename}
-                      className="confirm-rename w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-colors shrink-0"
-                    >
-                      <Check size={18} strokeWidth={3} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 min-w-0 flex-1 group">
-                    <h2 className="font-extrabold text-xl text-white uppercase truncate tracking-tight drop-shadow-md">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 group h-full">
+                    <h2 className="font-extrabold text-[15px] text-white uppercase break-words line-clamp-2 tracking-tight drop-shadow-md leading-tight">
                       {deck.name}
                     </h2>
                     <button 
@@ -670,158 +674,157 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         setEditName(deck.name);
                         setIsEditingName(true);
                       }}
-                      className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-lg hover:scale-110 active:scale-95 transition-all shrink-0"
+                      className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-lg hover:scale-110 active:scale-95 transition-all shrink-0 mt-0.5"
                     >
-                      <Edit2 size={12} strokeWidth={3} />
+                      <Edit2 size={10} strokeWidth={3} />
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <div className={cn(
-              "relative shrink-0 flex items-center gap-2",
-              isDeckBuilderMode && "landscape:hidden"
-            )}>
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="px-4 py-2 bg-white rounded-full shadow-xl flex items-center gap-1.5 active:scale-95 transition-all group border border-white/50"
-              >
-                <MoreHorizontal size={20} className="text-stone-900 font-black" strokeWidth={3} />
-                <span className="text-[10px] font-black text-stone-900 uppercase tracking-widest pt-0.5">Menu</span>
-              </button>
-                <AnimatePresence>
-                  {isMenuOpen && (
-                    <>
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setIsMenuOpen(false)}
-                        className="fixed inset-0 z-40"
-                      />
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 overflow-hidden"
-                      >
-                        <div className="p-2 space-y-1">
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              setShowCoverPicker(true);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                <div className="flex items-center gap-2 h-full">
+                  <div className="relative shrink-0 flex items-center gap-2 h-full">
+                    <button 
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      className="px-3 py-2 bg-white rounded-full shadow-xl flex items-center gap-1.5 active:scale-95 transition-all group border border-white/50"
+                    >
+                      <MoreHorizontal size={18} className="text-stone-900 font-black" strokeWidth={3} />
+                      <span className="text-[9px] font-black text-stone-900 uppercase tracking-widest pt-0.5">Menu</span>
+                    </button>
+                    <AnimatePresence>
+                      {isMenuOpen && (
+                        <>
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMenuOpen(false)}
+                            className="fixed inset-0 z-40"
+                          />
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                            className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 overflow-hidden"
                           >
-                            <Palette size={16} />
-                            Edit Deck Cover
-                          </button>
-                          <div className="h-px bg-stone-100 my-1 mx-2" />
-                          <button 
-                            onClick={handleImageExport}
-                            disabled={isImageExporting}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors disabled:opacity-50"
-                          >
-                            <ImageIcon size={16} />
-                            Export as Image (PNG)
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              const text = deck.items.map(i => `${i.count}x ${i.card.cardNumber}`).join('\n');
-                              setExportText(`// Main Deck\n${text}`);
-                              setIsExportModalOpen(true);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
-                          >
-                            <Download size={16} />
-                            Export as Text
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              const deckData = {
-                                name: deck.name,
-                                items: deck.items.map(i => ({
-                                  card: {
-                                    id: i.card.id,
-                                    name: i.card.name,
-                                    cardNumber: i.card.cardNumber,
-                                    color: i.card.color,
-                                    rarity: i.card.rarity,
-                                    imageUrl: i.card.imageUrl
-                                  },
-                                  count: i.count,
-                                  artType: i.artType
-                                }))
-                              };
-                              const encoded = btoa(JSON.stringify(deckData));
-                              const shareUrl = `${window.location.origin}${window.location.pathname}?import=${encoded}`;
-                              navigator.clipboard.writeText(shareUrl);
-                              showToast("Successfully copied link to clipboard");
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
-                          >
-                            <Share2 size={16} />
-                            Share deck link
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              setIsImportModalOpen(true);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
-                          >
-                            <Upload size={16} />
-                            Import deck
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              onDuplicateDeck?.(deck);
-                              showToast("Successfully duplicated deck");
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
-                          >
-                            <Copy size={16} />
-                            Duplicate deck
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              onPrintProxy?.(deck);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
-                          >
-                            <Printer size={16} />
-                            Print Proxy
-                          </button>
-                        </div>
-                      </motion.div>
-                    </>
+                            <div className="p-2 space-y-1">
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  setShowCoverPicker(true);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Palette size={16} />
+                                Edit Deck Cover
+                              </button>
+                              <div className="h-px bg-stone-100 my-1 mx-2" />
+                              <button 
+                                onClick={handleImageExport}
+                                disabled={isImageExporting}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors disabled:opacity-50"
+                              >
+                                <ImageIcon size={16} />
+                                Export as Image (PNG)
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  const text = deck.items.map(i => `${i.count}x ${i.card.cardNumber}`).join('\n');
+                                  setExportText(`// Main Deck\n${text}`);
+                                  setIsExportModalOpen(true);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Download size={16} />
+                                Export as Text
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  const deckData = {
+                                    name: deck.name,
+                                    items: deck.items.map(i => ({
+                                      card: {
+                                        id: i.card.id,
+                                        name: i.card.name,
+                                        cardNumber: i.card.cardNumber,
+                                        color: i.card.color,
+                                        rarity: i.card.rarity,
+                                        imageUrl: i.card.imageUrl
+                                      },
+                                      count: i.count,
+                                      artType: i.artType
+                                    }))
+                                  };
+                                  const encoded = btoa(JSON.stringify(deckData));
+                                  const shareUrl = `${window.location.origin}${window.location.pathname}?import=${encoded}`;
+                                  navigator.clipboard.writeText(shareUrl);
+                                  showToast("Successfully copied link to clipboard");
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Share2 size={16} />
+                                Share deck link
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  setIsImportModalOpen(true);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Upload size={16} />
+                                Import deck
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  onDuplicateDeck?.(deck);
+                                  showToast("Successfully duplicated deck");
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Copy size={16} />
+                                Duplicate deck
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  onPrintProxy?.(deck);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Printer size={16} />
+                                Print Proxy
+                              </button>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {activeTab === 'play' && (
+                    <button 
+                      onClick={() => setIsExitPlayModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all bg-amber-500 text-white shadow-amber-500/20"
+                    >
+                      <Play size={12} fill="currentColor" />
+                      Exit Play Mode
+                    </button>
                   )}
-                </AnimatePresence>
-              </div>
-
-              {activeTab === 'play' && (
-                <button 
-                  onClick={() => setIsExitPlayModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-wider flex items-center gap-2 shadow-sm active:scale-95 transition-all bg-amber-500 text-white shadow-amber-500/20"
-                >
-                  <Play size={12} fill="currentColor" />
-                  Exit Play Mode
-                </button>
-              )}
-            </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Tab Toggle */}
           {activeTab !== 'play' && (
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl p-1.5 flex items-center h-14">
+            <div className="bg-black/20 backdrop-blur-md rounded-2xl p-1 flex items-center h-9">
               <button 
                 onClick={() => setActiveTab('cards')}
                 className={cn(
-                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  "flex-1 h-full text-[8.5px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
                   activeTab === 'cards' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
@@ -830,7 +833,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
-                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  "flex-1 h-full text-[8.5px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
                   activeTab === 'stats' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
@@ -839,7 +842,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('product')}
                 className={cn(
-                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  "flex-1 h-full text-[8.5px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
                   activeTab === 'product' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
@@ -1002,7 +1005,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               className="p-4 lg:px-12 space-y-8 w-full"
             >
               {/* Total Cost Header */}
-              <div className="flex items-center justify-between pb-4 border-stone-200">
+              <div className="flex items-center justify-between pb-2 border-stone-200">
                 <div className="flex items-baseline gap-2">
                   <span className="text-xs font-bold text-stone-900 uppercase tracking-tight">Total cost:</span>
                   <span className="text-sm font-black text-amber-500">
@@ -1146,6 +1149,30 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     </div>
                   );
                 })}
+
+                {/* See All Products Section */}
+                <div className="pt-8 border-t border-stone-200 flex flex-col items-center gap-4">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest text-center">
+                    Looking for something else?
+                  </p>
+                  <button 
+                    onClick={() => {
+                      onViewProductList?.();
+                    }}
+                    className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between px-6 group active:scale-95 transition-all shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                        <Package size={20} />
+                      </div>
+                      <div className="text-left">
+                        <span className="block font-bold text-sm text-[#141414]">See more products</span>
+                        <span className="block text-[10px] text-stone-400 font-medium tracking-tight">Browse our full catalog of sets</span>
+                      </div>
+                    </div>
+                    <ChevronRight size={20} className="text-stone-300 group-hover:text-amber-500 transition-colors" />
+                  </button>
+                </div>
               </div>
             </motion.section>
           ) : activeTab === 'play' ? (
