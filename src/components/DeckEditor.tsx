@@ -6,6 +6,7 @@ import {
   Minus, 
   BarChart2, 
   AlertCircle,
+  ChevronLeft,
   ChevronRight,
   FileText,
   Search,
@@ -32,6 +33,7 @@ import {
   Printer,
   Edit2,
   Check,
+  Palette,
   Image as ImageIcon,
   HelpCircle,
   ExternalLink,
@@ -606,11 +608,22 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       )}
     >
       {/* Header */}
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
-        <div className="w-full px-4 lg:px-12 py-2 flex flex-col gap-2">
-          {/* Line 1: Back, Icon, Name, Menu */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+      <header className="relative w-full overflow-hidden border-b border-stone-200 sticky top-0 z-[60]">
+        {/* Background Cover */}
+        <div className="absolute inset-0 z-0">
+          {deck.coverImageUrl ? (
+            <img src={deck.coverImageUrl} className="w-full h-full object-cover object-[center_15%]" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-full h-full bg-stone-800" />
+          )}
+          <div className="absolute inset-0 bg-stone-900/30 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80" />
+        </div>
+
+        <div className="relative z-10 w-full px-4 lg:px-12 pt-6 pb-4 flex flex-col gap-8">
+          {/* Top Row: Back, Name, Menu */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
               <button 
                 onClick={() => {
                   if (activeTab === 'play') {
@@ -619,57 +632,47 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     onClose();
                   }
                 }} 
-                className="p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0"
+                className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
               >
-                <ChevronRight className="rotate-180" size={24} />
+                <ChevronLeft size={24} strokeWidth={3} />
               </button>
 
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div 
-                  onClick={() => setShowCoverPicker(true)}
-                  className="w-8 h-8 bg-stone-100 rounded-lg flex items-center justify-center text-stone-400 overflow-hidden relative group shrink-0 cursor-pointer"
-                >
-                  {deck.coverImageUrl ? (
-                    <img src={deck.coverImageUrl} alt="" className="w-full h-full object-cover object-[center_5%] scale-150" referrerPolicy="no-referrer" />
-                  ) : (
-                    <Layout size={16} />
-                  )}
-                </div>
-                
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {isEditingName ? (
-                  <div className="flex items-center gap-1 flex-1 min-w-0 max-w-[200px]">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 max-w-[240px]">
                     <input 
                       autoFocus
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       onBlur={(e) => {
-                        // Only blur if we're not clicking the check button
                         if (!e.relatedTarget?.classList.contains('confirm-rename')) {
                           handleRename();
                         }
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                      className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-2 py-1 text-sm font-bold focus:outline-none min-w-0"
+                      className="flex-1 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl px-3 py-1.5 text-base font-black uppercase focus:outline-none placeholder:text-white/50"
                     />
                     <button 
                       onClick={handleRename}
-                      className="confirm-rename p-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shrink-0"
+                      className="confirm-rename w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-600 transition-colors shrink-0"
                     >
-                      <Check size={14} />
+                      <Check size={18} strokeWidth={3} />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 min-w-0 flex-1">
-                    <h2 className="font-bold text-sm truncate">{deck.name}</h2>
+                  <div className="flex items-center gap-3 min-w-0 flex-1 group">
+                    <h2 className="font-extrabold text-xl text-white uppercase truncate tracking-tight drop-shadow-md">
+                      {deck.name}
+                    </h2>
                     <button 
                       onClick={() => {
                         setEditName(deck.name);
                         setIsEditingName(true);
                       }}
-                      className="p-1 text-stone-300 hover:text-[#141414] transition-colors shrink-0"
+                      className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-lg hover:scale-110 active:scale-95 transition-all shrink-0"
                     >
-                      <Edit2 size={14} />
+                      <Edit2 size={12} strokeWidth={3} />
                     </button>
                   </div>
                 )}
@@ -677,20 +680,16 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
             </div>
 
             <div className={cn(
-              "flex items-center gap-2 shrink-0",
+              "relative shrink-0 flex items-center gap-2",
               isDeckBuilderMode && "landscape:hidden"
             )}>
-              <div className="relative">
-                <button 
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="p-2 hover:bg-stone-100 rounded-xl transition-colors text-stone-600 flex items-center gap-1"
-                  title="Deck Menu"
-                >
-                  <MoreHorizontal size={20} />
-                  <span className="text-[9px] font-black uppercase tracking-wider">Menu</span>
-                </button>
-                {/* ... existing menu AnimatePresence ... */}
-
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="px-4 py-2 bg-white rounded-full shadow-xl flex items-center gap-1.5 active:scale-95 transition-all group border border-white/50"
+              >
+                <MoreHorizontal size={20} className="text-stone-900 font-black" strokeWidth={3} />
+                <span className="text-[10px] font-black text-stone-900 uppercase tracking-widest pt-0.5">Menu</span>
+              </button>
                 <AnimatePresence>
                   {isMenuOpen && (
                     <>
@@ -705,13 +704,24 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-stone-200 z-50 overflow-hidden"
+                        className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 overflow-hidden"
                       >
                         <div className="p-2 space-y-1">
                           <button 
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              setShowCoverPicker(true);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                          >
+                            <Palette size={16} />
+                            Edit Deck Cover
+                          </button>
+                          <div className="h-px bg-stone-100 my-1 mx-2" />
+                          <button 
                             onClick={handleImageExport}
                             disabled={isImageExporting}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors disabled:opacity-50"
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors disabled:opacity-50"
                           >
                             <ImageIcon size={16} />
                             Export as Image (PNG)
@@ -723,7 +733,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               setExportText(`// Main Deck\n${text}`);
                               setIsExportModalOpen(true);
                             }}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
                           >
                             <Download size={16} />
                             Export as Text
@@ -804,16 +814,15 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </button>
               )}
             </div>
-          </div>
 
           {/* Tab Toggle */}
           {activeTab !== 'play' && (
-            <div className="flex bg-stone-100 p-1 rounded-xl">
+            <div className="bg-black/20 backdrop-blur-md rounded-2xl p-1.5 flex items-center h-14">
               <button 
                 onClick={() => setActiveTab('cards')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
-                  activeTab === 'cards' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
+                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  activeTab === 'cards' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
                 CURRENT DECK
@@ -821,8 +830,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('stats')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
-                  activeTab === 'stats' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
+                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  activeTab === 'stats' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
                 DECK INFO
@@ -830,8 +839,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               <button 
                 onClick={() => setActiveTab('product')}
                 className={cn(
-                  "flex-1 py-1.5 landscape:py-1 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all",
-                  activeTab === 'product' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
+                  "flex-1 h-full text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
+                  activeTab === 'product' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
                 )}
               >
                 PRODUCT
@@ -2063,11 +2072,11 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               className="p-4 lg:px-12 space-y-8 w-full"
             >
               {/* Units Group */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Units</h3>
-                  <div className="h-px flex-1 bg-stone-200/60" />
-                  <span className="text-[10px] font-black text-stone-300">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.2em]">Units</h3>
+                  <div className="h-px flex-1 bg-stone-200/50" />
+                  <span className="text-[11px] font-black text-stone-300 tracking-wider">
                     {deck.items.filter(i => i.card.type.includes('Unit')).reduce((s, i) => s + i.count, 0)}
                   </span>
                 </div>
@@ -2108,11 +2117,11 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               </div>
 
               {/* Others Group */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 px-1">
-                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">Pilots, Command, Base</h3>
-                  <div className="h-px flex-1 bg-stone-200/60" />
-                  <span className="text-[10px] font-black text-stone-300">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.2em]">Pilots, Command, Base</h3>
+                  <div className="h-px flex-1 bg-stone-200/50" />
+                  <span className="text-[11px] font-black text-stone-300 tracking-wider">
                     {deck.items.filter(i => !i.card.type.includes('Unit')).reduce((s, i) => s + i.count, 0)}
                   </span>
                 </div>
