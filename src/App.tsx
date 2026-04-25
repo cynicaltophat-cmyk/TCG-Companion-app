@@ -54,8 +54,8 @@ import {
 import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
-import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice } from './services/geminiService';
-import { cn, PriceDisplayMode, formatPrice } from './lib/utils';
+import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice, clearPriceCache } from './services/geminiService';
+import { cn, PriceDisplayMode, formatPrice, getColorBg } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { QuickSetup } from './components/QuickSetup';
 import { DeckList } from './components/DeckList';
@@ -965,6 +965,14 @@ function AppContent() {
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+
+  useEffect(() => {
+    const handleResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [deckBuilderView, setDeckBuilderView] = useState<'list' | 'editor'>('list');
   const [isDeckInPlayMode, setIsDeckInPlayMode] = useState(false);
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
@@ -2905,7 +2913,8 @@ function AppContent() {
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
       <div className={cn(
         "transition-all duration-300", 
-        isFilterOpen && "blur-[2px] brightness-95"
+        isFilterOpen && "blur-[2px] brightness-95",
+        isDeckBuilderMode && "landscape:h-screen landscape:flex landscape:flex-col"
       )}>
       {/* Header */}
       {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
@@ -3216,6 +3225,42 @@ function AppContent() {
                 </div>
               )}
 
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
+                <button 
+                  onClick={() => {
+                    const btn = document.getElementById('clear-cache-btn');
+                    const label = document.getElementById('clear-cache-label');
+                    if (btn?.dataset.confirming === 'true') {
+                      clearPriceCache();
+                      showToast("Price cache cleared!");
+                      if (btn) btn.dataset.confirming = 'false';
+                      if (label) label.innerText = 'Clear Price Cache';
+                    } else {
+                      if (btn) btn.dataset.confirming = 'true';
+                      if (label) label.innerText = 'Click again to confirm';
+                      setTimeout(() => {
+                        if (btn) btn.dataset.confirming = 'false';
+                        if (label) label.innerText = 'Clear Price Cache';
+                      }, 3000);
+                    }
+                  }}
+                  id="clear-cache-btn"
+                  data-confirming="false"
+                  className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-stone-100 text-stone-500 group-hover:text-amber-600 rounded-lg flex items-center justify-center transition-colors">
+                      <Trash2 size={18} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black text-[#141414]" id="clear-cache-label">Clear Price Cache</p>
+                      <p className="text-[10px] text-stone-500 font-medium">Reset YYT price storage</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+
               <button 
                 onClick={() => {
                   logout();
@@ -3232,16 +3277,17 @@ function AppContent() {
       )}
 
       <main className={cn(
-        "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pt-4 pb-32 transition-all duration-300", 
+        "max-w-md landscape:max-w-none lg:max-w-none mx-auto px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pt-4 pb-32 transition-all duration-300 min-h-screen", 
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-20 pb-52 builder-mode"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-[64px] builder-mode landscape:flex-1 landscape:flex landscape:flex-col landscape:h-full landscape:overflow-hidden landscape:min-h-0"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
           <>
-            <div className="mb-6 space-y-4">
+            <div className={cn(isDeckBuilderMode && "landscape:shrink-0")}>
+              <div className="mb-6 space-y-4">
           {/* Active Filter Tags */}
           {(activeFilterList.length > 0 || debouncedSearchQuery) && (
             <div className="flex flex-wrap gap-2 mb-2">
@@ -3305,7 +3351,13 @@ function AppContent() {
             </div>
         </div>
 
+        </div>
+        
         {/* Card Grid */}
+        <div className={cn(
+          "flex-1 min-h-0",
+          isDeckBuilderMode && "landscape:overflow-hidden"
+        )}>
         {cardsLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 px-6 text-center">
             <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mb-6">
@@ -3362,23 +3414,25 @@ function AppContent() {
           </div>
         ) : (
           <VirtuosoGrid
-            useWindowScroll
+            useWindowScroll={!(isDeckBuilderMode && isLandscape)}
+            style={isDeckBuilderMode && isLandscape ? { height: '100%' } : {}}
             data={gridData}
             overscan={400}
             components={virtuosoComponents}
             itemContent={renderGridItem}
           />
         )}
-      </>
-    )}
-  </main>
+        </div>
+        </>
+      )}
+    </main>
   </div>
 
       {/* Sticky Bottom Interface */}
       <div className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col pointer-events-none">
         {/* Sticky Deck Builder Bar */}
         <AnimatePresence>
-          {isDeckBuilderMode && (
+          {isDeckBuilderMode && !isLandscape && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3418,7 +3472,7 @@ function AppContent() {
               </div>
 
               {/* View Toggle row */}
-              <div className="flex border-b border-stone-100 flex-col bg-white">
+              <div className="flex border-b border-stone-100 flex-col bg-white landscape:hidden">
                 <div className="px-4 py-2 bg-[#F5F5F0]/50">
                   <div className="flex items-center relative">
                     <button 
@@ -4444,6 +4498,7 @@ function AppContent() {
         {showDeckList && (
           <DeckList 
             decks={decks}
+            allCards={combinedCards}
             onSelectDeck={(id) => {
               setActiveDeckId(id);
               setIsDeckBuilderMode(true);
@@ -4742,19 +4797,27 @@ function AppContent() {
                 {/* Color */}
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Color</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     {COLORS.map(color => (
                       <button
                         key={color}
                         onClick={() => toggleFilter('colors', color)}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border",
+                          "w-10 h-10 rounded-xl transition-all border flex items-center justify-center relative",
                           activeFilters.colors.includes(color)
-                            ? "bg-[#141414] text-white border-[#141414] shadow-md shadow-black/10"
-                            : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
+                            ? "border-amber-400 ring-2 ring-amber-400 ripple shadow-lg scale-110"
+                            : "border-stone-100 hover:border-stone-300"
                         )}
+                        title={color}
                       >
-                        {color}
+                        <div className={cn("w-full h-full rounded-[10px]", getColorBg(color))} />
+                        {activeFilters.colors.includes(color) && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-full p-0.5">
+                              <Check size={14} className={color === 'White' ? "text-stone-900" : "text-white"} />
+                            </div>
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>

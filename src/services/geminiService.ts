@@ -221,6 +221,15 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
   }
 }
 
+export function clearPriceCache() {
+  try {
+    Object.keys(priceCache).forEach(key => delete priceCache[key]);
+    localStorage.removeItem('gundam_price_cache');
+  } catch (e) {
+    console.error("Failed to clear price cache", e);
+  }
+}
+
 export function getCachedPrice(cardNumber: string, cardName: string, artType: ArtVariantType = "Base art"): string | null {
   const cacheKey = `${cardNumber}_${cardName}_${artType}`;
   const entry = priceCache[cacheKey];
