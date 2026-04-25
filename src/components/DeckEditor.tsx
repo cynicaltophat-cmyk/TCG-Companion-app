@@ -72,6 +72,8 @@ interface DeckEditorProps {
   isDeckBuilderMode?: boolean;
   userName?: string;
   userPhotoUrl?: string;
+  isPreviewMode?: boolean;
+  onTogglePreviewMode?: () => void;
 }
 
 export interface DeckEditorHandle {
@@ -209,7 +211,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   allProducts,
   onViewProduct,
   onViewProductList,
-  getCardPrice
+  getCardPrice,
+  isPreviewMode = false,
+  onTogglePreviewMode
 }, ref) => {
   const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play' | 'product'>(initialTab as any || 'cards');
   const [pricesVersion, setPricesVersion] = React.useState(0);
@@ -624,7 +628,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
       exit={{ opacity: 0 }}
       className={cn(
         "fixed inset-0 z-[55] bg-[#F5F5F0] flex flex-col transition-all duration-300 ease-in-out",
-        isDeckBuilderMode && "landscape:left-[35%] landscape:w-[65%] landscape:bottom-[64px] landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
+        isDeckBuilderMode && !isPreviewMode && "landscape:left-[35%] landscape:w-[65%] landscape:bottom-[64px] landscape:border-l landscape:border-stone-200 landscape:shadow-[-8px_0_24px_rgba(0,0,0,0.05)]",
         !visible && !isDeckBuilderMode && "hidden",
         !visible && isDeckBuilderMode && "hidden landscape:flex"
       )}
@@ -679,9 +683,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         onClose();
                       }
                     }} 
-                    className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
+                    className="w-9 h-7 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
                   >
-                    <ChevronLeft size={20} strokeWidth={3} />
+                    <ChevronLeft size={16} strokeWidth={3} />
                   </button>
 
                   <div className="flex items-center gap-2 min-w-0 flex-1 group h-full">
@@ -693,9 +697,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         setEditName(deck.name);
                         setIsEditingName(true);
                       }}
-                      className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-lg hover:scale-110 active:scale-95 transition-all shrink-0 mt-0.5"
+                      className="w-6 h-4 bg-white rounded-full flex items-center justify-center text-stone-900 shadow-lg hover:scale-110 active:scale-95 transition-all shrink-0 mt-0.5"
                     >
-                      <Edit2 size={10} strokeWidth={3} />
+                      <Edit2 size={8} strokeWidth={3} />
                     </button>
                   </div>
                 </div>
@@ -704,9 +708,9 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   <div className="relative shrink-0 flex items-center gap-2 h-full">
                     <button 
                       onClick={() => setIsMenuOpen(!isMenuOpen)}
-                      className="px-3 py-2 bg-white rounded-full shadow-xl flex items-center gap-1.5 active:scale-95 transition-all group border border-white/50"
+                      className="px-3 py-1 bg-white rounded-full shadow-xl flex items-center gap-1.5 active:scale-95 transition-all group border border-white/50"
                     >
-                      <MoreHorizontal size={18} className="text-stone-900 font-black" strokeWidth={3} />
+                      <MoreHorizontal size={16} className="text-stone-900 font-black" strokeWidth={3} />
                       <span className="text-[9px] font-black text-stone-900 uppercase tracking-widest pt-0.5">Menu</span>
                     </button>
                     <AnimatePresence>
@@ -726,6 +730,17 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                             className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 overflow-hidden"
                           >
                             <div className="p-2 space-y-1">
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  onTogglePreviewMode?.();
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-amber-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Layout size={16} />
+                                {isPreviewMode ? "Deck building mode" : "Preview mode"}
+                              </button>
+                              <div className="h-px bg-stone-100 my-1 mx-2" />
                               <button 
                                 onClick={() => {
                                   setIsMenuOpen(false);
@@ -838,7 +853,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
           </div>
 
           {/* Tab Toggle */}
-          {activeTab !== 'play' && (
+          {activeTab !== 'play' && !isPreviewMode && (
             <div className="bg-black/20 backdrop-blur-md rounded-2xl p-1 flex items-center h-9">
               <button 
                 onClick={() => setActiveTab('cards')}
@@ -2183,19 +2198,21 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         onPreviewCard={onPreviewCard}
                         onRemove={onRemove}
                         onUpdateCount={onUpdateCount}
+                        hideControls={isPreviewMode}
                       />
                     ))
                   }
-                  {/* Add Unit Button */}
-                  <button 
-                    onClick={() => onEnterBuilderMode(['Unit'])}
-                    className="aspect-[2/3] rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50/30 transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                      <Plus size={16} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-tight">+ Add unit</span>
-                  </button>
+                  {!isPreviewMode && (
+                    <button 
+                      onClick={() => onEnterBuilderMode(['Unit'])}
+                      className="aspect-[2/3] rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50/30 transition-all group"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                        <Plus size={16} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-tight">+ Add unit</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2228,19 +2245,21 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                         onPreviewCard={onPreviewCard}
                         onRemove={onRemove}
                         onUpdateCount={onUpdateCount}
+                        hideControls={isPreviewMode}
                       />
                     ))
                   }
-                  {/* Add Others Button */}
-                  <button 
-                    onClick={() => onEnterBuilderMode(['Pilot', 'Command', 'Base'])}
-                    className="aspect-[2/3] rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50/30 transition-all group p-2 text-center"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                      <Plus size={16} />
-                    </div>
-                    <span className="text-[9px] font-black uppercase tracking-tighter leading-tight">+ Add pilot, command, base</span>
-                  </button>
+                  {!isPreviewMode && (
+                    <button 
+                      onClick={() => onEnterBuilderMode(['Pilot', 'Command', 'Base'])}
+                      className="aspect-[2/3] rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-400 hover:border-amber-400 hover:text-amber-500 hover:bg-amber-50/30 transition-all group p-2 text-center"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                        <Plus size={16} />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-tighter leading-tight">+ Add pilot, command, base</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.section>

@@ -970,6 +970,7 @@ function AppContent() {
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
 
   useEffect(() => {
@@ -2138,6 +2139,7 @@ function AppContent() {
       isScanning: false,
       isDeckInPlayMode: false,
       isDeckBuilderMode: false,
+      isPreviewMode: false,
       showDeckList: false,
       activeDeckId: null
     };
@@ -2169,6 +2171,7 @@ function AppContent() {
         setIsScanning(!!state.isScanning);
         setIsDeckInPlayMode(!!state.isDeckInPlayMode);
         setIsDeckBuilderMode(!!state.isDeckBuilderMode);
+        setIsPreviewMode(!!state.isPreviewMode);
         setShowDeckList(!!state.showDeckList);
         setActiveDeckId(state.activeDeckId || null);
         
@@ -2198,6 +2201,7 @@ function AppContent() {
       isScanning,
       isDeckInPlayMode,
       isDeckBuilderMode,
+      isPreviewMode,
       showDeckList,
       activeDeckId
     };
@@ -2215,6 +2219,7 @@ function AppContent() {
       historyState.isScanning !== currentState.isScanning ||
       historyState.isDeckInPlayMode !== currentState.isDeckInPlayMode ||
       historyState.isDeckBuilderMode !== currentState.isDeckBuilderMode ||
+      historyState.isPreviewMode !== currentState.isPreviewMode ||
       historyState.showDeckList !== currentState.showDeckList ||
       historyState.activeDeckId !== currentState.activeDeckId;
 
@@ -2232,6 +2237,7 @@ function AppContent() {
     isScanning, 
     isDeckInPlayMode, 
     isDeckBuilderMode,
+    isPreviewMode,
     showDeckList,
     activeDeckId,
     cardsLoading
@@ -3463,7 +3469,8 @@ function AppContent() {
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-[40px] builder-mode landscape:flex-1 landscape:flex landscape:flex-col landscape:h-full landscape:overflow-hidden landscape:min-h-0"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-[40px] builder-mode landscape:flex-1 landscape:flex landscape:flex-col landscape:h-full landscape:overflow-hidden landscape:min-h-0",
+        isPreviewMode && "hidden"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
@@ -3611,7 +3618,8 @@ function AppContent() {
   </div>
 
       {/* Sticky Bottom Interface */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col pointer-events-none">
+      {!isPreviewMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col pointer-events-none">
         {/* Sticky Deck Builder Bar */}
         <AnimatePresence>
           {isDeckBuilderMode && (
@@ -3723,7 +3731,6 @@ function AppContent() {
           )}
         </AnimatePresence>
 
-        {/* Global Nav Footer */}
         <div className={cn(
           "pointer-events-auto bg-[#F5F5F0] border-t border-stone-200/60 pb-2 pt-1 transition-all"
         )}>
@@ -3738,6 +3745,7 @@ function AppContent() {
                 if (isDeckBuilderMode) {
                   setIsDeckBuilderMode(false);
                   setIsDeckEditorOpen(false);
+                  setIsPreviewMode(false);
                   setDeckBuilderView('list');
                   setCurrentTab('cards');
                   return;
@@ -3956,6 +3964,7 @@ function AppContent() {
           </div>
         </div>
       </div>
+    )}
 
       <AnimatePresence>
         {toast && (
@@ -5003,12 +5012,14 @@ function AppContent() {
               if (isDeckBuilderMode) {
                 setIsDeckBuilderMode(false);
                 setIsDeckEditorOpen(false);
+                setIsPreviewMode(false);
                 setDeckBuilderView('list');
                 setCurrentTab('decks');
                 setShowDeckList(true);
                 return;
               }
               setIsDeckEditorOpen(false);
+              setIsPreviewMode(false);
               if (openedEditorFromList) {
                 setShowDeckList(true);
                 setOpenedEditorFromList(false);
@@ -5026,6 +5037,8 @@ function AppContent() {
             onPrintProxy={(deck) => setPrintingDeck(deck)}
             onDuplicateDeck={duplicateDeck}
             onImportDeck={importDeckFromText}
+            isPreviewMode={isPreviewMode}
+            onTogglePreviewMode={() => setIsPreviewMode(!isPreviewMode)}
             onEnterBuilderMode={(types) => {
               setIsDeckBuilderMode(true);
               setIsDeckEditorOpen(true); // Keep open but hidden
