@@ -24,6 +24,8 @@ import {
   ExternalLink,
   Filter,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Trophy,
   History,
   Calendar,
@@ -995,6 +997,8 @@ function AppContent() {
   const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
   const [quickStartMode, setQuickStartMode] = useState<'play' | 'stats' | null>(null);
   const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'product-list' | 'product-details'>('cards');
+  const [sortOption, setSortOption] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'default', direction: 'asc' });
+  const [showSortModal, setShowSortModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductManager, setShowProductManager] = useState(false);
@@ -1930,7 +1934,7 @@ function AppContent() {
 
       // Add a small delay between multiple AI calls to prevent rate limiting
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
       try {
@@ -1975,11 +1979,13 @@ function AppContent() {
 
         const base64 = await resizeImage(file);
         
-        // Add a 90s timeout to the identification call
+        // Add a 180s timeout to the identification call (Gemini can be slow sometimes)
         const identificationTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Identification timed out")), 90000)
+          setTimeout(() => reject(new Error("Identification timed out")), 180000)
         );
         
+        setAnalysisProgress(`Analyzing card ${i + 1} of ${files.length}... (Wait time: up to 3m)`);
+
         const identified = await Promise.race([
           identifyCard(base64, combinedCards),
           identificationTimeout
@@ -1997,8 +2003,11 @@ function AppContent() {
             });
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Error scanning file ${i + 1}:`, err);
+        // If it's a timeout, maybe the next one will work, so we continue but inform the user
+        const errorMsg = err.message || "Unknown error";
+        setAnalysisProgress(`Card ${i + 1} failed: ${errorMsg}. Continuing...`);
       }
     }
 
@@ -2016,8 +2025,10 @@ function AppContent() {
       setIsScanning(false);
       setIsBatchScanning(false);
       setCapturedBatchFiles([]);
+      setCurrentTab('decks'); // Navigate to the decks tab
       setIsDeckEditorOpen(true);
       setOpenedEditorFromList(true);
+      setShowDeckList(false); // Make sure the deck list is closed so the editor is visible
     } else {
       showToast("Could not identify any cards from the photos.");
     }
@@ -2656,19 +2667,47 @@ function AppContent() {
 
       return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants && matchesUsers;
     }).sort((a, b) => {
+      const direction = sortOption.direction === 'asc' ? 1 : -1;
+      
+      const parseValue = (val: any) => {
+        if (val === undefined || val === null) return 0;
+        if (typeof val === 'number') return val;
+        const cleaned = String(val).replace('+', '').trim();
+        const num = parseInt(cleaned);
+        return isNaN(num) ? 0 : num;
+      };
+
+      if (sortOption.key === 'level') return (parseValue(a.level) - parseValue(b.level)) * direction;
+      if (sortOption.key === 'cost') return (parseValue(a.cost) - parseValue(b.cost)) * direction;
+      if (sortOption.key === 'ap') return (parseValue(a.ap) - parseValue(b.ap)) * direction;
+      if (sortOption.key === 'hp') return (parseValue(a.hp) - parseValue(b.hp)) * direction;
+      if (sortOption.key === 'name') return a.name.localeCompare(b.name) * direction;
+      if (sortOption.key === 'id') return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true }) * direction;
+      if (sortOption.key === 'color') return a.color.localeCompare(b.color) * direction;
+      if (sortOption.key === 'price') {
+        const priceAStr = getCachedPrice(a.cardNumber, a.name, "Base art");
+        const priceBStr = getCachedPrice(b.cardNumber, b.name, "Base art");
+        const parsePrice = (p: string | null) => {
+          if (!p) return 0;
+          return parseFloat(p.replace(/[^0-9.]/g, '')) || 0;
+        };
+        return (parsePrice(priceAStr) - parsePrice(priceBStr)) * direction;
+      }
+
+      // Default sort (Set -> ID) where direction governs Set order
       const normalize = (s: string) => s.replace(/\s+/g, '').toUpperCase();
       const normalizedSets = ALL_SETS.map(normalize);
       const setA = normalizedSets.indexOf(normalize(a.set));
       const setB = normalizedSets.indexOf(normalize(b.set));
       
-      // If a set isn't found in ALL_SETS, put it at the end
       const indexA = setA === -1 ? 999 : setA;
       const indexB = setB === -1 ? 999 : setB;
       
-      if (indexA !== indexB) return indexA - indexB;
-      return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true });
+      // Default behavior: Latest sets (lower index in ALL_SETS) first
+      if (indexA !== indexB) return (indexA - indexB) * direction;
+      return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true }) * direction;
     });
-  }, [combinedCards, debouncedSearchQuery, activeFilters]);
+  }, [combinedCards, debouncedSearchQuery, activeFilters, sortOption]);
 
   const gridData = useMemo(() => {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
@@ -2956,9 +2995,9 @@ function AppContent() {
       const base64 = await resizeImage(file);
       setAnalysisProgress("Identifying card (AI)...");
       
-      // Add a 90s timeout to the identification call
+      // Add a 180s timeout to the identification call
       const identificationTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Identification timed out")), 90000)
+        setTimeout(() => reject(new Error("Identification timed out")), 180000)
       );
       
       const identified = await Promise.race([
@@ -3097,6 +3136,12 @@ function AppContent() {
               )}
             </form>
             <div className="flex items-center gap-0.5">
+              <button 
+                onClick={() => setShowSortModal(true)}
+                className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors active:scale-95"
+              >
+                <ArrowUpDown size={18} />
+              </button>
               <button 
                 onClick={() => setIsFilterOpen(true)}
                 className={cn(
@@ -3418,7 +3463,7 @@ function AppContent() {
         isDeckBuilderMode 
           ? (deckBuilderView === 'list' ? "block" : "hidden landscape:block")
           : (currentTab !== 'cards' ? "hidden" : "block"),
-        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-[64px] builder-mode landscape:flex-1 landscape:flex landscape:flex-col landscape:h-full landscape:overflow-hidden landscape:min-h-0"
+        isDeckBuilderMode && "landscape:w-[35%] landscape:ml-0 landscape:max-w-none landscape:px-4 landscape:pb-[40px] builder-mode landscape:flex-1 landscape:flex landscape:flex-col landscape:h-full landscape:overflow-hidden landscape:min-h-0"
       )}>
         {/* Filters */}
         {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
@@ -3569,7 +3614,7 @@ function AppContent() {
       <div className="fixed bottom-0 left-0 right-0 z-[100] flex flex-col pointer-events-none">
         {/* Sticky Deck Builder Bar */}
         <AnimatePresence>
-          {isDeckBuilderMode && !isLandscape && (
+          {isDeckBuilderMode && (
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -3578,7 +3623,7 @@ function AppContent() {
               className="pointer-events-auto bg-white flex flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-stone-200"
             >
               {/* Stats Bar */}
-              <div className="px-4 py-2 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
+              <div className="px-4 landscape:px-20 lg:px-56 py-2 landscape:h-10 border-b border-stone-100 flex items-center justify-between bg-stone-50/30">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[7px] font-black text-stone-400 uppercase tracking-widest">Units</span>
@@ -3935,21 +3980,21 @@ function AppContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#050505] flex flex-col font-sans"
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col font-sans"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5">
+            <div className="flex items-center justify-between p-6 border-b border-stone-200 bg-white shadow-sm">
               <button 
                 onClick={() => {
                   setIsScanning(false);
                   setIsBatchScanning(false);
                   setCapturedBatchFiles([]);
                 }}
-                className="p-2 -ml-2 text-white/60 hover:text-white transition-colors"
+                className="p-2 -ml-2 text-stone-400 hover:text-[#141414] transition-colors"
               >
                 <ChevronLeft size={28} />
               </button>
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/40">Gundam Card Scanner</h2>
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-stone-400">Scanner</h2>
               <div className="w-10" />
             </div>
 
@@ -3957,26 +4002,26 @@ function AppContent() {
               {isBatchScanning && !isAnalyzing ? (
                 <div className="w-full space-y-6">
                    <div className="space-y-4">
-                      <h3 className="text-white font-black uppercase tracking-widest text-lg">Batch Capture</h3>
-                      <p className="text-white/40 text-xs uppercase tracking-widest">
+                      <h3 className="text-[#141414] font-black uppercase tracking-widest text-lg">Batch Capture</h3>
+                      <p className="text-stone-400 text-xs uppercase tracking-widest">
                         {capturedBatchFiles.length} photos ready
                       </p>
                    </div>
 
-                   <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[300px] p-2 bg-white/5 rounded-2xl border border-white/10">
+                   <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[300px] p-2 bg-white rounded-2xl border border-stone-200 shadow-inner">
                       {capturedBatchFiles.map((file, i) => (
-                        <div key={i} className="aspect-[5/7] rounded-lg overflow-hidden bg-white/10 relative group">
+                        <div key={i} className="aspect-[5/7] rounded-lg overflow-hidden bg-stone-100 relative group border border-stone-200">
                            <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
                            <button 
                              onClick={() => setCapturedBatchFiles(prev => prev.filter((_, idx) => idx !== i))}
-                             className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                             className="absolute top-1 right-1 p-1 bg-[#141414]/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                            >
                              <X size={12} />
                            </button>
                         </div>
                       ))}
                       {capturedBatchFiles.length === 0 && (
-                        <div className="col-span-3 py-12 flex flex-col items-center gap-3 text-white/20">
+                        <div className="col-span-3 py-12 flex flex-col items-center gap-3 text-stone-300">
                            <Camera size={32} />
                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Snapping spree mode</span>
                         </div>
@@ -3995,7 +4040,7 @@ function AppContent() {
                       <button 
                         onClick={() => processMultiPhotos(capturedBatchFiles)}
                         disabled={capturedBatchFiles.length === 0}
-                        className="w-full py-4 bg-[#141414] border border-white/10 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 disabled:opacity-30 disabled:hover:bg-[#141414] transition-all"
+                        className="w-full py-4 bg-[#141414] text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 disabled:opacity-30 transition-all shadow-lg"
                       >
                         <Layout size={16} fill="currentColor" />
                         Build Deck with {capturedBatchFiles.length} Photos
@@ -4006,7 +4051,7 @@ function AppContent() {
                           setIsBatchScanning(false);
                           setCapturedBatchFiles([]);
                         }}
-                        className="w-full py-3 text-white/40 hover:text-white/60 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all"
+                        className="w-full py-3 text-stone-400 hover:text-stone-600 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all"
                       >
                         Cancel Batch
                       </button>
@@ -4015,19 +4060,19 @@ function AppContent() {
               ) : isAnalyzing ? (
                 <div className="space-y-8 flex flex-col items-center animate-in fade-in zoom-in duration-500">
                   <div className="relative">
-                    <div className="w-24 h-24 rounded-full border-2 border-amber-500/20 flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full border-2 border-amber-500/20 flex items-center justify-center bg-white shadow-xl">
                       <Loader2 className="text-amber-500 animate-spin" size={40} strokeWidth={1.5} />
                     </div>
                     <div className="absolute inset-0 rounded-full border border-amber-500/10 animate-ping" />
                   </div>
                   <div className="space-y-3">
-                    <p className="text-xl font-medium text-white">{analysisProgress}</p>
+                    <p className="text-xl font-black tracking-tight text-[#141414] uppercase">{analysisProgress}</p>
                     {scanSeconds > 0 && (
-                      <p className="text-amber-500/80 font-mono text-sm animate-pulse">
-                        Scanning... {scanSeconds} {scanSeconds === 1 ? 'second' : 'seconds'}
+                      <p className="text-amber-600 font-mono text-sm font-bold animate-pulse">
+                        Scanning... {scanSeconds}s
                       </p>
                     )}
-                    <p className="text-xs text-white/40 uppercase tracking-widest leading-relaxed">
+                    <p className="text-xs text-stone-400 uppercase tracking-[0.15em] leading-relaxed font-bold">
                       Cross-referencing database &<br />translating Japanese text
                     </p>
                   </div>
@@ -4052,26 +4097,26 @@ function AppContent() {
                       className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-emerald-500/10"
                     >
                       <Layout size={20} fill="currentColor" />
-                      Take multiple photos and build a deck
+                      Build a deck (Multiple scans)
                     </button>
 
                     <div className="flex flex-col gap-2">
                        <button 
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-4 text-white/40 hover:text-white/60 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-4 text-stone-400 hover:text-stone-600 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all flex items-center justify-center gap-2"
                       >
                         <Upload size={14} />
                         Upload single from Gallery
                       </button>
-                      <p className="text-[9px] text-white/20 font-medium uppercase tracking-widest text-center px-4">
-                        Instruction: Take the photos of your unique cards beforehand and upload it through the gallery.
+                      <p className="text-[9px] text-stone-400 font-bold uppercase tracking-widest text-center px-4 leading-relaxed">
+                        Tip: You can also upload pre-taken photos of your unique cards through the gallery.
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-12 w-full p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 flex items-start gap-3">
+                  <div className="mt-12 w-full p-4 rounded-2xl bg-white border border-stone-200 shadow-sm flex items-start gap-3">
                     <Sparkles size={16} className="text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-500/70 font-medium text-left leading-relaxed uppercase tracking-widest">
+                    <p className="text-[10px] text-stone-500 font-bold text-left leading-relaxed uppercase tracking-widest">
                       AI translates Japanese cards to English and finds the correct card in our database instantly.
                     </p>
                   </div>
@@ -4573,6 +4618,87 @@ function AppContent() {
                   <X size={24} />
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sort Cards Modal */}
+      <AnimatePresence>
+        {showSortModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-end justify-center sm:items-center px-4"
+            onClick={() => setShowSortModal(false)}
+          >
+            <motion.div 
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full max-w-sm bg-white text-[#141414] rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-[#141414]">Sort Cards</h3>
+                <button onClick={() => setShowSortModal(false)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-400">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'level', label: 'Level' },
+                  { id: 'id', label: 'ID' },
+                  { id: 'name', label: 'Name' },
+                  { id: 'cost', label: 'Cost' },
+                  { id: 'color', label: 'Color' },
+                  { id: 'ap', label: 'AP' },
+                  { id: 'hp', label: 'HP' },
+                  { id: 'price', label: 'Price ($)' }
+                ].map((option) => {
+                  const isActive = sortOption.key === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        if (isActive) {
+                          setSortOption(prev => ({ ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
+                        } else {
+                          setSortOption({ key: option.id, direction: 'asc' });
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center justify-between gap-2 px-4 py-3 rounded-xl border transition-all active:scale-95 text-sm font-medium",
+                        isActive 
+                          ? "bg-[#3D5A61] border-[#3D5A61] text-white shadow-sm" 
+                          : "bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100"
+                      )}
+                    >
+                      <span className="truncate">{option.label}</span>
+                      <div className="flex items-center shrink-0">
+                        {isActive ? (
+                          sortOption.direction === 'asc' ? <ArrowUp size={14} className="text-white" /> : <ArrowDown size={14} className="text-white" />
+                        ) : (
+                          <ArrowUpDown size={14} className="opacity-20" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => {
+                  setSortOption({ key: 'default', direction: 'asc' });
+                  setShowSortModal(false);
+                }}
+                className="w-full py-4 text-stone-500 font-medium hover:text-[#141414] transition-colors"
+              >
+                Reset sorting
+              </button>
             </motion.div>
           </motion.div>
         )}

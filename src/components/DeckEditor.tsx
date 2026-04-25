@@ -283,6 +283,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const [playTab, setPlayTab] = React.useState<'card_info' | 'hand_synergy'>('card_info');
   const [toast, setToast] = React.useState<string | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = React.useState(false);
+  const [curveType, setCurveType] = React.useState<'cost' | 'level'>('cost');
 
   const showToast = (message: string) => {
     setToast(message);
@@ -501,6 +502,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   }, 0);
   
   // Stats
+  const parseStatValue = (val: any): number => {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') return val;
+    const cleaned = String(val).replace(/[^0-9]/g, '');
+    const num = parseInt(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
   const typeStats = deck.items.reduce((acc, item) => {
     const types = Array.isArray(item.card.type) ? item.card.type : [item.card.type];
     types.forEach(t => {
@@ -515,33 +524,40 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   }, {} as Record<string, number>);
 
   const costStats = deck.items.reduce((acc, item) => {
-    const cost = Number(item.card.cost);
+    const cost = parseStatValue(item.card.cost);
     acc[cost] = (acc[cost] || 0) + item.count;
     return acc;
   }, {} as Record<number, number>);
 
-  const maxCost = Math.max(...Object.keys(costStats).map(Number), 0);
-  const costCurve = Array.from({ length: Math.max(maxCost + 1, 6) }, (_, i) => costStats[i] || 0);
+  const costCurve = Array.from({ length: 9 }, (_, i) => costStats[i + 1] || 0);
 
   const levelStats = deck.items.reduce((acc, item) => {
-    if (item.card.level) {
-      const lvl = Number(item.card.level);
+    if (item.card.level !== undefined && item.card.level !== null) {
+      const lvl = parseStatValue(item.card.level);
       acc[lvl] = (acc[lvl] || 0) + item.count;
     }
     return acc;
   }, {} as Record<number, number>);
 
+  const levelCurve = Array.from({ length: 9 }, (_, i) => levelStats[i + 1] || 0);
+
   // Archetype Calculations
   const unitsLvl3OrLower = deck.items.reduce((sum, item) => {
-    if (item.card.type.includes('Unit') && item.card.level && Number(item.card.level) <= 3) {
-      return sum + item.count;
+    if (item.card.type.includes('Unit')) {
+      const level = parseStatValue(item.card.level);
+      if (level > 0 && level <= 3) {
+        return sum + item.count;
+      }
     }
     return sum;
   }, 0);
 
   const unitsLvl7OrHigher = deck.items.reduce((sum, item) => {
-    if (item.card.type.includes('Unit') && item.card.level && Number(item.card.level) >= 7) {
-      return sum + item.count;
+    if (item.card.type.includes('Unit')) {
+      const level = parseStatValue(item.card.level);
+      if (level >= 7) {
+        return sum + item.count;
+      }
     }
     return sum;
   }, 0);
@@ -570,20 +586,23 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   if (blockerCount >= 8) secondaryArchetypes.push('Stall');
 
   // Turn Order Preference
-  const hasFirstPrefCards = deck.items.some(item => 
-    item.card.type.includes('Unit') && 
-    item.card.level && 
-    Number(item.card.level) <= 4 && 
-    Number(item.card.cost) === Number(item.card.level)
-  );
+  const hasFirstPrefCards = deck.items.some(item => {
+    if (!item.card.type.includes('Unit')) return false;
+    const level = parseStatValue(item.card.level);
+    const cost = parseStatValue(item.card.cost);
+    return level > 0 && level <= 4 && cost === level;
+  });
 
-  const hasSecondPrefCards = deck.items.some(item => 
-    item.card.type.includes('Unit') && 
-    item.card.level && 
-    ((Number(item.card.level) === 2 && Number(item.card.cost) === 1) ||
-     (Number(item.card.level) === 3 && Number(item.card.cost) === 2) ||
-     (Number(item.card.level) === 4 && Number(item.card.cost) === 3))
-  );
+  const hasSecondPrefCards = deck.items.some(item => {
+    if (!item.card.type.includes('Unit')) return false;
+    const level = parseStatValue(item.card.level);
+    const cost = parseStatValue(item.card.cost);
+    return (
+      (level === 2 && cost === 1) ||
+      (level === 3 && cost === 2) ||
+      (level === 4 && cost === 3)
+    );
+  });
 
   const hasCommands = deck.items.some(item => item.card.type.includes('Command'));
 
@@ -916,17 +935,54 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
               </div>
 
               <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm">
-                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <BarChart2 size={14} /> Cost Curve
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    <BarChart2 size={14} /> {curveType === 'cost' ? 'Cost Curve' : 'Level Curve'}
+                  </h3>
+                  <div className="flex bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                    <button 
+                      onClick={() => setCurveType('cost')}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all",
+                        curveType === 'cost' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
+                      )}
+                    >
+                      Cost
+                    </button>
+                    <button 
+                      onClick={() => setCurveType('level')}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-black uppercase tracking-wider rounded-md transition-all",
+                        curveType === 'level' ? "bg-white text-[#141414] shadow-sm" : "text-stone-400 hover:text-stone-600"
+                      )}
+                    >
+                      Level
+                    </button>
+                  </div>
+                </div>
                 <div className="flex items-end gap-1 h-24 px-2">
-                  {costCurve.map((count, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                      <div 
-                        className="w-full bg-amber-400 rounded-t-sm transition-all duration-500"
-                        style={{ height: `${(count / (Math.max(...costCurve) || 1)) * 100}%`, minHeight: count > 0 ? '4px' : '0' }}
-                      />
-                      <span className="text-[10px] font-bold text-stone-400">{i}</span>
+                  {(curveType === 'cost' ? costCurve : levelCurve).map((count, i) => (
+                    <div key={i} className="flex-1 h-full flex flex-col group relative">
+                      <div className="flex-1 flex flex-col justify-end">
+                        <div 
+                          className={cn(
+                            "w-full rounded-t-sm transition-all duration-500 relative",
+                            curveType === 'cost' ? "bg-amber-400 hover:bg-amber-500" : "bg-emerald-400 hover:bg-emerald-500"
+                          )}
+                          style={{ 
+                            height: `${(count / (Math.max(...(curveType === 'cost' ? costCurve : levelCurve)) || 1)) * 80}%`, 
+                            minHeight: count > 0 ? '4px' : '0' 
+                          }}
+                        >
+                          {/* Count label - constantly visible */}
+                          {count > 0 && (
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-stone-600 text-[10px] pointer-events-none whitespace-nowrap z-10 font-bold">
+                              {count}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-stone-400 text-center mt-1">{i + 1}</span>
                     </div>
                   ))}
                 </div>
