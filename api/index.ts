@@ -5,6 +5,9 @@ const app = express();
 
 // API Route for Yuyu-tei prices
 app.get("/api/yuyutei-price", async (req, res) => {
+  // DISABLING PRICE FETCHING TEMPORARILY DUE TO YUYU-TEI 403 ERRORS
+  return res.status(503).json({ error: "Price fetching is temporarily disabled due to scheduled maintenance on external provider." });
+
   const { cardNumber, artType } = req.query;
   
   if (!cardNumber) {

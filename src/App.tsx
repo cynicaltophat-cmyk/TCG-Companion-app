@@ -915,6 +915,8 @@ function AppContent() {
   const [showAnatomy, setShowAnatomy] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
+  const [isBatchScanning, setIsBatchScanning] = useState(false);
+  const [capturedBatchFiles, setCapturedBatchFiles] = useState<File[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState<Feedback[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -962,10 +964,24 @@ function AppContent() {
   const [showPriceFaq, setShowPriceFaq] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState("");
+  const [scanSeconds, setScanSeconds] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDeckBuilderMode, setIsDeckBuilderMode] = useState(false);
   const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+
+  useEffect(() => {
+    let interval: any;
+    if (isAnalyzing) {
+      setScanSeconds(0);
+      interval = setInterval(() => {
+        setScanSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setScanSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
 
   useEffect(() => {
     const handleResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
@@ -1886,6 +1902,7 @@ function AppContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const multiUploadInputRef = useRef<HTMLInputElement>(null);
+  const batchCaptureInputRef = useRef<HTMLInputElement>(null);
 
   const handleCardUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1893,9 +1910,8 @@ function AppContent() {
     captureAndIdentify(file);
   };
 
-  const handleMultiCardUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  const processMultiPhotos = async (files: File[]) => {
+    if (files.length === 0) return;
 
     setIsAnalyzing(true);
     const newDeckId = Math.random().toString(36).substr(2, 9);
@@ -1907,26 +1923,67 @@ function AppContent() {
     };
 
     const identifiedItems: DeckItem[] = [];
-    const filesArray = Array.from(files);
 
-    for (let i = 0; i < filesArray.length; i++) {
-      const file = filesArray[i];
-      setAnalysisProgress(`Scanning card ${i + 1} of ${filesArray.length}...`);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setAnalysisProgress(`Scanning card ${i + 1} of ${files.length}...`);
 
       // Add a small delay between multiple AI calls to prevent rate limiting
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       try {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onload = (e) => resolve((e.target?.result as string).split(',')[1]);
-          reader.readAsDataURL(file);
-        });
+        // Resize image before sending to AI to save bandwidth and speed up processing
+        const resizeImage = async (file: File): Promise<string> => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1000;
+                const MAX_HEIGHT = 1000;
+                let width = img.width;
+                let height = img.height;
 
-        const base64 = await base64Promise;
-        const identified = await identifyCard(base64, combinedCards);
+                if (width > height) {
+                  if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                  }
+                } else {
+                  if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                  }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                // Use a reasonable quality to keep text sharp but file size small
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataUrl.split(',')[1]);
+              };
+              img.src = e.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const base64 = await resizeImage(file);
+        
+        // Add a 90s timeout to the identification call
+        const identificationTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Identification timed out")), 90000)
+        );
+        
+        const identified = await Promise.race([
+          identifyCard(base64, combinedCards),
+          identificationTimeout
+        ]) as IdentifiedCard | null;
 
         if (identified) {
           const existing = identifiedItems.find(item => item.card.id === identified!.card.id);
@@ -1957,6 +2014,8 @@ function AppContent() {
       
       // Close scanner and open deck editor
       setIsScanning(false);
+      setIsBatchScanning(false);
+      setCapturedBatchFiles([]);
       setIsDeckEditorOpen(true);
       setOpenedEditorFromList(true);
     } else {
@@ -1965,6 +2024,25 @@ function AppContent() {
 
     setIsAnalyzing(false);
     setAnalysisProgress("");
+  };
+
+  const handleBatchPhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setCapturedBatchFiles(prev => {
+        const newFiles = [...prev, file];
+        showToast(`Captured photo ${newFiles.length}`);
+        return newFiles;
+      });
+      // Keep scanner open and allow taking more
+      if (batchCaptureInputRef.current) batchCaptureInputRef.current.value = '';
+    }
+  };
+
+  const handleMultiCardUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    await processMultiPhotos(Array.from(files));
     if (multiUploadInputRef.current) multiUploadInputRef.current.value = '';
   };
   
@@ -2830,40 +2908,99 @@ function AppContent() {
   const captureAndIdentify = async (file: File) => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
-    setAnalysisProgress("Uploading photo...");
+    setAnalysisProgress("Processing photo...");
     
-    // Convert file to base64
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = (e.target?.result as string).split(',')[1];
-      
-      try {
-        setAnalysisProgress("Translating & Identifying card...");
-        const identified = await identifyCard(base64, combinedCards);
+    try {
+      // Helper to resize image
+      const resizeImage = async (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              // 1000px is more than enough for TCG card identification and faster to upload/process
+              const MAX_WIDTH = 1000;
+              const MAX_HEIGHT = 1000;
+              let width = img.width;
+              let height = img.height;
 
-        if (identified) {
-          showToast(`Identified: ${identified.card.name}`);
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              // Use 0.8 quality for even faster transmission
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              resolve(dataUrl.split(',')[1]);
+            };
+            img.onerror = () => reject(new Error("Failed to load image for resizing"));
+            img.src = e.target?.result as string;
+          };
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+      };
+
+      const base64 = await resizeImage(file);
+      setAnalysisProgress("Identifying card (AI)...");
+      
+      // Add a 90s timeout to the identification call
+      const identificationTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Identification timed out")), 90000)
+      );
+      
+      const identified = await Promise.race([
+        identifyCard(base64, combinedCards),
+        identificationTimeout
+      ]) as IdentifiedCard | null;
+
+      if (identified) {
+        showToast(`Identified: ${identified.card.name}`);
+        setIsScanning(false);
+        
+        // If we are currently on the scan tab, we want to transition to cards tab 
+        // in a way that creates a history entry for the database landing page
+        if (currentTab === 'scan') {
+          setCurrentTab('cards');
+          // Delay the selection slightly so the history effect sees the tab change as a separate event
+          setTimeout(() => {
+            setSelectedCard(identified.card);
+            setSelectedArtType("Base art");
+          }, 100);
+        } else {
+          // If already on another tab (like cards), just show the details
           setSelectedCard(identified.card);
           setSelectedArtType("Base art");
-          setIsScanning(false);
-        } else {
-          showToast(`Could not identify card. Make sure the photo is clear.`);
+          setCurrentTab('cards');
         }
-      } catch (err: any) {
-        console.error("Identification error:", err);
-        if (err.message?.includes('429') || err.status === 429) {
-          showToast("AI Rate limit hit. Please try again in 1 minute.");
-        } else {
-          showToast("An error occurred during identification.");
-        }
-      } finally {
-        setIsAnalyzing(false);
-        setAnalysisProgress("");
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (cameraInputRef.current) cameraInputRef.current.value = '';
+      } else {
+        showToast(`Could not identify card. Make sure the photo is clear.`);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error("Identification error:", err);
+      if (err.message?.includes('429') || err.status === 429) {
+        showToast("AI Rate limit hit. Please try again in 1 minute.");
+      } else {
+        showToast("An error occurred during identification.");
+      }
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress("");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
   };
 
   // Preload first batch of images
@@ -3803,7 +3940,11 @@ function AppContent() {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5">
               <button 
-                onClick={() => setIsScanning(false)}
+                onClick={() => {
+                  setIsScanning(false);
+                  setIsBatchScanning(false);
+                  setCapturedBatchFiles([]);
+                }}
                 className="p-2 -ml-2 text-white/60 hover:text-white transition-colors"
               >
                 <ChevronLeft size={28} />
@@ -3813,7 +3954,65 @@ function AppContent() {
             </div>
 
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto w-full">
-              {isAnalyzing ? (
+              {isBatchScanning && !isAnalyzing ? (
+                <div className="w-full space-y-6">
+                   <div className="space-y-4">
+                      <h3 className="text-white font-black uppercase tracking-widest text-lg">Batch Capture</h3>
+                      <p className="text-white/40 text-xs uppercase tracking-widest">
+                        {capturedBatchFiles.length} photos ready
+                      </p>
+                   </div>
+
+                   <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[300px] p-2 bg-white/5 rounded-2xl border border-white/10">
+                      {capturedBatchFiles.map((file, i) => (
+                        <div key={i} className="aspect-[5/7] rounded-lg overflow-hidden bg-white/10 relative group">
+                           <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                           <button 
+                             onClick={() => setCapturedBatchFiles(prev => prev.filter((_, idx) => idx !== i))}
+                             className="absolute top-1 right-1 p-1 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                           >
+                             <X size={12} />
+                           </button>
+                        </div>
+                      ))}
+                      {capturedBatchFiles.length === 0 && (
+                        <div className="col-span-3 py-12 flex flex-col items-center gap-3 text-white/20">
+                           <Camera size={32} />
+                           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Snapping spree mode</span>
+                        </div>
+                      )}
+                   </div>
+
+                   <div className="space-y-3">
+                      <button 
+                        onClick={() => batchCaptureInputRef.current?.click()}
+                        className="w-full py-6 bg-amber-500 hover:bg-amber-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-amber-500/10"
+                      >
+                        <Camera size={20} fill="currentColor" />
+                        Next Photo
+                      </button>
+
+                      <button 
+                        onClick={() => processMultiPhotos(capturedBatchFiles)}
+                        disabled={capturedBatchFiles.length === 0}
+                        className="w-full py-4 bg-[#141414] border border-white/10 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 disabled:opacity-30 disabled:hover:bg-[#141414] transition-all"
+                      >
+                        <Layout size={16} fill="currentColor" />
+                        Build Deck with {capturedBatchFiles.length} Photos
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIsBatchScanning(false);
+                          setCapturedBatchFiles([]);
+                        }}
+                        className="w-full py-3 text-white/40 hover:text-white/60 font-black uppercase tracking-widest text-[9px] active:scale-95 transition-all"
+                      >
+                        Cancel Batch
+                      </button>
+                   </div>
+                </div>
+              ) : isAnalyzing ? (
                 <div className="space-y-8 flex flex-col items-center animate-in fade-in zoom-in duration-500">
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full border-2 border-amber-500/20 flex items-center justify-center">
@@ -3821,8 +4020,13 @@ function AppContent() {
                     </div>
                     <div className="absolute inset-0 rounded-full border border-amber-500/10 animate-ping" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-xl font-medium text-white">{analysisProgress}</p>
+                    {scanSeconds > 0 && (
+                      <p className="text-amber-500/80 font-mono text-sm animate-pulse">
+                        Scanning... {scanSeconds} {scanSeconds === 1 ? 'second' : 'seconds'}
+                      </p>
+                    )}
                     <p className="text-xs text-white/40 uppercase tracking-widest leading-relaxed">
                       Cross-referencing database &<br />translating Japanese text
                     </p>
@@ -3840,11 +4044,15 @@ function AppContent() {
                     </button>
 
                     <button 
-                      onClick={() => multiUploadInputRef.current?.click()}
+                      onClick={() => {
+                        setIsBatchScanning(true);
+                        setIsScanning(true);
+                        setCapturedBatchFiles([]);
+                      }}
                       className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-xl shadow-emerald-500/10"
                     >
                       <Layout size={20} fill="currentColor" />
-                      Build deck from photos
+                      Take multiple photos and build a deck
                     </button>
 
                     <div className="flex flex-col gap-2">
@@ -3894,6 +4102,14 @@ function AppContent() {
               onChange={handleMultiCardUpload} 
               accept="image/*" 
               multiple
+              className="hidden" 
+            />
+            <input 
+              type="file" 
+              ref={batchCaptureInputRef} 
+              onChange={handleBatchPhotoCapture} 
+              accept="image/*" 
+              capture="environment"
               className="hidden" 
             />
           </motion.div>
