@@ -11,7 +11,8 @@ import {
   Check,
   FileText,
   Filter,
-  ArrowUpRight
+  ArrowUpRight,
+  Search
 } from 'lucide-react';
 import { Deck, GundamCard } from '../types';
 import { cn, getColorBg } from '../lib/utils';
@@ -50,6 +51,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   const [editName, setEditName] = useState("");
 
   // Filtering State
+  const [searchQuery, setSearchQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mainCardQuery, setMainCardQuery] = useState("");
   const [selectedMainCard, setSelectedMainCard] = useState<GundamCard | null>(null);
@@ -69,7 +71,18 @@ export const DeckList: React.FC<DeckListProps> = ({
   // Apply Filters
   const filteredDecks = React.useMemo(() => {
     return decks.filter(deck => {
-      // Main Card Filter
+      // Search Filter (Deck Name or Card Name)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = deck.name.toLowerCase().includes(q);
+        const cardMatch = deck.items.some(item => 
+          item.card.name.toLowerCase().includes(q) || 
+          item.card.cardNumber.toLowerCase().includes(q)
+        );
+        if (!nameMatch && !cardMatch) return false;
+      }
+
+      // Main Card Filter (from drawer)
       if (selectedMainCard) {
         const hasCard = deck.items.some(item => item.card.id === selectedMainCard.id);
         if (!hasCard) return false;
@@ -90,7 +103,7 @@ export const DeckList: React.FC<DeckListProps> = ({
 
       return true;
     });
-  }, [decks, selectedMainCard, selectedColors, isExactColor]);
+  }, [decks, searchQuery, selectedMainCard, selectedColors, isExactColor]);
 
   const toggleColor = (color: string) => {
     setSelectedColors(prev => 
@@ -99,6 +112,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   };
 
   const resetFilters = () => {
+    setSearchQuery("");
     setMainCardQuery("");
     setSelectedMainCard(null);
     setSelectedColors([]);
@@ -211,36 +225,74 @@ export const DeckList: React.FC<DeckListProps> = ({
         </div>
       )}
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md sticky top-0 z-10">
-        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={onClose} className="p-2 -ml-2 hover:bg-stone-100 rounded-full transition-colors">
-              <ChevronLeft size={24} className="text-[#141414]" />
-            </button>
-            <h2 className="font-black text-xl text-[#141414] tracking-tight">My Decks</h2>
+      <header className="bg-white sticky top-0 z-10 border-b border-stone-100">
+        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] py-2 flex items-center gap-3">
+          <button 
+            onClick={onClose} 
+            className="w-9 h-7 bg-white border border-stone-200 rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
+          >
+            <ChevronLeft size={16} className="stroke-[3]" />
+          </button>
+          
+          <div className="flex-1 relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-amber-500 transition-colors" size={16} />
+            <input 
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search deck list..."
+              className="w-full pl-9 pr-10 py-2 bg-stone-100/80 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-stone-400 font-medium"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsFilterOpen(true)}
-              className={cn(
-                "p-2.5 border rounded-full transition-all active:scale-95 relative",
-                (selectedMainCard || selectedColors.length > 0)
-                  ? "bg-amber-100 border-amber-300 text-amber-700 font-bold"
-                  : "bg-white border-stone-200 text-stone-400 hover:text-stone-600 shadow-sm"
-              )}
-            >
-              <Filter size={20} />
-              {(selectedMainCard || selectedColors.length > 0) && (
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full border-2 border-white" />
-              )}
-            </button>
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="p-2.5 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-all shadow-lg active:scale-95"
-            >
-              <Plus size={20} />
-            </button>
+
+          <button 
+            onClick={() => setIsCreating(true)}
+            className="w-9 h-7 bg-[#141414] text-white rounded-full flex items-center justify-center hover:bg-stone-800 transition-all shadow-lg active:scale-95 shrink-0"
+          >
+            <Plus size={16} className="stroke-[3]" />
+          </button>
+        </div>
+
+        {/* Quick Filter Row */}
+        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Quick filter</span>
+            <div className="flex gap-1.5">
+              {["Red", "Blue", "Green", "White", "Purple"].map(color => (
+                <button
+                  key={color}
+                  onClick={() => toggleColor(color)}
+                  className={cn(
+                    "w-5 h-5 rounded-md transition-all active:scale-90 shadow-sm",
+                    getColorBg(color),
+                    color === 'White' && "border border-stone-300",
+                    selectedColors.includes(color) ? "ring-2 ring-offset-1 ring-amber-500" : "opacity-80 hover:opacity-100"
+                  )}
+                />
+              ))}
+            </div>
           </div>
+
+          <button 
+            onClick={() => setIsExactColor(!isExactColor)}
+            className="flex items-center gap-2 group"
+          >
+            <div className={cn(
+              "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
+              isExactColor ? "bg-[#141414] border-[#141414]" : "bg-white border-stone-300 group-hover:border-stone-400"
+            )}>
+              {isExactColor && <Check size={10} className="text-white stroke-[3]" />}
+            </div>
+            <span className="text-[8px] font-bold text-stone-400 group-hover:text-stone-600 transition-colors uppercase tracking-tight">Exact color match</span>
+          </button>
         </div>
       </header>
 
@@ -329,48 +381,26 @@ export const DeckList: React.FC<DeckListProps> = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredDecks.map((deck) => {
               const colors = Array.from(new Set(deck.items.map(i => i.card.color)));
               
-              // Get unique card thumbnails (highest level LRs first)
-              const sortedLRs = [...deck.items]
-                .filter(i => i.card.rarity === 'LR')
-                .sort((a, b) => {
-                  const lvA = parseInt(String(a.card.level || a.card.cost || 0));
-                  const lvB = parseInt(String(b.card.level || b.card.cost || 0));
-                  return lvB - lvA;
-                });
-
               const uniqueThumbnails: typeof deck.items = [];
               const seenIds = new Set<string>();
               
-              // Add LRs first
-              for (const item of sortedLRs) {
+              // Prefer LRs or just the first few cards for thumbnails
+              const sortedForThumbnails = [...deck.items].sort((a, b) => {
+                if (a.card.rarity === 'LR' && b.card.rarity !== 'LR') return -1;
+                if (a.card.rarity !== 'LR' && b.card.rarity === 'LR') return 1;
+                return 0;
+              });
+
+              for (const item of sortedForThumbnails) {
                 if (!seenIds.has(item.card.id)) {
                   uniqueThumbnails.push(item);
                   seenIds.add(item.card.id);
                 }
                 if (uniqueThumbnails.length >= 2) break;
-              }
-
-              // Fallback to highest level other cards if needed
-              if (uniqueThumbnails.length < 2) {
-                const others = [...deck.items]
-                  .filter(i => i.card.rarity !== 'LR')
-                  .sort((a, b) => {
-                    const lvA = parseInt(String(a.card.level || a.card.cost || 0));
-                    const lvB = parseInt(String(b.card.level || b.card.cost || 0));
-                    return lvB - lvA;
-                  });
-
-                for (const item of others) {
-                  if (!seenIds.has(item.card.id)) {
-                    uniqueThumbnails.push(item);
-                    seenIds.add(item.card.id);
-                  }
-                  if (uniqueThumbnails.length >= 2) break;
-                }
               }
               
               return (
@@ -378,22 +408,22 @@ export const DeckList: React.FC<DeckListProps> = ({
                   key={deck.id}
                   layout
                   onClick={() => onSelectDeck(deck.id)}
-                  className="relative aspect-square bg-white rounded-2xl shadow-md border border-stone-200 overflow-hidden cursor-pointer group"
+                  className="relative aspect-square bg-[#E5E5E0] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden cursor-pointer group"
                 >
                   {/* Background Image / Cover */}
-                  {deck.coverImageUrl ? (
-                    <div className="w-full h-full transition-transform duration-500 group-hover:scale-[1.1]">
+                  <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
+                    {deck.coverImageUrl ? (
                       <ProgressiveImage 
                         src={deck.coverImageUrl} 
-                        imageClassName="object-cover object-[center_10%] scale-150"
+                        imageClassName="object-cover object-center h-full w-full"
                         referrerPolicy="no-referrer" 
                       />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-300">
-                      <Layout size={40} strokeWidth={1} />
-                    </div>
-                  )}
+                    ) : (
+                      <div className="w-full h-full bg-stone-200 flex items-center justify-center text-stone-400">
+                        <Layout size={48} strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
 
                   {/* Top Left Delete Trash Can */}
                   <button 
@@ -401,63 +431,55 @@ export const DeckList: React.FC<DeckListProps> = ({
                       e.stopPropagation();
                       setDeleteConfirmId(deck.id);
                     }}
-                    className="absolute top-2 left-2 w-8 h-8 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-sm transition-colors border border-stone-100"
+                    className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-lg transition-all active:scale-90 border border-stone-100 z-10"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={20} />
                   </button>
 
-                  {/* Top Right Open Icon Triangle Overlay */}
-                  <div className="absolute top-0 right-0 w-10 h-10">
+                  {/* Top Right Open Icon */}
+                  <div className="absolute top-0 right-0 w-12 h-12 z-10">
                     <div 
-                      className="absolute top-0 right-0 w-0 h-0 border-t-[40px] border-l-[40px] border-t-white border-l-transparent" 
-                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
+                      className="absolute top-0 right-0 w-0 h-0 border-t-[48px] border-l-[48px] border-t-white border-l-transparent" 
                     />
-                    <ArrowUpRight size={14} className="absolute top-[8px] right-[8px] text-stone-400" />
+                    <ArrowUpRight size={18} className="absolute top-[8px] right-[8px] text-stone-400" />
                   </div>
 
                   {/* Bottom Text and Thumbnail Overlay */}
-                  <div className="absolute inset-x-0 bottom-0 p-3 pt-10 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
+                  <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/80 via-black/30 to-transparent">
                     <div className="flex flex-col gap-2">
                        {/* Thumbnails */}
-                       <div className="flex gap-1.5">
+                       <div className="flex gap-2">
                          {uniqueThumbnails.map((item, idx) => (
                            <div 
                              key={idx} 
-                             className="w-9 h-9 rounded-lg border border-white/20 overflow-hidden shadow-lg bg-stone-800"
+                             className="w-10 h-10 rounded-xl border border-white/30 overflow-hidden shadow-2xl bg-stone-800 backdrop-blur-md"
                            >
                              <ProgressiveImage 
                                src={item.card.imageUrl} 
-                               imageClassName="object-cover object-[center_10%] scale-150"
+                               imageClassName="object-cover object-center w-full h-full"
                                referrerPolicy="no-referrer" 
                              />
                            </div>
                          ))}
                        </div>
 
-                       <div className="flex items-center justify-between gap-2">
-                         <h3 className="text-white font-bold text-sm truncate drop-shadow-md tracking-tight">
-                           {deck.name}
-                         </h3>
-                       </div>
+                       <h3 className="text-white font-black text-base truncate drop-shadow-lg tracking-tight">
+                         {deck.name}
+                       </h3>
                     </div>
                   </div>
 
                   {/* Color Indicator Bar at bottom */}
-                  <div className="absolute bottom-0 inset-x-0 flex h-1.5">
-                    {colors.length >= 3 ? (
-                      <div 
-                        className="w-full h-full" 
-                        style={{ background: 'linear-gradient(to right, #3b82f6, #ef4444, #a855f7, #ffffff, #10b981)' }} 
-                      />
-                    ) : colors.length === 2 ? (
-                      <>
-                        <div className={cn("flex-1 h-full", getColorBg(colors[0]))} />
-                        <div className={cn("flex-1 h-full", getColorBg(colors[1]))} />
-                      </>
-                    ) : colors.length === 1 ? (
-                      <div className={cn("w-full h-full", getColorBg(colors[0]))} />
+                  <div className="absolute bottom-0 inset-x-0 flex h-2">
+                    {colors.length === 0 ? (
+                      <div className="w-full h-full bg-stone-400/50" />
                     ) : (
-                      <div className="w-full h-full bg-stone-200/20" />
+                      colors.map(color => (
+                        <div 
+                          key={color} 
+                          className={cn("flex-1 h-full", getColorBg(color))} 
+                        />
+                      ))
                     )}
                   </div>
                 </motion.div>
