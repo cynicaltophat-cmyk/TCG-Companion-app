@@ -765,7 +765,7 @@ function AppContent() {
     return () => unsubscribe();
   }, []);
 
-  const [selectedCard, setSelectedCard] = useState<GundamCard | null>(null);
+  const [selectedCard, setSelectedCard] = useState<(GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType }) | null>(null);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<{ title: string, description: string, x: number, y: number, originalX: number } | null>(null);
   const cardFaq = useMemo(() => {
@@ -2598,6 +2598,21 @@ function AppContent() {
   }, [decks]); */
 
   const uniqueSets = ALL_SETS;
+  
+  // Derived state for selectedCard count in active deck
+  const selectedDeckItem = useMemo(() => {
+    if (!selectedCard || !activeDeck) return null;
+    return activeDeck.items.find(i => i.card.id === (selectedCard.parentId || selectedCard.id) && i.artType === selectedArtType);
+  }, [selectedCard, activeDeck, selectedArtType]);
+
+  const selectedCount = selectedDeckItem ? selectedDeckItem.count : 0;
+  
+  const selectedTotalCount = useMemo(() => {
+    if (!selectedCard || !activeDeck) return 0;
+    return activeDeck.items
+      .filter(i => i.card.id === (selectedCard.parentId || selectedCard.id))
+      .reduce((sum, i) => sum + i.count, 0);
+  }, [selectedCard, activeDeck]);
 
   const toggleFilter = (category: keyof typeof activeFilters, value: string) => {
     setActiveFilters(prev => {
@@ -4177,14 +4192,20 @@ function AppContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#F5F5F0] overflow-y-auto overscroll-contain landscape:overflow-hidden"
+            className={cn(
+              "fixed inset-0 z-[60] bg-[#F5F5F0] overflow-y-auto overscroll-contain landscape:overflow-hidden transition-all duration-300",
+              isDeckBuilderMode && "lg:right-[65%] lg:w-[35%] lg:border-r lg:border-stone-200 lg:bg-white lg:landscape:overflow-y-auto"
+            )}
           >
             <div className={cn(
               "max-w-md mx-auto min-h-screen flex flex-col landscape:max-w-none landscape:h-screen landscape:overflow-hidden",
-              isDeckBuilderMode ? "pb-40 landscape:pb-12" : "pb-24 landscape:pb-12"
+              isDeckBuilderMode ? "lg:max-w-none lg:pb-12 lg:h-auto lg:overflow-visible landscape:lg:h-auto landscape:lg:overflow-visible" : "pb-24 landscape:pb-12"
             )}>
               {/* Modal Header */}
-              <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex items-center justify-between landscape:w-full landscape:shrink-0">
+              <div className={cn(
+                "sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex items-center justify-between landscape:w-full landscape:shrink-0",
+                isDeckBuilderMode && "lg:bg-white lg:backdrop-blur-none"
+              )}>
                 <button 
                   onClick={() => {
                     setSelectedCard(null);
@@ -4197,66 +4218,106 @@ function AppContent() {
                   <ChevronLeft size={24} />
                 </button>
 
-                <div className="flex items-center gap-3">
-                  {(selectedCard.variants && selectedCard.variants.length > 0) || selectedCard.altImageUrl ? (
-                    <div className="relative">
-                      <select
-                        value={selectedArtType}
-                        onChange={(e) => {
-                          setSelectedArtType(e.target.value as ArtVariantType);
-                          setShowAnatomy(false);
+                <div className="flex items-center gap-2">
+                  {isDeckBuilderMode && activeDeckId ? (
+                    <div className="flex items-center gap-1 bg-stone-100 rounded-full p-1 border border-stone-200">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (selectedCount === 1) {
+                            removeFromDeck(activeDeckId, selectedCard!.parentId || selectedCard!.id, selectedArtType);
+                          } else if (selectedCount > 1) {
+                            updateDeckCount(activeDeckId, selectedCard!.parentId || selectedCard!.id, selectedArtType, -1);
+                          }
                         }}
-                        className="appearance-none bg-stone-100 border border-stone-200 rounded-full px-4 py-2 pr-8 text-[9px] font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
+                        disabled={selectedCount === 0}
+                        className={cn(
+                          "w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90",
+                          selectedCount > 0 
+                            ? "bg-white border border-stone-200 text-[#141414] shadow-sm hover:bg-stone-50" 
+                            : "text-stone-300 cursor-not-allowed opacity-50"
+                        )}
                       >
-                        <option value="Base art">Base art</option>
-                        {selectedCard.altImageUrl && <option value="Parallel">Parallel</option>}
-                        {selectedCard.variants?.map(v => (
-                          <option key={v.type} value={v.type}>{v.type}</option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <ChevronLeft size={12} className="-rotate-90 text-stone-400" />
+                        <Minus size={14} strokeWidth={3} />
+                      </button>
+                      
+                      <div className="flex flex-col items-center justify-center min-w-[32px] px-1">
+                        <span className={cn(
+                          "text-xs font-black leading-none",
+                          selectedTotalCount >= 4 ? "text-red-500" : "text-[#141414]"
+                        )}>
+                          {selectedCount}
+                        </span>
+                        <span className="text-[7px] font-bold text-stone-400 uppercase tracking-tighter">Count</span>
                       </div>
-                    </div>
-                  ) : null}
 
-                  <button 
-                    onClick={() => {
-                      setShowDeckSelector(true);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-colors shadow-lg shadow-black/10 active:scale-95"
-                  >
-                    <Plus size={14} />
-                    <span className="text-[9px] font-bold uppercase tracking-wider">Add to deck</span>
-                  </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const originalCard = combinedCards.find(c => c.id === (selectedCard!.parentId || selectedCard!.id));
+                          if (originalCard && activeDeckId) {
+                            addToDeck(activeDeckId, originalCard, selectedArtType);
+                          }
+                        }}
+                        disabled={selectedTotalCount >= 4}
+                        className={cn(
+                          "w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90 shadow-sm",
+                          selectedTotalCount < 4 
+                            ? "bg-[#141414] text-white hover:bg-stone-800" 
+                            : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                        )}
+                      >
+                        <Plus size={14} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        setShowDeckSelector(true);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-2 bg-[#141414] text-white rounded-full hover:bg-stone-800 transition-all shadow-lg active:scale-95",
+                        isDeckBuilderMode && "lg:py-2.5 lg:px-8"
+                      )}
+                    >
+                      <Plus size={16} strokeWidth={4} />
+                      <span className="text-[10px] font-black uppercase tracking-[0.15em]">Add to deck</span>
+                    </button>
+                  )}
 
                   <button 
                     onClick={() => toggleBookmark(selectedCard.id)}
                     className={cn(
-                      "p-2 rounded-full transition-all active:scale-95 shadow-lg shadow-black/5 border",
+                      "p-2.5 rounded-full transition-all active:scale-95 border",
                       bookmarks.includes(selectedCard.id)
-                        ? "bg-amber-50 border-amber-200 text-amber-600"
+                        ? "bg-amber-100 border-amber-200 text-amber-600"
                         : "bg-white border-stone-200 text-stone-400 hover:text-stone-600"
                     )}
                     title={bookmarks.includes(selectedCard.id) ? "Remove bookmark" : "Bookmark card"}
                   >
-                    <Bookmark size={18} className={cn(bookmarks.includes(selectedCard.id) && "fill-amber-600")} />
+                    <Bookmark size={20} className={cn(bookmarks.includes(selectedCard.id) && "fill-amber-600")} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col landscape:flex-row landscape:overflow-hidden">
-                <div className="relative w-full h-[372px] mt-1 flex items-center justify-center overflow-hidden landscape:w-1/2 landscape:h-full landscape:mt-0">
+              <div className={cn(
+                "flex-1 flex flex-col landscape:flex-row landscape:overflow-hidden",
+                isDeckBuilderMode && "lg:flex-col lg:overflow-visible landscape:lg:flex-col landscape:lg:overflow-visible"
+              )}>
+                <div className={cn(
+                  "relative w-full h-[372px] mt-1 flex items-center justify-center overflow-hidden landscape:w-1/2 landscape:h-full landscape:mt-0",
+                  isDeckBuilderMode && "lg:w-full lg:h-auto lg:shrink-0 lg:mt-4 lg:mb-0 landscape:lg:w-full landscape:lg:h-auto landscape:lg:mt-4 landscape:lg:relative"
+                )}>
                   <div className="relative w-full h-full flex items-center justify-center">
                     {/* Previous Card Peek */}
                     {currentIndex > 0 && (
                       <div 
                         key={`peek-prev-${gridData[currentIndex - 1].id}`}
-                        className="absolute left-0 -translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0 landscape:w-auto landscape:h-[75%] landscape:-translate-x-[60%]"
+                        className="absolute left-0 -translate-x-[60%] w-[240px] aspect-[5/7] rounded-3xl overflow-hidden opacity-30 scale-90 z-0 grayscale-[0.2] transition-transform duration-500 landscape:w-auto landscape:h-[75%] landscape:-translate-x-[3%] landscape:scale-115"
                       >
                         <img 
                           src={gridData[currentIndex - 1].imageUrl} 
-                          className="w-full h-full object-fill"
+                          className="w-full h-full object-fill blur-[1.5px]"
                           referrerPolicy="no-referrer"
                         />
                       </div>
@@ -4310,7 +4371,10 @@ function AppContent() {
                         }}
                       >
                         <div 
-                          className="relative w-[260px] aspect-[5/7] bg-stone-100 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 cursor-pointer group landscape:w-auto landscape:h-[85%]"
+                          className={cn(
+                            "relative w-[260px] aspect-[5/7] bg-stone-100 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-black/5 cursor-pointer group landscape:w-auto landscape:h-[85%]",
+                            isDeckBuilderMode && "lg:w-[240px] lg:h-auto lg:aspect-[5/7] landscape:lg:w-[240px] landscape:lg:h-auto"
+                          )}
                           onClick={(e) => {
                             e.stopPropagation();
                             setIsCardMaximized(true);
@@ -4340,11 +4404,11 @@ function AppContent() {
                     {currentIndex < gridData.length - 1 && currentIndex !== -1 && (
                       <div 
                         key={`peek-next-${gridData[currentIndex + 1].id}`}
-                        className="absolute right-0 translate-x-[65%] w-[240px] aspect-[5/7] rounded-2xl overflow-hidden opacity-10 scale-90 z-0 landscape:w-auto landscape:h-[75%] landscape:translate-x-[60%]"
+                        className="absolute right-0 translate-x-[60%] w-[240px] aspect-[5/7] rounded-3xl overflow-hidden opacity-30 scale-90 z-0 grayscale-[0.2] transition-transform duration-500 landscape:w-auto landscape:h-[75%] landscape:translate-x-[3%] landscape:scale-115"
                       >
                         <img 
                           src={gridData[currentIndex + 1].imageUrl} 
-                          className="w-full h-full object-fill"
+                          className="w-full h-full object-fill blur-[1.5px]"
                           referrerPolicy="no-referrer"
                         />
                       </div>
@@ -4352,37 +4416,41 @@ function AppContent() {
                   </div>
                 </div>
 
-                <div className="p-4 pb-20 space-y-6 flex-1 landscape:w-1/2 landscape:h-full landscape:overflow-y-auto landscape:pb-10 landscape:bg-white/30">
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-2xl font-bold leading-tight text-[#141414]">{selectedCard.name}</h2>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {isAdmin && (
+                <div className={cn(
+                  "p-4 pb-20 space-y-4 flex-1 landscape:w-1/2 landscape:h-full landscape:overflow-y-auto landscape:pb-10 landscape:bg-white/30",
+                  isDeckBuilderMode && "pb-40 lg:w-full lg:h-auto lg:overflow-visible lg:bg-transparent lg:px-8 lg:pb-48 lg:space-y-4 landscape:lg:w-full landscape:lg:h-auto landscape:lg:overflow-visible landscape:lg:bg-transparent"
+                )}>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-4">
+                      <h2 className="text-2xl font-black leading-tight text-[#141414] tracking-tight">{selectedCard.name}</h2>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isAdmin && (
+                          <button 
+                            onClick={() => {
+                              setInitialCardIdForManager(selectedCard.id);
+                              setShowCardManager(true);
+                              setSelectedCard(null);
+                            }}
+                            className="p-2 text-stone-400 hover:text-[#C86891] hover:bg-[#C86891]/10 rounded-full transition-all"
+                            title="Edit card info"
+                          >
+                            <Edit2 size={24} />
+                          </button>
+                        )}
                         <button 
-                          onClick={() => {
-                            setInitialCardIdForManager(selectedCard.id);
-                            setShowCardManager(true);
-                            setSelectedCard(null);
-                          }}
-                          className="p-2 text-stone-400 hover:text-[#C86891] hover:bg-[#C86891]/10 rounded-full transition-all"
-                          title="Edit card info"
+                          onClick={() => setShowFeedbackPopup(true)}
+                          className="p-2 text-stone-400 hover:text-stone-600 rounded-full transition-all"
                         >
-                          <Edit2 size={20} />
+                          <MessageSquare size={24} />
                         </button>
-                      )}
-                      <button 
-                        onClick={() => setShowFeedbackPopup(true)}
-                        className="p-2 text-stone-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
-                        title="Report issue with this card"
-                      >
-                        <MessageSquare size={20} />
-                      </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mt-1">
-                    <p className="text-stone-500 font-mono text-[9px] uppercase tracking-wider">{selectedCard.cardNumber} • {selectedCard.set}</p>
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
+                    <p className="text-stone-400 font-mono text-xs font-bold uppercase tracking-widest">{selectedCard.cardNumber} • {selectedCard.set}</p>
                     
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <RarityTag rarity={selectedCard.rarity} />
                       <ColorTag color={selectedCard.color} />
                     </div>
@@ -4474,21 +4542,21 @@ function AppContent() {
                 </div>
 
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">Cost</p>
-                    <p className="text-sm font-black">{selectedCard.cost}</p>
+                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Cost</p>
+                    <p className="text-xl font-black text-[#141414]">{selectedCard.cost}</p>
                   </div>
-                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">Lv.</p>
-                    <p className="text-sm font-black">{selectedCard.level || '-'}</p>
+                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Lv.</p>
+                    <p className="text-xl font-black text-[#141414]">{selectedCard.level || '-'}</p>
                   </div>
-                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">AP</p>
-                    <p className="text-sm font-black text-red-600">{selectedCard.ap || '-'}</p>
+                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">AP</p>
+                    <p className="text-xl font-black text-red-600">{selectedCard.ap || '-'}</p>
                   </div>
-                  <div className="bg-white p-2 rounded-xl border border-stone-200 text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-bold mb-0.5">HP</p>
-                    <p className="text-sm font-black text-blue-600">{selectedCard.hp || '-'}</p>
+                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
+                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">HP</p>
+                    <p className="text-xl font-black text-blue-600">{selectedCard.hp || '-'}</p>
                   </div>
                 </div>
 
@@ -4519,7 +4587,7 @@ function AppContent() {
                   <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
                     <Info size={14} /> Ability
                   </h4>
-                  <div className="bg-white p-4 rounded-2xl border border-stone-200 text-sm leading-relaxed whitespace-pre-wrap italic">
+                  <div className="bg-white p-6 rounded-3xl border border-stone-200 text-base leading-relaxed whitespace-pre-wrap">
                     {renderAbilityText(selectedCard.ability)}
                   </div>
                 </div>
