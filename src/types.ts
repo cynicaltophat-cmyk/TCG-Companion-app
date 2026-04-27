@@ -15,7 +15,7 @@ export interface GundamCard {
   set: string;
   cardNumber: string;
   type: CardType[];
-  color: "Red" | "Blue" | "Green" | "White" | "Black" | "Yellow" | "Purple";
+  color: "Red" | "Blue" | "Green" | "White" | "Purple";
   rarity: "C" | "U" | "R" | "LR";
   cost: string | number;
   level?: string | number;

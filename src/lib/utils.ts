@@ -11,8 +11,6 @@ export function getColorBg(color: string) {
     case 'Blue': return 'bg-blue-500';
     case 'Green': return 'bg-emerald-500';
     case 'White': return 'bg-stone-200';
-    case 'Black': return 'bg-stone-900';
-    case 'Yellow': return 'bg-amber-400';
     case 'Purple': return 'bg-purple-500';
     default: return 'bg-stone-200';
   }

@@ -173,8 +173,6 @@ const ColorTag = ({ color }: { color: GundamCard['color'] }) => {
     Blue: "bg-blue-500 text-white",
     Green: "bg-green-500 text-white",
     White: "bg-stone-100 text-stone-800 border border-stone-300",
-    Black: "bg-stone-900 text-white",
-    Yellow: "bg-yellow-400 text-stone-900",
     Purple: "bg-purple-600 text-white",
   };
   return <CardBadge className={colors[color]}>{color}</CardBadge>;
@@ -2058,6 +2056,8 @@ function AppContent() {
     if (multiUploadInputRef.current) multiUploadInputRef.current.value = '';
   };
   
+  const [isExactCardColor, setIsExactCardColor] = useState(false);
+  
   // Filter State
   const [activeFilters, setActiveFilters] = useState({
     sets: [] as string[],
@@ -2666,7 +2666,11 @@ function AppContent() {
       const matchesSets = activeFilters.sets.length === 0 || 
                          activeFilters.sets.some(s => normalize(s) === normalize(card.set));
       const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.includes(card.rarity);
-      const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.includes(card.color);
+      const matchesColors = activeFilters.colors.length === 0 || (
+        isExactCardColor 
+          ? (activeFilters.colors.length === 1 && activeFilters.colors[0] === card.color)
+          : activeFilters.colors.includes(card.color)
+      );
       const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.some(t => card.type.includes(t as any));
       const matchesVariants = activeFilters.variants.length === 0 || 
                              activeFilters.variants.some(v => {
@@ -2728,7 +2732,7 @@ function AppContent() {
       if (indexA !== indexB) return (indexA - indexB) * direction;
       return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true }) * direction;
     });
-  }, [combinedCards, debouncedSearchQuery, activeFilters, sortOption]);
+  }, [combinedCards, debouncedSearchQuery, activeFilters, sortOption, isExactCardColor]);
 
   const gridData = useMemo(() => {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
@@ -3120,62 +3124,100 @@ function AppContent() {
           isDeckBuilderMode && "landscape:w-[35%]"
         )}>
           <div className={cn(
-            "max-w-md landscape:max-w-none mx-auto flex items-center gap-2"
+            "max-w-md landscape:max-w-none mx-auto flex flex-col gap-1.5"
           )}>
-            <div className={cn(
-              "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10"
-            )}>
-              <Sparkles size={16} />
-            </div>
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                (e.currentTarget.querySelector('input') as HTMLInputElement)?.blur();
-              }}
-              className={cn(
-                "relative flex-1",
-                isDeckBuilderMode && "landscape:w-full"
-              )}
-            >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
-              <input 
-                type="text"
-                enterKeyHint="search"
-                placeholder="Search cards..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-10 py-2 bg-stone-100 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm"
-              />
-              {searchQuery && (
-                <button 
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </form>
-            <div className="flex items-center gap-0.5">
-              <button 
-                onClick={() => setShowSortModal(true)}
-                className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors active:scale-95"
-              >
-                <ArrowUpDown size={18} />
-              </button>
-              <button 
-                onClick={() => setIsFilterOpen(true)}
+            <div className="flex items-center gap-2 w-full">
+              <div className={cn(
+                "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10"
+              )}>
+                <Sparkles size={16} />
+              </div>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget.querySelector('input') as HTMLInputElement)?.blur();
+                }}
                 className={cn(
-                  "p-2 rounded-lg transition-colors active:scale-95 relative",
-                  Object.values(activeFilters).some(f => f.length > 0)
-                    ? "text-amber-600 bg-amber-50"
-                    : "text-stone-500 hover:bg-stone-100"
+                  "relative flex-1",
+                  isDeckBuilderMode && "landscape:w-full"
                 )}
               >
-                <Filter size={18} />
-                {Object.values(activeFilters).some(f => f.length > 0) && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full border-2 border-white" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
+                <input 
+                  type="text"
+                  enterKeyHint="search"
+                  placeholder="Search cards..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-10 py-2 bg-stone-100 border border-stone-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm"
+                />
+                {searchQuery && (
+                  <button 
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
                 )}
+              </form>
+              <div className="flex items-center gap-0.5">
+                <button 
+                  onClick={() => setShowSortModal(true)}
+                  className="p-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors active:scale-95"
+                >
+                  <ArrowUpDown size={18} />
+                </button>
+                <button 
+                  onClick={() => setIsFilterOpen(true)}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors active:scale-95 relative",
+                    Object.values(activeFilters).some(f => f.length > 0)
+                      ? "text-amber-600 bg-amber-50"
+                      : "text-stone-500 hover:bg-stone-100"
+                  )}
+                >
+                  <Filter size={18} />
+                  {Object.values(activeFilters).some(f => f.length > 0) && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full border-2 border-white" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 overflow-x-auto pt-2 pb-1.5 px-1 no-scrollbar">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Quick filter</span>
+                <div className="flex gap-1.5">
+                  {COLORS.map(color => {
+                    const isActive = activeFilters.colors.includes(color);
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => toggleFilter('colors', color)}
+                        className={cn(
+                          "w-5 h-5 rounded-md transition-all active:scale-90 shadow-sm",
+                          getColorBg(color),
+                          color === 'White' && "border border-stone-300",
+                          isActive ? "ring-2 ring-offset-1 ring-amber-500" : "opacity-80 hover:opacity-100"
+                        )}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setIsExactCardColor(!isExactCardColor)}
+                className="flex items-center gap-2 group shrink-0"
+              >
+                <div className={cn(
+                  "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
+                  isExactCardColor ? "bg-[#141414] border-[#141414]" : "bg-white border-stone-300 group-hover:border-stone-400"
+                )}>
+                  {isExactCardColor && <Check size={10} className="text-white stroke-[3]" />}
+                </div>
+                <span className="text-[8px] font-bold text-stone-400 group-hover:text-stone-600 transition-colors uppercase tracking-tight">Exact color match</span>
               </button>
             </div>
           </div>
@@ -3733,8 +3775,6 @@ function AppContent() {
                           color === 'Blue' && "bg-blue-500",
                           color === 'Green' && "bg-emerald-500",
                           color === 'White' && "bg-amber-100/50",
-                          color === 'Black' && "bg-stone-900",
-                          color === 'Yellow' && "bg-amber-400",
                           color === 'Purple' && "bg-purple-500"
                         )} 
                       />
@@ -5113,6 +5153,7 @@ function AppContent() {
               setShowDeckList(false);
               setIsFilterOpen(false);
               setCurrentTab('cards');
+              setDeckBuilderView('list');
               if (types) {
                 setActiveFilters(prev => ({
                   ...prev,
