@@ -31,6 +31,110 @@ interface DeckListProps {
 
 import { ProgressiveImage } from './ProgressiveImage';
 
+interface DeckCardProps {
+  deck: Deck;
+  onSelect: (deckId: string) => void;
+  onDelete: (deckId: string) => void;
+}
+
+const DeckCard = React.memo(({ deck, onSelect, onDelete }: DeckCardProps) => {
+  const colors = Array.from(new Set(deck.items.map(i => i.card.color)));
+  
+  // Quick thumbnail selection without full sort if possible
+  const uniqueThumbnails: GundamCard[] = [];
+  const seenIds = new Set<string>();
+  
+  // Simple iteration to find up to 2 unique thumbnails
+  for (const item of deck.items) {
+    if (!seenIds.has(item.card.id)) {
+      uniqueThumbnails.push(item.card);
+      seenIds.add(item.card.id);
+    }
+    if (uniqueThumbnails.length >= 2) break;
+  }
+  
+  return (
+    <div 
+      onClick={() => onSelect(deck.id)}
+      className="relative aspect-square bg-[#E5E5E0] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden cursor-pointer group"
+    >
+      {/* Background Image / Cover */}
+      <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
+        {deck.coverImageUrl ? (
+          <ProgressiveImage 
+            src={deck.coverImageUrl} 
+            imageClassName="object-cover object-center h-full w-full"
+            referrerPolicy="no-referrer" 
+          />
+        ) : (
+          <div className="w-full h-full bg-stone-200 flex items-center justify-center text-stone-400">
+            <Layout size={48} strokeWidth={1} />
+          </div>
+        )}
+      </div>
+
+      {/* Top Left Delete Trash Can */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(deck.id);
+        }}
+        className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-lg transition-all active:scale-90 border border-stone-100 z-10"
+      >
+        <Trash2 size={20} />
+      </button>
+
+      {/* Top Right Open Icon */}
+      <div className="absolute top-0 right-0 w-12 h-12 z-10">
+        <div 
+          className="absolute top-0 right-0 w-0 h-0 border-t-[48px] border-l-[48px] border-t-white border-l-transparent" 
+        />
+        <ArrowUpRight size={18} className="absolute top-[8px] right-[8px] text-stone-400" />
+      </div>
+
+      {/* Bottom Text and Thumbnail Overlay */}
+      <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/80 via-black/30 to-transparent">
+        <div className="flex flex-col gap-2">
+           {/* Thumbnails */}
+           <div className="flex gap-2">
+             {uniqueThumbnails.map((card, idx) => (
+               <div 
+                 key={idx} 
+                 className="w-10 h-10 rounded-xl border border-white/30 overflow-hidden shadow-2xl bg-stone-800 backdrop-blur-md"
+               >
+                 <img 
+                   src={card.imageUrl} 
+                   className="object-cover object-center w-full h-full"
+                   referrerPolicy="no-referrer"
+                   loading="lazy"
+                 />
+               </div>
+             ))}
+           </div>
+
+           <h3 className="text-white font-black text-base truncate drop-shadow-lg tracking-tight">
+             {deck.name}
+           </h3>
+        </div>
+      </div>
+
+      {/* Color Indicator Bar at bottom */}
+      <div className="absolute bottom-0 inset-x-0 flex h-2">
+        {colors.length === 0 ? (
+          <div className="w-full h-full bg-stone-400/50" />
+        ) : (
+          colors.map(color => (
+            <div 
+              key={color} 
+              className={cn("flex-1 h-full", getColorBg(color))} 
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+});
+
 export const DeckList: React.FC<DeckListProps> = ({
   decks,
   allCards,
@@ -382,109 +486,14 @@ export const DeckList: React.FC<DeckListProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {filteredDecks.map((deck) => {
-              const colors = Array.from(new Set(deck.items.map(i => i.card.color)));
-              
-              const uniqueThumbnails: typeof deck.items = [];
-              const seenIds = new Set<string>();
-              
-              // Prefer LRs or just the first few cards for thumbnails
-              const sortedForThumbnails = [...deck.items].sort((a, b) => {
-                if (a.card.rarity === 'LR' && b.card.rarity !== 'LR') return -1;
-                if (a.card.rarity !== 'LR' && b.card.rarity === 'LR') return 1;
-                return 0;
-              });
-
-              for (const item of sortedForThumbnails) {
-                if (!seenIds.has(item.card.id)) {
-                  uniqueThumbnails.push(item);
-                  seenIds.add(item.card.id);
-                }
-                if (uniqueThumbnails.length >= 2) break;
-              }
-              
-              return (
-                <motion.div 
-                  key={deck.id}
-                  layout
-                  onClick={() => onSelectDeck(deck.id)}
-                  className="relative aspect-square bg-[#E5E5E0] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden cursor-pointer group"
-                >
-                  {/* Background Image / Cover */}
-                  <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
-                    {deck.coverImageUrl ? (
-                      <ProgressiveImage 
-                        src={deck.coverImageUrl} 
-                        imageClassName="object-cover object-center h-full w-full"
-                        referrerPolicy="no-referrer" 
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-stone-200 flex items-center justify-center text-stone-400">
-                        <Layout size={48} strokeWidth={1} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Top Left Delete Trash Can */}
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteConfirmId(deck.id);
-                    }}
-                    className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-lg transition-all active:scale-90 border border-stone-100 z-10"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-
-                  {/* Top Right Open Icon */}
-                  <div className="absolute top-0 right-0 w-12 h-12 z-10">
-                    <div 
-                      className="absolute top-0 right-0 w-0 h-0 border-t-[48px] border-l-[48px] border-t-white border-l-transparent" 
-                    />
-                    <ArrowUpRight size={18} className="absolute top-[8px] right-[8px] text-stone-400" />
-                  </div>
-
-                  {/* Bottom Text and Thumbnail Overlay */}
-                  <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/80 via-black/30 to-transparent">
-                    <div className="flex flex-col gap-2">
-                       {/* Thumbnails */}
-                       <div className="flex gap-2">
-                         {uniqueThumbnails.map((item, idx) => (
-                           <div 
-                             key={idx} 
-                             className="w-10 h-10 rounded-xl border border-white/30 overflow-hidden shadow-2xl bg-stone-800 backdrop-blur-md"
-                           >
-                             <ProgressiveImage 
-                               src={item.card.imageUrl} 
-                               imageClassName="object-cover object-center w-full h-full"
-                               referrerPolicy="no-referrer" 
-                             />
-                           </div>
-                         ))}
-                       </div>
-
-                       <h3 className="text-white font-black text-base truncate drop-shadow-lg tracking-tight">
-                         {deck.name}
-                       </h3>
-                    </div>
-                  </div>
-
-                  {/* Color Indicator Bar at bottom */}
-                  <div className="absolute bottom-0 inset-x-0 flex h-2">
-                    {colors.length === 0 ? (
-                      <div className="w-full h-full bg-stone-400/50" />
-                    ) : (
-                      colors.map(color => (
-                        <div 
-                          key={color} 
-                          className={cn("flex-1 h-full", getColorBg(color))} 
-                        />
-                      ))
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
+            {filteredDecks.map((deck) => (
+              <DeckCard 
+                key={deck.id}
+                deck={deck}
+                onSelect={onSelectDeck}
+                onDelete={setDeleteConfirmId}
+              />
+            ))}
           </div>
         )}
       </div>

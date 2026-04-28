@@ -61,7 +61,9 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [traitsInput, setTraitsInput] = useState("");
   const [traitSuggestions, setTraitSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showTraitSuggestions, setShowTraitSuggestions] = useState(false);
+  const [linkSuggestions, setLinkSuggestions] = useState<string[]>([]);
+  const [showLinkSuggestions, setShowLinkSuggestions] = useState(false);
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
 
@@ -91,6 +93,14 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
     const set = new Set<string>();
     cards.forEach(c => {
       c.traits?.forEach(t => set.add(t));
+    });
+    return Array.from(set).sort();
+  }, [cards]);
+
+  const allUniqueLinks = React.useMemo(() => {
+    const set = new Set<string>();
+    cards.forEach(c => {
+      if (c.link) set.add(c.link);
     });
     return Array.from(set).sort();
   }, [cards]);
@@ -1163,20 +1173,20 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                               !traits.includes(t)
                             ).slice(0, 5);
                             setTraitSuggestions(filtered);
-                            setShowSuggestions(filtered.length > 0);
+                            setShowTraitSuggestions(filtered.length > 0);
                           } else {
                             setTraitSuggestions([]);
-                            setShowSuggestions(false);
+                            setShowTraitSuggestions(false);
                           }
                         }}
                         onBlur={() => {
                           // Small delay to allow click on suggestion
-                          setTimeout(() => setShowSuggestions(false), 200);
+                          setTimeout(() => setShowTraitSuggestions(false), 200);
                         }}
                         placeholder="e.g. Mobile Suit, Zeon, Char Aznable"
                         className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
                       />
-                      {showSuggestions && (
+                      {showTraitSuggestions && (
                         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
                           {traitSuggestions.map((suggestion, idx) => (
                             <button
@@ -1190,7 +1200,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                                 const traits = newVal.split(',').map(s => s.trim()).filter(Boolean);
                                 setEditingCard(prev => prev ? {...prev, traits} : null);
                                 setTraitSuggestions([]);
-                                setShowSuggestions(false);
+                                setShowTraitSuggestions(false);
                               }}
                               className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between"
                             >
@@ -1201,17 +1211,51 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                         </div>
                       )}
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 relative">
                       <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Linked Card Name (e.g. Amuro Ray)</label>
                       <input 
                         type="text" 
                         value={editingCard.link || ''} 
                         onChange={e => {
-                          setEditingCard({...editingCard, link: e.target.value});
+                          const val = e.target.value;
+                          setEditingCard({...editingCard, link: val});
                           setHasUnsavedChanges(true);
+
+                          if (val.length >= 2) {
+                            const filtered = allUniqueLinks.filter(n => 
+                              n.toLowerCase().includes(val.toLowerCase())
+                            ).slice(0, 5);
+                            setLinkSuggestions(filtered);
+                            setShowLinkSuggestions(filtered.length > 0);
+                          } else {
+                            setLinkSuggestions([]);
+                            setShowLinkSuggestions(false);
+                          }
+                        }}
+                        onBlur={() => {
+                          setTimeout(() => setShowLinkSuggestions(false), 200);
                         }}
                         className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
                       />
+                      {showLinkSuggestions && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                          {linkSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setEditingCard(prev => prev ? {...prev, link: suggestion} : null);
+                                setLinkSuggestions([]);
+                                setShowLinkSuggestions(false);
+                              }}
+                              className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between"
+                            >
+                              {suggestion}
+                              <Plus size={10} className="text-amber-400" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

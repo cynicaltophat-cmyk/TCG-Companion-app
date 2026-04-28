@@ -83,6 +83,7 @@ import {
 } from 'firebase/firestore';
 
 import { ProgressiveImage } from './components/ProgressiveImage';
+import { GD01_CARDS } from './data/GD01_new_cards';
 
 const COMMON_VARIANTS: ArtVariantType[] = ["Parallel", "Beta", "Beta Parallel", "Premium", "Championship", "Double Plus (++)", "Championship Participation"];
 const RARITIES = ["C", "U", "R", "LR"];
@@ -1675,6 +1676,27 @@ function AppContent() {
           console.error("Auto-import ST08 failed:", err);
         });
       }
+    }
+  }, [isAdmin, cardsLoading, allCards.length]);
+
+  // Auto-import GD01 cards if missing (Admin only)
+  useEffect(() => {
+    if (!isAdmin || cardsLoading || allCards.length === 0) return;
+    
+    const missingCards = GD01_CARDS.filter(card => !allCards.some(c => c.id === card.id));
+    
+    if (missingCards.length > 0) {
+      console.log(`Seeding ${missingCards.length} missing GD01 cards...`);
+      const batch = writeBatch(db);
+      missingCards.forEach(card => {
+        const cardRef = doc(db, 'cards', card.id);
+        batch.set(cardRef, card);
+      });
+      batch.commit().then(() => {
+        console.log("Auto-import of GD01 cards successful!");
+      }).catch(err => {
+        console.error("Auto-import GD01 failed:", err);
+      });
     }
   }, [isAdmin, cardsLoading, allCards.length]);
 
