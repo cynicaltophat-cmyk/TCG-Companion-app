@@ -51,9 +51,12 @@ import {
   Zap,
   Bookmark,
   Upload,
-  Package
+  Package,
+  Share2,
+  Copy
 } from 'lucide-react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType } from './types';
+import { QRCodeSVG } from 'qrcode.react';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType, DeckSubmission } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice, clearPriceCache } from './services/geminiService';
@@ -65,6 +68,9 @@ import { ProxyPrinter } from './components/ProxyPrinter';
 import { ProductList } from './components/products/ProductList';
 import { ProductDetails } from './components/products/ProductDetails';
 import { ProductManager } from './components/products/ProductManager';
+import { EventCoverage, TournamentDeckDetail } from './components/EventCoverage';
+import { TournamentManager } from './components/TournamentManager';
+import { DeckSubmissionForm } from './components/DeckSubmissionForm';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from 'firebase/auth';
 import { 
@@ -919,6 +925,7 @@ function AppContent() {
   const [isBatchScanning, setIsBatchScanning] = useState(false);
   const [capturedBatchFiles, setCapturedBatchFiles] = useState<File[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState<Feedback[]>([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showCardManager, setShowCardManager] = useState(false);
@@ -996,7 +1003,10 @@ function AppContent() {
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
   const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
   const [quickStartMode, setQuickStartMode] = useState<'play' | 'stats' | null>(null);
-  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'product-list' | 'product-details'>('cards');
+  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'product-list' | 'product-details' | 'coverage' | 'submit-deck'>('cards');
+  const [submissionDeck, setSubmissionDeck] = useState<Deck | null>(null);
+  const [selectedTournamentDeck, setSelectedTournamentDeck] = useState<DeckSubmission | null>(null);
+  const [showTournamentManager, setShowTournamentManager] = useState(false);
   const [sortOption, setSortOption] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'default', direction: 'asc' });
   const [showSortModal, setShowSortModal] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -1762,67 +1772,6 @@ function AppContent() {
 
   const [isAuthReady, setIsAuthReady] = useState(false);
 
-  // Handle Deck Import from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const importData = params.get('import');
-    if (importData && allCards.length > 0) {
-      try {
-        const decoded = atob(importData);
-        const deckData = JSON.parse(decoded);
-        
-        // Clean up URL
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
-
-        // Reconstruct items with full card data
-        const reconstructedItems = deckData.items.map((item: any) => {
-          const fullCard = allCards.find(c => c.cardNumber === (item.card.cardNumber || item.card.id));
-          if (fullCard) {
-            return {
-              ...item,
-              card: fullCard
-            };
-          }
-          return item;
-        });
-
-        // Create the deck
-        const importNewDeck = async () => {
-          const deckId = Math.random().toString(36).substr(2, 9);
-          const newDeck: Deck = {
-            ...deckData,
-            items: reconstructedItems,
-            id: deckId,
-            lastModified: Date.now(),
-            name: `${deckData.name || 'Imported Deck'} (Imported)`
-          };
-
-          if (!user) {
-            const updatedDecks = [newDeck, ...decks];
-            setDecks(updatedDecks);
-            localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
-            setActiveDeckId(deckId);
-            setIsDeckEditorOpen(true);
-            setCurrentTab('decks');
-            return;
-          }
-
-          const deckWithUid = { ...newDeck, uid: user.uid };
-          await setDoc(doc(db, 'decks', deckId), deckWithUid);
-          setActiveDeckId(deckId);
-          setIsDeckEditorOpen(true);
-          setCurrentTab('decks');
-          showToast("Deck imported successfully!");
-        };
-        
-        importNewDeck();
-      } catch (e) {
-        console.error("Failed to import deck from URL:", e);
-      }
-    }
-  }, [user, isAuthReady, allCards]);
-
   // Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -2502,6 +2451,89 @@ function AppContent() {
     setToast(message);
     setTimeout(() => setToast(null), 2000);
   };
+
+  // Handle Deck Import from URL (Short Links and Legacy Import)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const importData = params.get('import');
+    const shortId = params.get('s');
+
+    const handleImport = async (deckData: any) => {
+      // Reconstruct items with full card data
+      const reconstructedItems = deckData.items.map((item: any) => {
+        const fullCard = allCards.find(c => c.cardNumber === (item.card.cardNumber || item.card.id));
+        if (fullCard) {
+          return {
+            ...item,
+            card: fullCard
+          };
+        }
+        return item;
+      });
+
+      const deckId = Math.random().toString(36).substr(2, 9);
+      const newDeck: Deck = {
+        ...deckData,
+        items: reconstructedItems,
+        id: deckId,
+        lastModified: Date.now(),
+        name: `${deckData.name || 'Imported Deck'} (Imported)`
+      };
+
+      if (!user) {
+        const updatedDecks = [newDeck, ...decks];
+        setDecks(updatedDecks);
+        localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+        setActiveDeckId(deckId);
+        setIsDeckEditorOpen(true);
+        setCurrentTab('decks');
+        return;
+      }
+
+      const deckWithUid = { ...newDeck, uid: user.uid };
+      await setDoc(doc(db, 'decks', deckId), deckWithUid);
+      setActiveDeckId(deckId);
+      setIsDeckEditorOpen(true);
+      setCurrentTab('decks');
+      showToast("Deck imported successfully!");
+    };
+
+    if (shortId && allCards.length > 0) {
+      const fetchShortLink = async () => {
+        try {
+          const { getDoc, doc } = await import('firebase/firestore');
+          const docSnap = await getDoc(doc(db, 'short_links', shortId));
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            
+            // Clean up URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+
+            handleImport(data.deckData);
+          } else {
+            console.error("Short link not found");
+          }
+        } catch (e) {
+          console.error("Failed to fetch short link:", e);
+        }
+      };
+      fetchShortLink();
+    } else if (importData && allCards.length > 0) {
+      try {
+        const decoded = atob(importData);
+        const deckData = JSON.parse(decoded);
+        
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+
+        handleImport(deckData);
+      } catch (e) {
+        console.error("Failed to import deck from URL:", e);
+      }
+    }
+  }, [user, isAuthReady, allCards, decks, showToast, isDeckEditorOpen, currentTab]);
 
   const addToDeck = React.useCallback(async (deckId: string, card: GundamCard, artType: ArtVariantType = "Base art") => {
     const deck = decks.find(d => d.id === deckId);
@@ -3288,21 +3320,36 @@ function AppContent() {
 
                 <button 
                   onClick={() => {
+                    if (!isAdmin) {
+                      showToast("Feature is in work in progress!");
+                      return;
+                    }
                     setCurrentTab('scan');
                     setIsScanning(true);
                   }}
-                  className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
+                  className={cn(
+                    "w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group transition-all",
+                    isAdmin ? "active:scale-95 hover:bg-stone-50" : "opacity-75 cursor-not-allowed filter grayscale"
+                  )}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 group-hover:scale-110 transition-transform">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center transition-transform",
+                      isAdmin ? "bg-stone-50 text-stone-600 group-hover:scale-110" : "bg-stone-100 text-stone-500"
+                    )}>
                       <Scan size={20} />
                     </div>
                     <div className="text-left">
-                      <span className="block font-bold text-sm text-[#141414]">Card Scanner</span>
-                      <span className="block text-[10px] text-stone-400 font-medium">Identify cards instantly</span>
+                      <div className="flex items-center gap-2">
+                        <span className="block font-bold text-sm text-[#141414]">Card Scanner</span>
+                        {!isAdmin && (
+                          <span className="px-1.5 py-0.5 bg-stone-100 text-stone-500 text-[8px] font-black uppercase tracking-widest rounded border border-stone-200">Admin Only</span>
+                        )}
+                      </div>
+                      <p className="block text-[10px] text-stone-400 font-medium">Identify cards instantly</p>
                     </div>
                   </div>
-                  <ChevronRight size={20} className="text-stone-300" />
+                  {isAdmin && <ChevronRight size={20} className="text-stone-300" />}
                 </button>
 
                 <button 
@@ -3478,7 +3525,7 @@ function AppContent() {
                       className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-stone-100 text-stone-500 rounded-lg flex items-center justify-center">
                           <Package size={18} />
                         </div>
                         <div className="text-left">
@@ -3489,10 +3536,46 @@ function AppContent() {
                       <ChevronRight size={16} className="text-stone-400" />
                     </button>
                   </div>
+
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => setShowTournamentManager(true)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center">
+                          <Trophy size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-[#141414]">Tournament Decks Manager</p>
+                          <p className="text-[10px] text-stone-500 font-medium">Manage events and submissions</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-400" />
+                    </button>
+                  </div>
                 </div>
               )}
 
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => setShowShareModal(true)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                          <Share2 size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-[#141414]">Share App Link</p>
+                          <p className="text-[10px] text-stone-500 font-medium">Get QR code or link to share</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-400" />
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
                 <button 
                   onClick={() => {
                     const btn = document.getElementById('clear-cache-btn');
@@ -3835,6 +3918,8 @@ function AppContent() {
                 setCurrentTab('cards');
                 setShowFeedback(false);
                 setShowAdminPanel(false);
+                setShowTournamentManager(false);
+                setShowProductManager(false);
                 setShowDeckList(false);
                 setIsScanning(false);
               }}
@@ -3878,18 +3963,24 @@ function AppContent() {
                   setIsDeckEditorOpen(true);
                   setShowFeedback(false);
                   setShowAdminPanel(false);
+                  setShowTournamentManager(false);
+                  setShowProductManager(false);
                 } else if (isDeckBuilderMode && activeDeckId) {
                   setIsDeckEditorOpen(true);
                   setShowDeckList(false);
                   setCurrentTab('decks');
                   setShowFeedback(false);
                   setShowAdminPanel(false);
+                  setShowTournamentManager(false);
+                  setShowProductManager(false);
                 } else {
                   setShowDeckList(true);
                   setIsDeckEditorOpen(false);
                   setCurrentTab('decks');
                   setShowFeedback(false);
                   setShowAdminPanel(false);
+                  setShowTournamentManager(false);
+                  setShowProductManager(false);
                 }
 
                 setIsScanning(false);
@@ -3936,6 +4027,8 @@ function AppContent() {
                 setCurrentTab('quick-start');
                 setShowFeedback(false);
                 setShowAdminPanel(false);
+                setShowTournamentManager(false);
+                setShowProductManager(false);
                 setShowDeckList(false);
                 setIsScanning(false);
               }}
@@ -3973,13 +4066,64 @@ function AppContent() {
                   setDeckBuilderView('list');
                 }
                 if (currentTab === 'scan') setIsScanning(false);
+                setCurrentTab('coverage');
+                setShowFeedback(false);
+                setShowAdminPanel(false);
+                setShowTournamentManager(false);
+                setShowProductManager(false);
+                setShowDeckList(false);
+                setIsScanning(false);
+              }}
+              className="flex flex-col items-center gap-0 group transition-all active:scale-95 relative"
+            >
+              <div className={cn(
+                "p-1 rounded-lg transition-colors",
+                currentTab === 'coverage' ? "bg-stone-200/80" : "group-hover:bg-stone-200/50"
+              )}>
+                <Trophy size={16} className={cn(
+                  "transition-colors",
+                  currentTab === 'coverage' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                )} strokeWidth={currentTab === 'coverage' ? 2 : 1.5} />
+              </div>
+              <span className={cn(
+                "text-[8px] font-bold uppercase tracking-tighter transition-colors",
+                currentTab === 'coverage' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+              )}>Coverage</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                if (!isAdmin) {
+                  showToast("Feature is in work in progress!");
+                  return;
+                }
+                if (selectedCard) {
+                  setSelectedCard(null);
+                  setSelectedArtType("Base art");
+                  setShowAnatomy(false);
+                }
+                if (isDeckEditorOpen && deckEditorRef.current && !isDeckInPlayMode && !isDeckBuilderMode) {
+                  setOpenedEditorFromList(false);
+                  setIsDeckEditorOpen(false);
+                }
+                if (isDeckBuilderMode) {
+                  setIsDeckBuilderMode(false);
+                  setIsDeckEditorOpen(false);
+                  setDeckBuilderView('list');
+                }
+                if (currentTab === 'scan') setIsScanning(false);
                 setCurrentTab('scan');
                 setShowFeedback(false);
                 setShowAdminPanel(false);
+                setShowTournamentManager(false);
+                setShowProductManager(false);
                 setIsScanning(true);
                 setShowDeckList(false);
               }}
-              className="flex flex-col items-center gap-0 group transition-all active:scale-95"
+              className={cn(
+                "flex flex-col items-center gap-0 group transition-all",
+                isAdmin ? "active:scale-95" : "opacity-70 cursor-not-allowed"
+              )}
             >
               <div className={cn(
                 "p-1 rounded-lg transition-colors",
@@ -3987,12 +4131,12 @@ function AppContent() {
               )}>
                 <Scan size={16} className={cn(
                   "transition-colors",
-                  currentTab === 'scan' ? "text-[#141414]" : "text-stone-500 group-hover:text-[#141414]"
+                  currentTab === 'scan' ? "text-[#141414]" : (!isAdmin ? "text-stone-500" : "text-stone-500 group-hover:text-[#141414]")
                 )} strokeWidth={currentTab === 'scan' ? 2 : 1.5} />
               </div>
               <span className={cn(
                 "text-[8px] font-bold uppercase tracking-tighter transition-colors",
-                currentTab === 'scan' ? "text-[#141414]" : "text-stone-400 group-hover:text-[#141414]"
+                currentTab === 'scan' ? "text-[#141414]" : (!isAdmin ? "text-stone-500" : "text-stone-400 group-hover:text-[#141414]")
               )}>Scan</span>
             </button>
 
@@ -4007,6 +4151,8 @@ function AppContent() {
                   setCurrentTab('profile');
                   setShowFeedback(false);
                   setShowAdminPanel(false);
+                  setShowTournamentManager(false);
+                  setShowProductManager(false);
                   setIsScanning(false);
                   setShowDeckList(false);
                   setIsDeckEditorOpen(false);
@@ -5123,6 +5269,13 @@ function AppContent() {
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
             onSetCover={setDeckCover}
+            onSubmitDeck={(deck) => {
+              setSubmissionDeck(deck);
+              setCurrentTab('submit-deck');
+              setIsDeckEditorOpen(false);
+              setIsDeckBuilderMode(false);
+              setDeckBuilderView('list');
+            }}
             isDeckBuilderMode={isDeckBuilderMode}
             onViewProduct={(product) => {
               setSelectedProduct(product);
@@ -5393,8 +5546,114 @@ function AppContent() {
         />
       )}
 
+      {/* Tournament Decks Manager */}
+      {showTournamentManager && isAdmin && (
+        <TournamentManager 
+          onClose={() => setShowTournamentManager(false)} 
+        />
+      )}
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShareModal(false)}
+              className="absolute inset-0 bg-[#141414]/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden p-8 flex flex-col items-center gap-6"
+            >
+              <div className="text-center">
+                <h3 className="text-xl font-black text-[#141414] uppercase tracking-tight">Share App</h3>
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mt-1">Scan or copy link</p>
+              </div>
+
+              <div className="p-6 bg-white rounded-3xl shadow-inner border border-stone-100">
+                <QRCodeSVG 
+                  value="https://tcg-companion-app.vercel.app/" 
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+
+              <div className="w-full space-y-3">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText("https://tcg-companion-app.vercel.app/");
+                    showToast("Link copied to clipboard!");
+                  }}
+                  className="w-full flex items-center justify-center gap-3 py-4 bg-stone-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-stone-100 active:scale-95 transition-all"
+                >
+                  <Copy size={16} />
+                  Copy Link
+                </button>
+                <button 
+                  onClick={() => setShowShareModal(false)}
+                  className="w-full py-4 bg-stone-100 text-stone-600 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Product Views */}
       <AnimatePresence mode="wait">
+        {currentTab === 'coverage' && (
+          <motion.div
+            key="coverage"
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+          >
+            <EventCoverage 
+              onBack={() => setCurrentTab('cards')} 
+              onSelectSubmission={(deck) => setSelectedTournamentDeck(deck)}
+            />
+            {selectedTournamentDeck && (
+              <TournamentDeckDetail 
+                submission={selectedTournamentDeck} 
+                onClose={() => setSelectedTournamentDeck(null)} 
+              />
+            )}
+          </motion.div>
+        )}
+
+        {currentTab === 'submit-deck' && submissionDeck && (
+          <motion.div
+            key="submit-deck"
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-[#F5F5F0] flex flex-col overflow-y-auto"
+          >
+            <DeckSubmissionForm 
+              deck={submissionDeck} 
+              onClose={() => {
+                setCurrentTab('cards');
+                setSubmissionDeck(null);
+                setIsScanning(false);
+                setShowDeckList(false);
+              }} 
+              onSuccess={() => {
+                setCurrentTab('cards');
+                setSubmissionDeck(null);
+                setIsScanning(false);
+                setShowDeckList(false);
+              }}
+            />
+          </motion.div>
+        )}
+
         {currentTab === 'product-list' && (
           <motion.div
             key="product-list"

@@ -38,25 +38,26 @@ interface DeckCardProps {
 }
 
 const DeckCard = React.memo(({ deck, onSelect, onDelete }: DeckCardProps) => {
-  const colors = Array.from(new Set(deck.items.map(i => i.card.color)));
+  const colors = React.useMemo(() => Array.from(new Set(deck.items.map(i => i.card.color))), [deck.items]);
   
-  // Quick thumbnail selection without full sort if possible
-  const uniqueThumbnails: GundamCard[] = [];
-  const seenIds = new Set<string>();
-  
-  // Simple iteration to find up to 2 unique thumbnails
-  for (const item of deck.items) {
-    if (!seenIds.has(item.card.id)) {
-      uniqueThumbnails.push(item.card);
-      seenIds.add(item.card.id);
+  const uniqueThumbnails = React.useMemo(() => {
+    const thumbnails: GundamCard[] = [];
+    const seenIds = new Set<string>();
+    
+    for (const item of deck.items) {
+      if (!seenIds.has(item.card.id)) {
+        thumbnails.push(item.card);
+        seenIds.add(item.card.id);
+      }
+      if (thumbnails.length >= 2) break;
     }
-    if (uniqueThumbnails.length >= 2) break;
-  }
+    return thumbnails;
+  }, [deck.items]);
   
   return (
     <div 
       onClick={() => onSelect(deck.id)}
-      className="relative aspect-square bg-[#E5E5E0] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden cursor-pointer group"
+      className="relative aspect-square bg-[#E5E5E0] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden cursor-pointer group transform-gpu will-change-transform"
     >
       {/* Background Image / Cover */}
       <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
@@ -400,7 +401,7 @@ export const DeckList: React.FC<DeckListProps> = ({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain transition-all duration-300">
         <div className="w-full p-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pb-32 space-y-4">
           {(selectedMainCard || selectedColors.length > 0) && (
             <div className="flex items-center justify-between">

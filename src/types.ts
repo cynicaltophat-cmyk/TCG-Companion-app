@@ -80,6 +80,36 @@ export interface Deck {
   coverImageUrl?: string;
 }
 
+export interface TournamentEvent {
+  id: string;
+  name: string;
+  season: string;
+  date: string;
+  type: 'Organized Event';
+}
+
+export type EventType = 'Shop Battle' | 'Newtype challenge' | 'Organized Event';
+export type Placement = 'Top 1' | 'Top 4' | 'Top 8' | 'Top 16' | 'Top 32';
+export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+
+export interface DeckSubmission {
+  id: string;
+  uid: string;
+  deckId: string;
+  deckName: string;
+  deckItems: DeckItem[];
+  coverImageUrl?: string;
+  playerName: string;
+  season: string;
+  eventType: EventType;
+  tournamentId?: string; 
+  tournamentName?: string;
+  date: string;
+  placement: Placement;
+  createdAt: number;
+  status: SubmissionStatus;
+}
+
 export type FeedbackCategory = 
   | 'Incorrect ability effect' 
   | 'Incorrect color' 

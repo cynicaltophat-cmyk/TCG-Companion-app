@@ -45,6 +45,8 @@ import { DeckImageExport } from './DeckImageExport';
 import { GundamCard, ArtVariantType, Deck, DeckItem, Product } from '../types';
 import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
 import { ProgressiveImage } from './ProgressiveImage';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface DeckEditorProps {
   deck: Deck;
@@ -62,6 +64,7 @@ interface DeckEditorProps {
   onPrintProxy?: (deck: Deck) => void;
   onRenameDeck?: (deckId: string, newName: string) => void;
   onSetCover?: (deckId: string, imageUrl: string) => void;
+  onSubmitDeck?: (deck: Deck) => void;
   onViewProduct?: (product: Product) => void;
   onViewProductList?: () => void;
   getCardPrice?: (cardNumber: string, cardName: string, forceRefresh?: boolean, artType?: ArtVariantType) => Promise<string | null>;
@@ -202,6 +205,7 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   onPrintProxy,
   onRenameDeck,
   onSetCover,
+  onSubmitDeck,
   allCards,
   visible = true,
   initialTab,
@@ -790,10 +794,34 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                       artType: i.artType
                                     }))
                                   };
-                                  const encoded = btoa(JSON.stringify(deckData));
-                                  const shareUrl = `${window.location.origin}${window.location.pathname}?import=${encoded}`;
-                                  navigator.clipboard.writeText(shareUrl);
-                                  showToast("Successfully copied link to clipboard");
+
+                                  const generateShortLink = async () => {
+                                    try {
+                                      setIsMenuOpen(false);
+                                      showToast("Generating short link...");
+                                      
+                                      const shortId = Math.random().toString(36).substring(2, 8);
+                                      
+                                      await setDoc(doc(db, 'short_links', shortId), {
+                                        id: shortId,
+                                        deckData: deckData,
+                                        createdAt: Date.now()
+                                      });
+                                      
+                                      const shareUrl = `https://tcg-companion-app.vercel.app/?s=${shortId}`;
+                                      await navigator.clipboard.writeText(shareUrl);
+                                      showToast("Short link copied to clipboard!");
+                                    } catch (err) {
+                                      console.error("Error generating short link:", err);
+                                      // Fallback to long link if shortening fails
+                                      const encoded = btoa(JSON.stringify(deckData));
+                                      const shareUrl = `https://tcg-companion-app.vercel.app/?import=${encoded}`;
+                                      await navigator.clipboard.writeText(shareUrl);
+                                      showToast("Copied link to clipboard (full version)");
+                                    }
+                                  };
+
+                                  generateShortLink();
                                 }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
                               >
@@ -830,6 +858,17 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               >
                                 <Printer size={16} />
                                 Print Proxy
+                              </button>
+                              <div className="h-px bg-stone-100 my-1 mx-2" />
+                              <button 
+                                onClick={() => {
+                                  setIsMenuOpen(false);
+                                  onSubmitDeck?.(deck);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-amber-600 hover:bg-stone-50 rounded-xl transition-colors"
+                              >
+                                <Trophy size={16} />
+                                Submit decklist
                               </button>
                             </div>
                           </motion.div>

@@ -50,23 +50,16 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
 
   return (
     <div className={cn("relative overflow-hidden w-full h-full bg-stone-100", className)}>
-      <AnimatePresence mode="wait">
-        {!isLoaded && !error && (
-          <motion.div
-            key="placeholder"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-stone-100"
-          >
-            {showIcon ? (
-              <Layout className="text-stone-300 animate-pulse" size={className?.includes('w-9') ? 16 : 24} strokeWidth={1} />
-            ) : (
-              <Loader2 className="text-stone-300 animate-spin" size={className?.includes('w-9') ? 16 : 24} />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Placeholder - Simple CSS visibility instead of Framer Motion */}
+      {!isLoaded && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-stone-100 z-0">
+          {showIcon ? (
+            <Layout className="text-stone-300 animate-pulse" size={className?.includes('w-9') ? 16 : 24} strokeWidth={1} />
+          ) : (
+            <Loader2 className="text-stone-300 animate-spin" size={className?.includes('w-9') ? 16 : 24} />
+          )}
+        </div>
+      )}
 
       {(src && !error) && (
         <img
@@ -79,9 +72,9 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
           }}
           loading={priority ? "eager" : "lazy"}
           className={cn(
-            "w-full h-full transition-all duration-700 ease-out",
+            "w-full h-full transition-opacity duration-300 ease-out",
             imageClassName,
-            isLoaded ? "opacity-100 scale-100" : "opacity-0 scale-105 pointer-events-none"
+            isLoaded ? "opacity-100" : "opacity-0"
           )}
         />
       )}

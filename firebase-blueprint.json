@@ -161,6 +161,53 @@
         "order": { "type": "integer", "description": "Sort order for display" }
       },
       "required": ["id", "name", "category", "imageUrl", "releaseDate", "msrp"]
+    },
+    "TournamentEvent": {
+      "title": "TournamentEvent",
+      "description": "An organized tournament event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "season": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["Organized Event"] }
+      },
+      "required": ["id", "name", "season", "date", "type"]
+    },
+    "DeckSubmission": {
+      "title": "DeckSubmission",
+      "description": "A submitted winning decklist.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "deckId": { "type": "string" },
+        "deckName": { "type": "string" },
+        "deckItems": { "type": "array" },
+        "coverImageUrl": { "type": "string" },
+        "playerName": { "type": "string" },
+        "season": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["Shop Battle", "Newtype challenge", "Organized Event"] },
+        "tournamentId": { "type": "string" },
+        "tournamentName": { "type": "string" },
+        "date": { "type": "string" },
+        "placement": { "type": "string", "enum": ["Top 1", "Top 4", "Top 8", "Top 16", "Top 32"] },
+        "createdAt": { "type": "integer" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+      },
+      "required": ["id", "uid", "deckId", "deckName", "deckItems", "playerName", "season", "eventType", "date", "placement", "createdAt", "status"]
+    },
+    "ShortLink": {
+      "title": "ShortLink",
+      "description": "A shortened URL reference for sharing deck data.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The short ID" },
+        "deckData": { "type": "object", "description": "The full deck data JSON" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "deckData", "createdAt"]
     }
   },
   "firestore": {
@@ -191,6 +238,18 @@
     "products/{productId}": {
       "schema": "Product",
       "description": "Product listings for the TCG"
+    },
+    "tournament_events/{eventId}": {
+      "schema": "TournamentEvent",
+      "description": "Organized tournament events"
+    },
+    "deck_submissions/{submissionId}": {
+      "schema": "DeckSubmission",
+      "description": "Submitted winning decklists"
+    },
+    "short_links/{shortId}": {
+      "schema": "ShortLink",
+      "description": "Shortened sharing links"
     }
   }
 }

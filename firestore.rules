@@ -121,9 +121,48 @@ service cloud.firestore {
              data.msrp is string;
     }
 
+    function isValidTournamentEvent(data) {
+      return hasOnlyAllowedFields(['id', 'name', 'season', 'date', 'type']) &&
+             data.id is string &&
+             data.name is string &&
+             data.season is string &&
+             data.date is string &&
+             data.type == 'Organized Event';
+    }
+
+    function isValidDeckSubmission(data) {
+      return hasOnlyAllowedFields(['id', 'uid', 'deckId', 'deckName', 'deckItems', 'coverImageUrl', 'playerName', 'season', 'eventType', 'tournamentId', 'tournamentName', 'date', 'placement', 'createdAt', 'status']) &&
+             data.id is string &&
+             data.uid == request.auth.uid &&
+             data.deckId is string &&
+             data.deckName is string &&
+             data.deckItems is list &&
+             data.playerName is string &&
+             data.season is string &&
+             data.eventType in ['Shop Battle', 'Newtype challenge', 'Organized Event'] &&
+             (!('tournamentId' in data) || (data.tournamentId is string || data.tournamentId == null)) &&
+             (!('tournamentName' in data) || (data.tournamentName is string || data.tournamentName == null)) &&
+             data.date is string &&
+             data.placement in ['Top 1', 'Top 4', 'Top 8', 'Top 16', 'Top 32'] &&
+             data.createdAt is int &&
+             data.status in ['pending', 'approved', 'rejected'];
+    }
+
+    function isValidShortLink(data) {
+      return hasOnlyAllowedFields(['id', 'deckData', 'createdAt']) &&
+             data.id is string &&
+             data.deckData is map &&
+             data.createdAt is int;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /short_links/{shortId} {
+      allow read: if true;
+      allow create: if isValidShortLink(request.resource.data);
+    }
 
     match /cards/{cardId} {
       allow read: if true; // Cards are public
@@ -133,6 +172,19 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true; // Products are public
       allow write: if isAdmin() && isValidProduct(request.resource.data);
+    }
+
+    match /tournament_events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidTournamentEvent(request.resource.data);
+    }
+
+    match /deck_submissions/{submissionId} {
+      allow read: if (resource.data.status == 'approved') || isDocOwner() || isAdmin();
+      allow list: if (resource.data.status == 'approved') || isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending';
+      allow update: if (isAdmin() && isValidDeckSubmission(request.resource.data)) || (isDocOwner() && resource.data.status == 'pending' && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending');
+      allow delete: if isAdmin() || (isDocOwner() && resource.data.status == 'pending');
     }
 
     match /decks/{deckId} {
