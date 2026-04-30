@@ -64,13 +64,23 @@ service cloud.firestore {
     // ===============================================================
     
     function isValidDeck(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'uid', 'items', 'coverImageUrl', 'lastModified']) &&
+      return hasOnlyAllowedFields(['id', 'name', 'uid', 'items', 'coverImageUrl', 'lastModified', 'folderId']) &&
              data.id is string &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
              data.uid is string && data.uid == request.auth.uid &&
              data.items is list && data.items.size() <= 100 &&
              (!('coverImageUrl' in data) || (data.coverImageUrl is string && data.coverImageUrl.size() <= 2000)) &&
+             (!('folderId' in data) || (data.folderId == null || (data.folderId is string && data.folderId.size() <= 128))) &&
              data.lastModified is int;
+    }
+
+    function isValidDeckFolder(data) {
+      return hasOnlyAllowedFields(['id', 'uid', 'name', 'icon', 'createdAt']) &&
+             data.id is string &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             (!('icon' in data) || (data.icon is string && data.icon.size() <= 100)) &&
+             data.createdAt is int;
     }
 
     function isValidMatch(data) {
@@ -131,9 +141,9 @@ service cloud.firestore {
     }
 
     function isValidDeckSubmission(data) {
-      return hasOnlyAllowedFields(['id', 'uid', 'deckId', 'deckName', 'deckItems', 'coverImageUrl', 'playerName', 'season', 'eventType', 'tournamentId', 'tournamentName', 'date', 'placement', 'createdAt', 'status']) &&
+      return hasOnlyAllowedFields(['id', 'uid', 'deckId', 'deckName', 'deckItems', 'coverImageUrl', 'playerName', 'season', 'eventType', 'tournamentId', 'tournamentName', 'date', 'placement', 'createdAt', 'updatedAt', 'status']) &&
              data.id is string &&
-             data.uid == request.auth.uid &&
+             data.uid is string &&
              data.deckId is string &&
              data.deckName is string &&
              data.deckItems is list &&
@@ -143,8 +153,9 @@ service cloud.firestore {
              (!('tournamentId' in data) || (data.tournamentId is string || data.tournamentId == null)) &&
              (!('tournamentName' in data) || (data.tournamentName is string || data.tournamentName == null)) &&
              data.date is string &&
-             data.placement in ['Top 1', 'Top 4', 'Top 8', 'Top 16', 'Top 32'] &&
+             data.placement.matches('^Top ([1-9]|[12][0-9]|3[0-2])$') &&
              data.createdAt is int &&
+             (!('updatedAt' in data) || (data.updatedAt is string || data.updatedAt is int)) &&
              data.status in ['pending', 'approved', 'rejected'];
     }
 
@@ -171,20 +182,28 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true; // Products are public
-      allow write: if isAdmin() && isValidProduct(request.resource.data);
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /tournament_events/{eventId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidTournamentEvent(request.resource.data);
+      allow create, update: if isAdmin() && isValidTournamentEvent(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /deck_submissions/{submissionId} {
-      allow read: if (resource.data.status == 'approved') || isDocOwner() || isAdmin();
-      allow list: if (resource.data.status == 'approved') || isDocOwner() || isAdmin();
-      allow create: if isAuthenticated() && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending';
-      allow update: if (isAdmin() && isValidDeckSubmission(request.resource.data)) || (isDocOwner() && resource.data.status == 'pending' && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending');
+      allow read, list: if (resource.data.status == 'approved') || isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending' && request.resource.data.uid == request.auth.uid;
+      allow update: if (isAdmin() && isValidDeckSubmission(request.resource.data)) || (isDocOwner() && resource.data.status == 'pending' && isValidDeckSubmission(request.resource.data) && request.resource.data.status == 'pending' && request.resource.data.uid == resource.data.uid);
       allow delete: if isAdmin() || (isDocOwner() && resource.data.status == 'pending');
+    }
+
+    match /deck_folders/{folderId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidDeckFolder(request.resource.data);
+      allow update: if isDocOwner() && isValidDeckFolder(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
     }
 
     match /decks/{deckId} {

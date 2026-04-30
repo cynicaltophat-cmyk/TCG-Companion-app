@@ -43,6 +43,46 @@ const SEASONS = [
   { id: "GD01", name: "GD01 Newtype Rising" }
 ];
 
+const getPlacementRank = (placement: string): number => {
+  const p = placement.toLowerCase().trim();
+  
+  // Handle direct numbers (e.g. "1", "2", "3", "4")
+  if (p === '1') return 1;
+  if (p === '2') return 2;
+  if (p === '3') return 3;
+  if (p === '4') return 4;
+  if (p === '8') return 8;
+  if (p === '16') return 16;
+  if (p === '32') return 32;
+
+  // Specific Winner rankings
+  if (p.includes('winner') || p.includes('1st') || p.includes('champion') || p.includes('champ')) return 1;
+  if (p.includes('finalist') || p.includes('runner up') || p.includes('2nd')) return 2;
+  
+  // 3rd place
+  if (p.includes('3rd')) return 3;
+  
+  // 4th place or Top 4
+  if (p.includes('4th') || p.includes('top 4')) return 4;
+  
+  // Top 8
+  if (p.includes('top 8') || p.includes('8th') || p.includes('quarter')) return 8;
+  
+  // Top 16
+  if (p.includes('top 16') || p.includes('16th')) return 16;
+  
+  // Top 32
+  if (p.includes('top 32') || p.includes('32nd')) return 32;
+  
+  // Try to parse any number in the string
+  const allNumbers = p.match(/\d+/g);
+  if (allNumbers && allNumbers.length > 0) {
+    return parseInt(allNumbers[0]);
+  }
+  
+  return 100; // Fallback
+};
+
 export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission, onBack }) => {
   const [events, setEvents] = useState<TournamentEvent[]>([]);
   const [submissions, setSubmissions] = useState<DeckSubmission[]>([]);
@@ -164,6 +204,20 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
       ? submissions.filter(s => s.tournamentName === focusedEvent.name)
       : [];
 
+  const sortedDecks = [...filteredDecks].sort((a, b) => {
+    const rankA = getPlacementRank(a.placement);
+    const rankB = getPlacementRank(b.placement);
+    return rankA - rankB;
+  });
+
+  const getRankStyle = (index: number) => {
+    const rank = index + 1;
+    if (rank === 1) return "from-[#F5A623] to-[#F8D800] text-white";
+    if (rank === 2) return "from-[#A4B9D2] to-[#BDCEDB] text-white";
+    if (rank === 3) return "from-[#D98B4B] to-[#E6A97A] text-white";
+    return "from-[#C4C4C4] to-[#D8D8D8] text-white";
+  };
+
   if (subView !== 'home') {
     return (
       <div className="flex-1 overflow-y-auto bg-[#F9F9F7] animate-in slide-in-from-right duration-300 pb-24">
@@ -171,12 +225,12 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSubView('home')}
-              className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-stone-200 transition-colors"
+              className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-stone-200 transition-colors"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={20} />
             </button>
             <div>
-              <h1 className="text-sm font-black tracking-tight text-stone-900 uppercase">
+              <h1 className="text-lg font-black tracking-tight text-stone-900 uppercase leading-none mb-1">
                 {subView === 'all' ? 'All Decklists' : focusedEvent?.name}
               </h1>
               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest leading-none">
@@ -186,41 +240,84 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
           </div>
         </header>
 
-        <div className="p-6">
-          {filteredDecks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {filteredDecks.map((deck) => {
+        <div className="px-3 py-6 max-w-2xl mx-auto space-y-3">
+          {sortedDecks.length > 0 ? (
+            <div className="flex flex-col gap-2 sm:gap-3">
+              {sortedDecks.map((deck, index) => {
                 const deckColors = getDeckColors(deck.deckItems);
+                const rank = index + 1;
                 return (
-                  <div 
+                  <motion.div 
                     key={deck.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
                     onClick={() => onSelectSubmission?.(deck)}
-                    className="bg-white rounded-[1.5rem] shadow-sm border border-stone-100 overflow-hidden hover:shadow-md transition-all cursor-pointer group"
+                    className="relative flex items-center bg-white rounded-xl sm:rounded-[1.25rem] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-stone-100 overflow-hidden hover:shadow-md transition-all cursor-pointer group h-16 sm:h-20"
                   >
-                    <div className="relative aspect-[4/5] overflow-hidden">
-                      {deck.coverImageUrl ? (
-                        <ProgressiveImage src={deck.coverImageUrl} imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                      ) : (
-                        <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-300">
-                          <Layout size={32} />
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 p-3 pt-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
-                        <h3 className="text-white font-black text-xs leading-tight drop-shadow-md line-clamp-2 uppercase tracking-tight">{deck.deckName}</h3>
+                    {/* Rank Section with Slanted Edge */}
+                    <div className={cn(
+                      "w-12 sm:w-20 h-full flex items-center justify-center bg-gradient-to-br relative z-10",
+                      getRankStyle(index)
+                    )}>
+                      <span className="text-2xl sm:text-4xl font-black italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+                        {rank}
+                      </span>
+                      {/* The Slanted Edge */}
+                      <div className="absolute top-0 -right-3 bottom-0 w-6 bg-inherit z-[-1]" style={{ clipPath: 'polygon(0 0, 40% 0, 100% 100%, 0 100%)' }} />
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="flex-1 flex items-center gap-3 sm:gap-5 px-4 sm:px-6">
+                      {/* Deck Image */}
+                      <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shadow-sm flex-shrink-0 border border-stone-50 ml-1">
+                        {deck.coverImageUrl ? (
+                          <ProgressiveImage 
+                            src={deck.coverImageUrl} 
+                            imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-stone-50 flex items-center justify-center text-stone-200">
+                            <Layout size={16} />
+                          </div>
+                        )}
                       </div>
-                      <div className="absolute bottom-0 inset-x-0 flex h-1 z-10">
+
+                      {/* Text Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm sm:text-xl font-black text-stone-900 leading-tight uppercase tracking-tight truncate">
+                          {deck.deckName}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 mt-0.5">
+                          <p className="text-[9px] sm:text-xs font-bold text-stone-400 capitalize">
+                            By {deck.playerName}
+                          </p>
+                          <span className="text-[9px] sm:text-xs font-black text-stone-900 bg-stone-100 px-1.5 py-0.5 rounded uppercase tracking-tight">
+                            {deck.placement}
+                          </span>
+                          <p className="text-[9px] sm:text-xs font-bold text-stone-300">
+                            {new Date(deck.date).toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' })}
+                          </p>
+                        </div>
+                        <p className="hidden sm:block text-[10px] font-bold text-stone-300 uppercase tracking-tight mt-0.5 truncate leading-none">
+                          {deck.tournamentName || "Battle Bunker Locals"}
+                        </p>
+                      </div>
+
+                      {/* Color Squares (Horizontal Layout) */}
+                      <div className="flex items-center gap-1 sm:gap-1.5 ml-2">
                         {deckColors.map(color => (
-                          <div key={color} className={cn("flex-1", getColorBg(color))} />
+                          <div 
+                            key={color} 
+                            className={cn(
+                              "w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-md shadow-inner border border-white/10",
+                              getColorBg(color)
+                            )} 
+                          />
                         ))}
                       </div>
                     </div>
-                    <div className="p-3 text-center">
-                      <p className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-0.5 line-clamp-1">
-                        {deck.playerName}
-                      </p>
-                      <p className="text-[10px] font-bold text-stone-600 line-clamp-1">{deck.placement}</p>
-                    </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>

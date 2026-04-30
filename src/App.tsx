@@ -56,7 +56,7 @@ import {
   Copy
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType, DeckSubmission } from './types';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType, DeckSubmission, DeckFolder } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
 import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice, clearPriceCache } from './services/geminiService';
@@ -87,6 +87,53 @@ import {
   getDocFromServer,
   writeBatch
 } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, currentUser: User | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: currentUser?.uid,
+      email: currentUser?.email,
+      emailVerified: currentUser?.emailVerified,
+      isAnonymous: currentUser?.isAnonymous,
+      tenantId: currentUser?.tenantId,
+      providerInfo: currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 import { ProgressiveImage } from './components/ProgressiveImage';
 import { GD01_CARDS } from './data/GD01_new_cards';
@@ -2041,8 +2088,9 @@ function AppContent() {
   
   // Deck Management
   const [decks, setDecks] = useState<Deck[]>([]);
+  const [folders, setFolders] = useState<DeckFolder[]>([]);
 
-  // Decks Listener
+  // Decks and Folders Listener
   useEffect(() => {
     if (!user) {
       const savedDecks = localStorage.getItem('guest_decks');
@@ -2056,23 +2104,51 @@ function AppContent() {
       } else {
         setDecks([]);
       }
+      
+      const savedFolders = localStorage.getItem('guest_folders');
+      if (savedFolders) {
+        try {
+          setFolders(JSON.parse(savedFolders));
+        } catch (e) {
+          console.error("Error parsing guest folders:", e);
+          setFolders([]);
+        }
+      } else {
+        setFolders([]);
+      }
       return;
     }
 
-    const q = query(
+    const qDecks = query(
       collection(db, 'decks'),
       where('uid', '==', user.uid),
       orderBy('lastModified', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const qFolders = query(
+      collection(db, 'deck_folders'),
+      where('uid', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribeDecks = onSnapshot(qDecks, (snapshot) => {
       const decksData = snapshot.docs.map(doc => doc.data() as Deck);
       setDecks(decksData);
     }, (error) => {
       console.error("Decks listener error:", error);
     });
 
-    return () => unsubscribe();
+    const unsubscribeFolders = onSnapshot(qFolders, (snapshot) => {
+      const foldersData = snapshot.docs.map(doc => doc.data() as DeckFolder);
+      setFolders(foldersData);
+    }, (error) => {
+      console.error("Folders listener error:", error);
+    });
+
+    return () => {
+      unsubscribeDecks();
+      unsubscribeFolders();
+    };
   }, [user]);
 
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
@@ -2266,13 +2342,14 @@ function AppContent() {
     }
   };
 
-  const createDeck = async (name: string) => {
+  const createDeck = async (name: string, folderId: string | null = null) => {
     const deckId = Math.random().toString(36).substr(2, 9);
     const newDeck: Deck = {
       id: deckId,
       name,
       items: [],
-      lastModified: Date.now()
+      lastModified: Date.now(),
+      folderId
     };
 
     if (!user) {
@@ -2286,7 +2363,7 @@ function AppContent() {
     try {
       await setDoc(doc(db, 'decks', deckId), deckWithUid);
     } catch (error) {
-      console.error("Error creating deck:", error);
+      handleFirestoreError(error, OperationType.WRITE, `decks/${deckId}`, user);
     }
   };
 
@@ -2312,7 +2389,7 @@ function AppContent() {
       await setDoc(doc(db, 'decks', deckId), deckWithUid);
       setActiveDeckId(deckId);
     } catch (error) {
-      console.error("Error duplicating deck:", error);
+      handleFirestoreError(error, OperationType.WRITE, `decks/${deckId}`, user);
     }
   };
 
@@ -2321,7 +2398,13 @@ function AppContent() {
     const items: DeckItem[] = [];
     
     for (const line of lines) {
-      const match = line.match(/(\d+)x\s+([A-Z0-9-]+)/i);
+      if (!line.trim()) continue;
+      
+      // Try different patterns:
+      // 1. 4x ST01-001 (Existing)
+      // 2. 2 GD04-077 Flat (Militia) (New format: Quantity ID Name)
+      const match = line.match(/^\s*(\d+)[x\s]+([A-Z0-9-]+)/i);
+      
       if (match) {
         const count = parseInt(match[1]);
         const cardNumber = match[2].toUpperCase();
@@ -2340,6 +2423,36 @@ function AppContent() {
     if (items.length === 0) {
       showToast("No valid cards found in text.");
       return;
+    }
+
+    // Check if we are currently editing a deck
+    if (isDeckEditorOpen && activeDeckId) {
+      const activeDeck = decks.find(d => d.id === activeDeckId);
+      if (activeDeck) {
+        // Update existing deck
+        const updatedDeck: Deck = {
+          ...activeDeck,
+          items,
+          lastModified: Date.now()
+        };
+
+        if (!user) {
+          const updatedDecks = decks.map(d => d.id === activeDeckId ? updatedDeck : d);
+          setDecks(updatedDecks);
+          localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+          showToast(`Updated "${activeDeck.name}" with imported list.`);
+          return;
+        }
+
+        try {
+          await setDoc(doc(db, 'decks', activeDeckId), { ...updatedDeck, uid: user.uid });
+          showToast(`Updated "${activeDeck.name}" with imported list.`);
+          return;
+        } catch (error) {
+          console.error("Error updating deck during import:", error);
+          showToast("Failed to update current deck.");
+        }
+      }
     }
 
     const deckId = Math.random().toString(36).substr(2, 9);
@@ -2444,6 +2557,88 @@ function AppContent() {
         path: `decks/${deckId}`
       };
       console.error('Firestore Error: ', JSON.stringify(errInfo));
+    }
+  };
+
+  const createFolder = async (name: string) => {
+    const folderId = Math.random().toString(36).substr(2, 9);
+    const newFolder: DeckFolder = {
+      id: folderId,
+      uid: user?.uid || 'guest',
+      name,
+      createdAt: Date.now()
+    };
+
+    if (!user) {
+      const updatedFolders = [newFolder, ...folders];
+      setFolders(updatedFolders);
+      localStorage.setItem('guest_folders', JSON.stringify(updatedFolders));
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, 'deck_folders', folderId), newFolder);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `deck_folders/${folderId}`, user);
+    }
+  };
+
+  const deleteFolder = async (id: string) => {
+    if (!user) {
+      const updatedFolders = folders.filter(f => f.id !== id);
+      setFolders(updatedFolders);
+      localStorage.setItem('guest_folders', JSON.stringify(updatedFolders));
+      
+      // Update decks in this folder to be unassigned
+      const updatedDecks = decks.map(d => d.folderId === id ? { ...d, folderId: null } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'deck_folders', id));
+      
+      const batch = writeBatch(db);
+      decks.filter(d => d.folderId === id).forEach(deck => {
+        batch.update(doc(db, 'decks', deck.id), { folderId: null });
+      });
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `deck_folders/${id}`, user);
+    }
+  };
+
+  const renameFolder = async (id: string, newName: string) => {
+    if (!user) {
+      const updatedFolders = folders.map(f => f.id === id ? { ...f, name: newName } : f);
+      setFolders(updatedFolders);
+      localStorage.setItem('guest_folders', JSON.stringify(updatedFolders));
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'deck_folders', id), { name: newName });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `deck_folders/${id}`, user);
+    }
+  };
+
+  const moveDeckToFolder = async (deckId: string, folderId: string | null) => {
+    if (!user) {
+      const updatedDecks = decks.map(d => d.id === deckId ? { ...d, folderId, lastModified: Date.now() } : d);
+      setDecks(updatedDecks);
+      localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'decks', deckId), { 
+        folderId, 
+        lastModified: Date.now() 
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `decks/${deckId}`, user);
     }
   };
 
@@ -5137,6 +5332,11 @@ function AppContent() {
             onDeleteDeck={deleteDeck}
             onRenameDeck={renameDeck}
             onSetCover={setDeckCover}
+            folders={folders}
+            onCreateFolder={createFolder}
+            onDeleteFolder={deleteFolder}
+            onRenameFolder={renameFolder}
+            onMoveToFolder={moveDeckToFolder}
             onClose={() => {
               setShowDeckList(false);
               setDeckListAutoCreate(false);
@@ -5550,6 +5750,7 @@ function AppContent() {
       {showTournamentManager && isAdmin && (
         <TournamentManager 
           onClose={() => setShowTournamentManager(false)} 
+          showToast={showToast}
         />
       )}
 

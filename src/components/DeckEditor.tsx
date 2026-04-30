@@ -2452,14 +2452,14 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                     </button>
                   </div>
                   
-                  <p className="text-stone-500 text-xs">
-                    Paste your deck list below. Format: <code className="bg-stone-100 px-1 rounded">4x ST01-001</code>
+                  <p className="text-stone-500 text-xs text-balance">
+                    Paste your deck list below. Format: <code className="bg-stone-100 px-1 rounded">4x ST01-001</code> or <code className="bg-stone-100 px-1 rounded">4 ST01-001 Name</code>
                   </p>
 
                   <textarea
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
-                    placeholder="// Main Deck&#10;4x ST03-013&#10;4x GD01-008..."
+                    placeholder="// Example format:&#10;4x ST03-013&#10;4 GD01-008 Sinanju&#10;2 ST03-001 Sinanju..."
                     className="w-full h-48 p-4 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-stone-200 resize-none"
                   />
 

@@ -12,19 +12,28 @@ import {
   FileText,
   Filter,
   ArrowUpRight,
-  Search
+  Search,
+  Folder,
+  FolderPlus,
+  MoreVertical,
+  Move
 } from 'lucide-react';
-import { Deck, GundamCard } from '../types';
+import { Deck, GundamCard, DeckFolder } from '../types';
 import { cn, getColorBg } from '../lib/utils';
 
 interface DeckListProps {
   decks: Deck[];
+  folders: DeckFolder[];
   allCards: GundamCard[];
   onSelectDeck: (deckId: string) => void;
-  onCreateDeck: (name: string) => void;
+  onCreateDeck: (name: string, folderId?: string | null) => void;
   onDeleteDeck: (deckId: string) => void;
   onRenameDeck: (deckId: string, newName: string) => void;
   onSetCover: (deckId: string, imageUrl: string) => void;
+  onCreateFolder: (name: string) => void;
+  onDeleteFolder: (folderId: string) => void;
+  onRenameFolder: (folderId: string, newName: string) => void;
+  onMoveToFolder: (deckId: string, folderId: string | null) => void;
   onClose: () => void;
   autoStartCreate?: boolean;
 }
@@ -35,9 +44,10 @@ interface DeckCardProps {
   deck: Deck;
   onSelect: (deckId: string) => void;
   onDelete: (deckId: string) => void;
+  onMove: (deckId: string) => void;
 }
 
-const DeckCard = React.memo(({ deck, onSelect, onDelete }: DeckCardProps) => {
+const DeckCard = React.memo(({ deck, onSelect, onDelete, onMove }: DeckCardProps) => {
   const colors = React.useMemo(() => Array.from(new Set(deck.items.map(i => i.card.color))), [deck.items]);
   
   const uniqueThumbnails = React.useMemo(() => {
@@ -75,15 +85,26 @@ const DeckCard = React.memo(({ deck, onSelect, onDelete }: DeckCardProps) => {
       </div>
 
       {/* Top Left Delete Trash Can */}
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(deck.id);
-        }}
-        className="absolute top-4 left-4 w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-lg transition-all active:scale-90 border border-stone-100 z-10"
-      >
-        <Trash2 size={20} />
-      </button>
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(deck.id);
+          }}
+          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 shadow-lg transition-all active:scale-90 border border-stone-100"
+        >
+          <Trash2 size={18} />
+        </button>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onMove(deck.id);
+          }}
+          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-stone-400 hover:text-amber-500 shadow-lg transition-all active:scale-90 border border-stone-100"
+        >
+          <Move size={18} />
+        </button>
+      </div>
 
       {/* Top Right Open Icon */}
       <div className="absolute top-0 right-0 w-12 h-12 z-10">
@@ -138,22 +159,36 @@ const DeckCard = React.memo(({ deck, onSelect, onDelete }: DeckCardProps) => {
 
 export const DeckList: React.FC<DeckListProps> = ({
   decks,
+  folders,
   allCards,
   onSelectDeck,
   onCreateDeck,
   onDeleteDeck,
   onRenameDeck,
   onSetCover,
+  onCreateFolder,
+  onDeleteFolder,
+  onRenameFolder,
+  onMoveToFolder,
   onClose,
   autoStartCreate = false
 }) => {
   const [isCreating, setIsCreating] = useState(autoStartCreate);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [newDeckName, setNewDeckName] = useState("");
+  const [newFolderName, setNewFolderName] = useState("");
   const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteFolderConfirmId, setDeleteFolderConfirmId] = useState<string | null>(null);
+  const [folderMenuId, setFolderMenuId] = useState<string | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renamingFolderName, setRenamingFolderName] = useState("");
   const [coverPickerDeckId, setCoverPickerDeckId] = useState<string | null>(null);
+  const [moveDeckId, setMoveDeckId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null); // null means "All Decks" or Root
 
   // Filtering State
   const [searchQuery, setSearchQuery] = useState("");
@@ -176,6 +211,13 @@ export const DeckList: React.FC<DeckListProps> = ({
   // Apply Filters
   const filteredDecks = React.useMemo(() => {
     return decks.filter(deck => {
+      // Folder Filter
+      if (activeFolderId === 'unassigned') {
+        if (deck.folderId) return false;
+      } else if (activeFolderId) {
+        if (deck.folderId !== activeFolderId) return false;
+      }
+
       // Search Filter (Deck Name or Card Name)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -208,7 +250,7 @@ export const DeckList: React.FC<DeckListProps> = ({
 
       return true;
     });
-  }, [decks, searchQuery, selectedMainCard, selectedColors, isExactColor]);
+  }, [decks, searchQuery, selectedMainCard, selectedColors, isExactColor, activeFolderId]);
 
   const toggleColor = (color: string) => {
     setSelectedColors(prev => 
@@ -226,9 +268,25 @@ export const DeckList: React.FC<DeckListProps> = ({
 
   const handleCreate = () => {
     if (newDeckName.trim()) {
-      onCreateDeck(newDeckName.trim());
+      onCreateDeck(newDeckName.trim(), activeFolderId === 'unassigned' ? null : activeFolderId);
       setNewDeckName("");
       setIsCreating(false);
+    }
+  };
+
+  const handleCreateFolder = () => {
+    if (newFolderName.trim()) {
+      onCreateFolder(newFolderName.trim());
+      setNewFolderName("");
+      setIsCreatingFolder(false);
+    }
+  };
+
+  const handleRenameFolder = () => {
+    if (renamingFolderId && renamingFolderName.trim()) {
+      onRenameFolder(renamingFolderId, renamingFolderName.trim());
+      setRenamingFolderId(null);
+      setRenamingFolderName("");
     }
   };
 
@@ -244,6 +302,13 @@ export const DeckList: React.FC<DeckListProps> = ({
     if (deleteConfirmId) {
       onDeleteDeck(deleteConfirmId);
       setDeleteConfirmId(null);
+    }
+  };
+
+  const confirmDeleteFolder = () => {
+    if (deleteFolderConfirmId) {
+      onDeleteFolder(deleteFolderConfirmId);
+      setDeleteFolderConfirmId(null);
     }
   };
 
@@ -280,6 +345,41 @@ export const DeckList: React.FC<DeckListProps> = ({
               </button>
               <button 
                 onClick={confirmDelete}
+                className="py-3 px-4 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+              >
+                Yes
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Folder Delete Confirmation Modal */}
+      {deleteFolderConfirmId && (
+        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-xs bg-white rounded-3xl p-6 shadow-2xl space-y-6"
+          >
+            <div className="space-y-2 text-center">
+              <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Folder size={24} />
+              </div>
+              <h3 className="font-bold text-lg">Delete Folder?</h3>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                Decks in this folder will be unassigned but NOT deleted. This action cannot be undone.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => setDeleteFolderConfirmId(null)}
+                className="py-3 px-4 bg-stone-100 text-stone-600 rounded-xl font-bold text-sm hover:bg-stone-200 transition-colors"
+              >
+                No
+              </button>
+              <button 
+                onClick={confirmDeleteFolder}
                 className="py-3 px-4 bg-red-500 text-white rounded-xl font-bold text-sm hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
               >
                 Yes
@@ -330,7 +430,7 @@ export const DeckList: React.FC<DeckListProps> = ({
         </div>
       )}
       {/* Header */}
-      <header className="bg-white sticky top-0 z-10 border-b border-stone-100">
+      <header className="bg-white sticky top-0 z-40 border-b border-stone-100">
         <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] py-2 flex items-center gap-3">
           <button 
             onClick={onClose} 
@@ -363,6 +463,13 @@ export const DeckList: React.FC<DeckListProps> = ({
             className="w-9 h-7 bg-[#141414] text-white rounded-full flex items-center justify-center hover:bg-stone-800 transition-all shadow-lg active:scale-95 shrink-0"
           >
             <Plus size={16} className="stroke-[3]" />
+          </button>
+          
+          <button 
+            onClick={() => setIsCreatingFolder(true)}
+            className="w-9 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center hover:bg-amber-600 transition-all shadow-lg active:scale-95 shrink-0"
+          >
+            <FolderPlus size={16} className="stroke-[2]" />
           </button>
         </div>
 
@@ -402,7 +509,70 @@ export const DeckList: React.FC<DeckListProps> = ({
       </header>
 
       <div className="flex-1 overflow-y-auto overscroll-contain transition-all duration-300">
-        <div className="w-full p-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pb-32 space-y-4">
+        <div className="w-full p-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pb-32 space-y-6">
+          {/* Folders Bar - Now inside scrolling container */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+            <button 
+              onClick={() => setActiveFolderId(null)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight shrink-0",
+                activeFolderId === null 
+                  ? "bg-[#141414] text-white shadow-lg" 
+                  : "bg-white border border-stone-200 text-stone-500 shadow-sm"
+              )}
+            >
+              All Decks
+            </button>
+            <button 
+              onClick={() => setActiveFolderId('unassigned')}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight shrink-0",
+                activeFolderId === 'unassigned' 
+                  ? "bg-[#141414] text-white shadow-lg" 
+                  : "bg-white border border-stone-200 text-stone-500 shadow-sm"
+              )}
+            >
+              Unsorted
+            </button>
+            
+            {folders.map(folder => (
+              <div key={folder.id} className="relative group shrink-0">
+                <div 
+                  onClick={() => setActiveFolderId(activeFolderId === folder.id ? null : folder.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight cursor-pointer",
+                    activeFolderId === folder.id 
+                      ? "bg-amber-500 text-white shadow-lg shadow-amber-500/20" 
+                      : "bg-white border border-stone-200 text-stone-500 shadow-sm"
+                  )}
+                >
+                  <Folder size={14} className={activeFolderId === folder.id ? "fill-white/30" : "fill-stone-300"} />
+                  {folder.name}
+                  <div 
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFolderMenuId(folderMenuId === folder.id ? null : folder.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        setFolderMenuId(folderMenuId === folder.id ? null : folder.id);
+                      }
+                    }}
+                    className={cn(
+                      "p-1 rounded-md transition-colors ml-1",
+                      activeFolderId === folder.id ? "hover:bg-white/20 text-white/70" : "hover:bg-stone-100 text-stone-400"
+                    )}
+                  >
+                    <MoreVertical size={14} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {(selectedMainCard || selectedColors.length > 0) && (
             <div className="flex items-center justify-between">
               <div className="flex flex-wrap gap-2">
@@ -427,6 +597,33 @@ export const DeckList: React.FC<DeckListProps> = ({
                 Clear All
               </button>
             </div>
+          )}
+
+          {isCreatingFolder && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-3"
+            >
+              <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Folder Name</h3>
+              <div className="flex gap-2">
+                <input 
+                  autoFocus
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                  placeholder="Enter folder name..."
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+                <button 
+                  onClick={handleCreateFolder}
+                  className="p-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors"
+                >
+                  <Check size={20} />
+                </button>
+              </div>
+            </motion.div>
           )}
 
           {isCreating && (
@@ -486,18 +683,192 @@ export const DeckList: React.FC<DeckListProps> = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
             {filteredDecks.map((deck) => (
               <DeckCard 
                 key={deck.id}
                 deck={deck}
                 onSelect={onSelectDeck}
                 onDelete={setDeleteConfirmId}
+                onMove={setMoveDeckId}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Folder Options Dropdown Style Modal */}
+      <AnimatePresence>
+        {folderMenuId && (
+          <div className="fixed inset-0 z-[115] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-6" onClick={() => setFolderMenuId(null)}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[280px] bg-white rounded-[2rem] shadow-2xl overflow-hidden p-2"
+            >
+              <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Folder Actions</span>
+                <button onClick={() => setFolderMenuId(null)} className="text-stone-300 hover:text-stone-500 transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+              
+              <div className="p-1 space-y-1">
+                <button 
+                  onClick={() => {
+                    const folder = folders.find(f => f.id === folderMenuId);
+                    if (folder) {
+                      setRenamingFolderId(folder.id);
+                      setRenamingFolderName(folder.name);
+                    }
+                    setFolderMenuId(null);
+                  }}
+                  className="w-full text-left p-4 rounded-2xl hover:bg-stone-50 flex items-center gap-4 text-stone-600 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center group-hover:bg-amber-100 group-hover:text-amber-500 transition-colors">
+                    <Edit2 size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm tracking-tight">Rename Folder</span>
+                    <span className="text-[10px] text-stone-400">Change the display name</span>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setDeleteFolderConfirmId(folderMenuId);
+                    setFolderMenuId(null);
+                  }}
+                  className="w-full text-left p-4 rounded-2xl hover:bg-red-50 flex items-center gap-4 text-red-500 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-red-100/50 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-colors">
+                    <Trash2 size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm tracking-tight text-red-600">Delete Folder</span>
+                    <span className="text-[10px] text-red-400/80">Keep decks, remove folder</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="p-1 mt-1">
+                <button 
+                  onClick={() => setFolderMenuId(null)}
+                  className="w-full py-4 text-stone-400 font-bold text-xs uppercase tracking-widest hover:text-stone-600 transition-colors border-t border-stone-50"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Folder Rename Modal */}
+      <AnimatePresence>
+        {renamingFolderId && (
+          <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setRenamingFolderId(null)}>
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-6"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                    <Edit2 size={20} />
+                  </div>
+                  <h3 className="font-black uppercase tracking-tight">Rename Folder</h3>
+                </div>
+                
+                <input 
+                  autoFocus
+                  type="text"
+                  value={renamingFolderName}
+                  onChange={(e) => setRenamingFolderName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+                  placeholder="New folder name..."
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => setRenamingFolderId(null)}
+                  className="py-3 px-4 bg-stone-100 text-stone-600 rounded-xl font-bold text-sm hover:bg-stone-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleRenameFolder}
+                  className="py-3 px-4 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Move to Folder Modal */}
+      <AnimatePresence>
+        {moveDeckId && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-sm bg-white rounded-3xl overflow-hidden flex flex-col shadow-2xl"
+            >
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                <h3 className="font-black uppercase tracking-tight">Move to Folder</h3>
+                <button onClick={() => setMoveDeckId(null)} className="p-2 text-stone-400 hover:text-stone-600">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-4 space-y-2 overflow-y-auto max-h-[60vh]">
+                <button 
+                  onClick={() => {
+                    onMoveToFolder(moveDeckId, null);
+                    setMoveDeckId(null);
+                  }}
+                  className="w-full text-left p-4 rounded-2xl bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200/50 flex items-center gap-3 group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-400 group-hover:text-amber-500 transition-colors">
+                    <X size={20} />
+                  </div>
+                  <span className="font-black text-xs uppercase tracking-tight text-stone-600">Unsorted (No Folder)</span>
+                </button>
+
+                {folders.map(folder => (
+                  <button 
+                    key={folder.id}
+                    onClick={() => {
+                      onMoveToFolder(moveDeckId, folder.id);
+                      setMoveDeckId(null);
+                    }}
+                    className="w-full text-left p-4 rounded-2xl bg-stone-50 hover:bg-stone-100 transition-colors border border-stone-200/50 flex items-center gap-3 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-400 group-hover:text-amber-500 transition-colors">
+                      <Folder size={20} className="fill-stone-100" />
+                    </div>
+                    <span className="font-black text-xs uppercase tracking-tight text-stone-600">{folder.name}</span>
+                  </button>
+                ))}
+
+                {folders.length === 0 && (
+                  <p className="text-center py-8 text-stone-400 text-xs italic">No folders created yet</p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Filter Drawer */}
       <AnimatePresence>

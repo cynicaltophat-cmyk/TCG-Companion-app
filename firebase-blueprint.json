@@ -20,9 +20,23 @@
           }
         },
         "coverImageUrl": { "type": "string", "description": "The URL of the deck's cover image" },
-        "lastModified": { "type": "integer" }
+        "lastModified": { "type": "integer" },
+        "folderId": { "type": "string", "description": "The ID of the folder this deck belongs to" }
       },
       "required": ["id", "name", "uid", "items", "lastModified"]
+    },
+    "DeckFolder": {
+      "title": "DeckFolder",
+      "description": "A folder for organizing decks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["id", "uid", "name", "createdAt"]
     },
     "MatchEntry": {
       "title": "MatchEntry",
@@ -246,6 +260,10 @@
     "deck_submissions/{submissionId}": {
       "schema": "DeckSubmission",
       "description": "Submitted winning decklists"
+    },
+    "deck_folders/{folderId}": {
+      "schema": "DeckFolder",
+      "description": "User created folders for decks"
     },
     "short_links/{shortId}": {
       "schema": "ShortLink",

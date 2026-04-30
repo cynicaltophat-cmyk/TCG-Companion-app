@@ -78,6 +78,15 @@ export interface Deck {
   items: DeckItem[];
   lastModified: number;
   coverImageUrl?: string;
+  folderId?: string | null;
+}
+
+export interface DeckFolder {
+  id: string;
+  uid: string;
+  name: string;
+  icon?: string;
+  createdAt: number;
 }
 
 export interface TournamentEvent {
@@ -89,7 +98,7 @@ export interface TournamentEvent {
 }
 
 export type EventType = 'Shop Battle' | 'Newtype challenge' | 'Organized Event';
-export type Placement = 'Top 1' | 'Top 4' | 'Top 8' | 'Top 16' | 'Top 32';
+export type Placement = string;
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 
 export interface DeckSubmission {

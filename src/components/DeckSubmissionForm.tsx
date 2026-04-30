@@ -40,7 +40,7 @@ const SEASONS = [
 ];
 
 const EVENT_TYPES: EventType[] = ["Shop Battle", "Newtype challenge", "Organized Event"];
-const PLACEMENTS: Placement[] = ["Top 1", "Top 4", "Top 8", "Top 16", "Top 32"];
+// Removed fixed PLACEMENTS constant to allow numeric range 1-32
 
 export const DeckSubmissionForm: React.FC<DeckSubmissionFormProps> = ({ deck, onClose, onSuccess }) => {
   const [events, setEvents] = useState<TournamentEvent[]>([]);
@@ -53,7 +53,7 @@ export const DeckSubmissionForm: React.FC<DeckSubmissionFormProps> = ({ deck, on
     eventType: EVENT_TYPES[0] as EventType,
     tournamentId: "",
     date: new Date().toISOString().split('T')[0],
-    placement: PLACEMENTS[0] as Placement
+    placement: "Top 1"
   });
 
   useEffect(() => {
@@ -248,17 +248,23 @@ export const DeckSubmissionForm: React.FC<DeckSubmissionFormProps> = ({ deck, on
 
           {/* Placement */}
           <section className="space-y-2">
-            <label className="text-xs font-black text-stone-900 uppercase tracking-widest pl-1">Placement</label>
+            <div className="flex items-center justify-between px-1">
+              <label className="text-xs font-black text-stone-900 uppercase tracking-widest">Placement</label>
+              <span className="text-[10px] text-stone-400 font-bold">Only up till top 32</span>
+            </div>
             <div className="relative">
               <Trophy className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" size={18} />
-              <select 
-                value={formData.placement}
-                onChange={(e) => setFormData(prev => ({ ...prev, placement: e.target.value as Placement }))}
-                className="w-full pl-12 pr-10 py-4 bg-stone-50 border border-stone-100 rounded-2xl text-sm font-bold appearance-none focus:ring-2 focus:ring-stone-200 transition-all outline-none"
-              >
-                {PLACEMENTS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <ChevronDown className="absolute right-10 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" size={18} />
+              <input 
+                type="number"
+                min="1"
+                max="32"
+                value={formData.placement.replace('Top ', '')}
+                onChange={(e) => {
+                  const val = Math.min(32, Math.max(1, parseInt(e.target.value) || 1));
+                  setFormData(prev => ({ ...prev, placement: `Top ${val}` }));
+                }}
+                className="w-full pl-12 pr-4 py-4 bg-stone-50 border border-stone-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-stone-200 transition-all outline-none"
+              />
             </div>
           </section>
         </div>

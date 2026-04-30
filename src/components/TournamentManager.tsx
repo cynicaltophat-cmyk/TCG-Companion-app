@@ -31,19 +31,23 @@ import {
   Filter,
   Eye,
   ChevronLeft,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ProgressiveImage } from './ProgressiveImage';
 
 interface TournamentManagerProps {
   onClose: () => void;
+  showToast?: (message: string) => void;
 }
 
-export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose }) => {
+export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, showToast }) => {
   const [events, setEvents] = useState<TournamentEvent[]>([]);
   const [submissions, setSubmissions] = useState<DeckSubmission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'events' | 'submissions'>('events');
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Partial<TournamentEvent> | null>(null);
@@ -69,9 +73,13 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
     const unsubscribeSubmissions = onSnapshot(qSubmissions, (snapshot) => {
       const subsData: DeckSubmission[] = [];
       snapshot.forEach((doc) => {
-        subsData.push(doc.data() as DeckSubmission);
+        // Use document ID from snapshot in case it's missing in data
+        const data = doc.data() as DeckSubmission;
+        subsData.push({ ...data, id: doc.id });
       });
       setSubmissions(subsData);
+    }, (err) => {
+      console.error("Submissions listener error:", err);
     });
 
     return () => {
@@ -99,6 +107,7 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
       await setDoc(doc(db, 'tournament_events', eventId), newEvent);
       setEditingEvent(null);
       setShowEventForm(false);
+      showToast?.("Event saved successfully");
     } catch (err) {
       console.error("Error saving event:", err);
       alert("Failed to save event");
@@ -106,18 +115,32 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
   };
 
   const handleDeleteEvent = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this event?")) return;
+    if (!id) return;
+
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      showToast?.("Click again to confirm event delete");
+      setTimeout(() => setConfirmDeleteId(prev => prev === id ? null : prev), 3000);
+      return;
+    }
+
+    setIsDeleting(id);
+    setConfirmDeleteId(null);
     try {
       await deleteDoc(doc(db, 'tournament_events', id));
+      showToast?.("Event deleted");
     } catch (err) {
       console.error("Error deleting event:", err);
       alert("Failed to delete event");
+    } finally {
+      setIsDeleting(null);
     }
   };
 
   const handleUpdateSubmissionStatus = async (id: string, status: DeckSubmission['status']) => {
     try {
       await updateDoc(doc(db, 'deck_submissions', id), { status });
+      showToast?.(`Submission ${status}`);
     } catch (err) {
       console.error("Error updating submission:", err);
       alert("Failed to update status");
@@ -125,12 +148,33 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
   };
 
   const handleDeleteSubmission = async (id: string) => {
-    if (!window.confirm("Delete this submission permanently?")) return;
+    console.log("Attempting to delete submission with ID:", id);
+    if (!id) {
+      console.error("No ID provided to handleDeleteSubmission");
+      showToast?.("Error: Missing submission ID");
+      return;
+    }
+    
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      showToast?.("Click again to confirm delete");
+      setTimeout(() => setConfirmDeleteId(prev => prev === id ? null : prev), 3000);
+      return;
+    }
+    
+    console.log("Confirmed delete for ID:", id);
+    setIsDeleting(id);
+    setConfirmDeleteId(null);
     try {
       await deleteDoc(doc(db, 'deck_submissions', id));
+      showToast?.("Submission deleted successfully");
+      console.log("Delete successful for ID:", id);
     } catch (err) {
       console.error("Error deleting submission:", err);
-      alert("Failed to delete submission");
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      alert(`Failed to delete submission: ${errorMsg}`);
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -343,11 +387,26 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
                       </button>
                     )}
                     <button 
-                      onClick={() => handleDeleteSubmission(sub.id)}
-                      className="flex-1 md:flex-none p-2 bg-stone-100 text-stone-500 rounded-xl hover:bg-stone-200 transition-colors"
-                      title="Delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSubmission(sub.id);
+                      }}
+                      disabled={isDeleting === sub.id}
+                      className={cn(
+                        "flex-1 md:flex-none p-2 rounded-xl transition-all duration-200",
+                        isDeleting === sub.id 
+                          ? "bg-stone-50 opacity-50 cursor-not-allowed" 
+                          : confirmDeleteId === sub.id
+                            ? "bg-red-500 text-white animate-pulse shadow-lg scale-105"
+                            : "bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-500"
+                      )}
+                      title={confirmDeleteId === sub.id ? "Confirm Delete" : "Delete"}
                     >
-                      <Trash2 size={18} className="mx-auto" />
+                      {isDeleting === sub.id ? (
+                        <Loader2 size={18} className="mx-auto animate-spin" />
+                      ) : (
+                        <Trash2 size={18} className="mx-auto" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -386,9 +445,22 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
                       </button>
                       <button 
                         onClick={() => handleDeleteEvent(event.id)}
-                        className="p-2 hover:bg-red-50 rounded-full text-stone-400 hover:text-red-500 transition-colors"
+                        disabled={isDeleting === event.id}
+                        className={cn(
+                          "p-2 rounded-full transition-all duration-200",
+                          isDeleting === event.id
+                            ? "opacity-50 cursor-not-allowed"
+                            : confirmDeleteId === event.id
+                              ? "bg-red-500 text-white animate-pulse scale-110 shadow-lg"
+                              : "hover:bg-red-50 text-stone-400 hover:text-red-500"
+                        )}
+                        title={confirmDeleteId === event.id ? "Confirm Delete" : "Delete Event"}
                       >
-                        <Trash2 size={16} />
+                        {isDeleting === event.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -484,11 +556,26 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
                       </button>
                     )}
                     <button 
-                      onClick={() => handleDeleteSubmission(sub.id)}
-                      className="flex-1 md:flex-none p-2 bg-stone-100 text-stone-500 rounded-xl hover:bg-stone-200 transition-colors"
-                      title="Delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSubmission(sub.id);
+                      }}
+                      disabled={isDeleting === sub.id}
+                      className={cn(
+                        "flex-1 md:flex-none p-2 rounded-xl transition-all duration-200",
+                        isDeleting === sub.id 
+                          ? "opacity-50 cursor-not-allowed" 
+                          : confirmDeleteId === sub.id
+                            ? "bg-red-500 text-white animate-pulse shadow-lg scale-105"
+                            : "bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-500"
+                      )}
+                      title={confirmDeleteId === sub.id ? "Confirm Delete" : "Delete"}
                     >
-                      <Trash2 size={18} className="mx-auto" />
+                      {isDeleting === sub.id ? (
+                        <Loader2 size={18} className="mx-auto animate-spin" />
+                      ) : (
+                        <Trash2 size={18} className="mx-auto" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -532,18 +619,18 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1">Placement</label>
-                  <select 
-                    value={editingSubmissionData.placement || "Top 1"}
-                    onChange={(e) => setEditingSubmissionData(prev => ({ ...prev, placement: e.target.value as Placement }))}
-                    className="w-full px-4 py-3 bg-stone-100 border-none rounded-2xl text-sm font-bold appearance-none"
-                  >
-                    <option value="Top 1">Top 1</option>
-                    <option value="Top 4">Top 4</option>
-                    <option value="Top 8">Top 8</option>
-                    <option value="Top 16">Top 16</option>
-                    <option value="Top 32">Top 32</option>
-                  </select>
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1">Placement (1-32)</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="32"
+                    value={(editingSubmissionData.placement || "Top 1").replace('Top ', '')}
+                    onChange={(e) => {
+                      const val = Math.min(32, Math.max(1, parseInt(e.target.value) || 1));
+                      setEditingSubmissionData(prev => ({ ...prev, placement: `Top ${val}` }));
+                    }}
+                    className="w-full px-4 py-3 bg-stone-100 border-none rounded-2xl text-sm font-bold"
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -578,6 +665,30 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose })
             </button>
             <h2 className="text-lg font-black tracking-tight text-stone-900">Preview submission</h2>
             <div className="flex gap-2">
+              <button 
+                onClick={async () => {
+                  await handleDeleteSubmission(selectedSubmission.id);
+                  if (confirmDeleteId === selectedSubmission.id) {
+                    setSelectedSubmission(null);
+                  }
+                }}
+                disabled={isDeleting === selectedSubmission.id}
+                className={cn(
+                  "p-2 rounded-full transition-all duration-200 mr-2",
+                  isDeleting === selectedSubmission.id 
+                    ? "opacity-50 cursor-not-allowed" 
+                    : confirmDeleteId === selectedSubmission.id
+                      ? "bg-red-500 text-white animate-pulse scale-110 shadow-lg"
+                      : "text-stone-400 hover:bg-red-50 hover:text-red-500"
+                )}
+                title={confirmDeleteId === selectedSubmission.id ? "Confirm Delete" : "Delete Submission"}
+              >
+                {isDeleting === selectedSubmission.id ? (
+                  <Loader2 size={24} className="animate-spin" />
+                ) : (
+                  <Trash2 size={24} />
+                )}
+              </button>
               {selectedSubmission.status !== 'approved' && (
                 <button 
                   onClick={() => {
