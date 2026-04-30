@@ -50,20 +50,6 @@ interface DeckCardProps {
 const DeckCard = React.memo(({ deck, onSelect, onDelete, onMove }: DeckCardProps) => {
   const colors = React.useMemo(() => Array.from(new Set(deck.items.map(i => i.card.color))), [deck.items]);
   
-  const uniqueThumbnails = React.useMemo(() => {
-    const thumbnails: GundamCard[] = [];
-    const seenIds = new Set<string>();
-    
-    for (const item of deck.items) {
-      if (!seenIds.has(item.card.id)) {
-        thumbnails.push(item.card);
-        seenIds.add(item.card.id);
-      }
-      if (thumbnails.length >= 2) break;
-    }
-    return thumbnails;
-  }, [deck.items]);
-  
   return (
     <div 
       onClick={() => onSelect(deck.id)}
@@ -114,30 +100,11 @@ const DeckCard = React.memo(({ deck, onSelect, onDelete, onMove }: DeckCardProps
         <ArrowUpRight size={18} className="absolute top-[8px] right-[8px] text-stone-400" />
       </div>
 
-      {/* Bottom Text and Thumbnail Overlay */}
+      {/* Bottom Text Overlay */}
       <div className="absolute inset-x-0 bottom-0 p-4 pt-16 bg-gradient-to-t from-black/80 via-black/30 to-transparent">
-        <div className="flex flex-col gap-2">
-           {/* Thumbnails */}
-           <div className="flex gap-2">
-             {uniqueThumbnails.map((card, idx) => (
-               <div 
-                 key={idx} 
-                 className="w-10 h-10 rounded-xl border border-white/30 overflow-hidden shadow-2xl bg-stone-800 backdrop-blur-md"
-               >
-                 <img 
-                   src={card.imageUrl} 
-                   className="object-cover object-center w-full h-full"
-                   referrerPolicy="no-referrer"
-                   loading="lazy"
-                 />
-               </div>
-             ))}
-           </div>
-
-           <h3 className="text-white font-black text-base truncate drop-shadow-lg tracking-tight">
-             {deck.name}
-           </h3>
-        </div>
+        <h3 className="text-white font-black text-base truncate drop-shadow-lg tracking-tight">
+          {deck.name}
+        </h3>
       </div>
 
       {/* Color Indicator Bar at bottom */}
@@ -430,81 +397,83 @@ export const DeckList: React.FC<DeckListProps> = ({
         </div>
       )}
       {/* Header */}
-      <header className="bg-white sticky top-0 z-40 border-b border-stone-100">
-        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] py-2 flex items-center gap-3">
-          <button 
-            onClick={onClose} 
-            className="w-9 h-7 bg-white border border-stone-200 rounded-full flex items-center justify-center text-stone-900 shadow-xl active:scale-95 transition-all shrink-0 hover:bg-stone-50"
-          >
-            <ChevronLeft size={16} className="stroke-[3]" />
-          </button>
-          
-          <div className="flex-1 relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-amber-500 transition-colors" size={16} />
-            <input 
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search deck list..."
-              className="w-full pl-9 pr-10 py-2 bg-stone-100/80 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-stone-400 font-medium"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
+      <header className="bg-white/80 backdrop-blur-lg sticky top-0 z-40 border-b border-stone-200">
+        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] flex flex-col">
+          <div className="flex items-center gap-2 w-full py-2">
+            <button 
+              onClick={onClose} 
+              className="w-8 h-8 bg-white border border-stone-200 rounded-lg flex items-center justify-center text-stone-900 shadow-md active:scale-95 transition-all shrink-0 hover:bg-stone-50"
+            >
+              <ChevronLeft size={16} className="stroke-[3]" />
+            </button>
+            
+            <div className="flex-1 relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-amber-500 transition-colors" size={16} />
+              <input 
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search deck list..."
+                className="w-full pl-9 pr-10 py-2 bg-stone-100/80 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-stone-400 font-medium"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 rounded-full hover:bg-stone-200 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setIsCreatingFolder(true)}
+              className="w-8 h-8 bg-stone-100 text-stone-600 rounded-lg flex items-center justify-center hover:bg-stone-200 transition-all shadow-md active:scale-95 shrink-0"
+            >
+              <FolderPlus size={16} className="stroke-[2]" />
+            </button>
+
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="w-8 h-8 bg-[#141414] text-white rounded-lg flex items-center justify-center hover:bg-stone-800 transition-all shadow-md active:scale-95 shrink-0"
+            >
+              <Plus size={16} className="stroke-[3]" />
+            </button>
           </div>
 
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="w-9 h-7 bg-[#141414] text-white rounded-full flex items-center justify-center hover:bg-stone-800 transition-all shadow-lg active:scale-95 shrink-0"
-          >
-            <Plus size={16} className="stroke-[3]" />
-          </button>
-          
-          <button 
-            onClick={() => setIsCreatingFolder(true)}
-            className="w-9 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center hover:bg-amber-600 transition-all shadow-lg active:scale-95 shrink-0"
-          >
-            <FolderPlus size={16} className="stroke-[2]" />
-          </button>
-        </div>
-
-        {/* Quick Filter Row */}
-        <div className="w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] pb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Quick filter</span>
-            <div className="flex gap-1.5">
-              {["Red", "Blue", "Green", "White", "Purple"].map(color => (
-                <button
-                  key={color}
-                  onClick={() => toggleColor(color)}
-                  className={cn(
-                    "w-5 h-5 rounded-md transition-all active:scale-90 shadow-sm",
-                    getColorBg(color),
-                    color === 'White' && "border border-stone-300",
-                    selectedColors.includes(color) ? "ring-2 ring-offset-1 ring-amber-500" : "opacity-80 hover:opacity-100"
-                  )}
-                />
-              ))}
+          {/* Quick Filter Row */}
+          <div className="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar pt-1 pb-3 px-1">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Quick filter</span>
+              <div className="flex gap-1.5">
+                {["Red", "Blue", "Green", "White", "Purple"].map(color => (
+                  <button
+                    key={color}
+                    onClick={() => toggleColor(color)}
+                    className={cn(
+                      "w-5 h-5 rounded-md transition-all active:scale-90 shadow-sm",
+                      getColorBg(color),
+                      color === 'White' && "border border-stone-300",
+                      selectedColors.includes(color) ? "ring-2 ring-offset-1 ring-amber-500" : "opacity-80 hover:opacity-100"
+                    )}
+                  />
+                ))}
+              </div>
             </div>
+
+            <button 
+              onClick={() => setIsExactColor(!isExactColor)}
+              className="flex items-center gap-2 group shrink-0"
+            >
+              <div className={cn(
+                "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
+                isExactColor ? "bg-[#141414] border-[#141414]" : "bg-white border-stone-300 group-hover:border-stone-400"
+              )}>
+                {isExactColor && <Check size={10} className="text-white stroke-[3]" />}
+              </div>
+              <span className="text-[8px] font-bold text-stone-400 group-hover:text-stone-600 transition-colors uppercase tracking-tight">Exact color match</span>
+            </button>
           </div>
-
-          <button 
-            onClick={() => setIsExactColor(!isExactColor)}
-            className="flex items-center gap-2 group"
-          >
-            <div className={cn(
-              "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
-              isExactColor ? "bg-[#141414] border-[#141414]" : "bg-white border-stone-300 group-hover:border-stone-400"
-            )}>
-              {isExactColor && <Check size={10} className="text-white stroke-[3]" />}
-            </div>
-            <span className="text-[8px] font-bold text-stone-400 group-hover:text-stone-600 transition-colors uppercase tracking-tight">Exact color match</span>
-          </button>
         </div>
       </header>
 
@@ -605,7 +574,15 @@ export const DeckList: React.FC<DeckListProps> = ({
               animate={{ opacity: 1, y: 0 }}
               className="bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-3"
             >
-              <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Folder Name</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Folder Name</h3>
+                <button 
+                  onClick={() => setIsCreatingFolder(false)}
+                  className="p-1 text-stone-400 hover:text-stone-600 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
               <div className="flex gap-2">
                 <input 
                   autoFocus
@@ -632,7 +609,15 @@ export const DeckList: React.FC<DeckListProps> = ({
             animate={{ opacity: 1, y: 0 }}
             className="bg-white p-4 rounded-2xl border-2 border-amber-400 shadow-sm space-y-3"
           >
-            <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Deck Name</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-stone-400 uppercase tracking-widest">New Deck Name</h3>
+              <button 
+                onClick={() => setIsCreating(false)}
+                className="p-1 text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
             <div className="flex gap-2">
               <input 
                 autoFocus

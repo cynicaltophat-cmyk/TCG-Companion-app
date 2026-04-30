@@ -3369,13 +3369,13 @@ function AppContent() {
       {/* Header */}
       {(currentTab === 'cards' || (isDeckBuilderMode && currentTab === 'decks')) && (
         <header className={cn(
-          "sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 py-2 transition-all duration-300 px-4",
+          "sticky top-0 z-30 bg-white/80 backdrop-blur-lg border-b border-stone-200 transition-all duration-300",
           isDeckBuilderMode && "landscape:w-[35%]"
         )}>
           <div className={cn(
-            "max-w-md landscape:max-w-none mx-auto flex flex-col gap-1.5"
+            "w-full px-4 landscape:px-20 lg:px-56 xl:px-[18%] 2xl:px-[28%] flex flex-col"
           )}>
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-2 w-full py-2">
               <div className={cn(
                 "w-8 h-8 bg-[#141414] rounded-lg flex items-center justify-center text-white shrink-0 shadow-md shadow-black/10"
               )}>
@@ -3434,7 +3434,7 @@ function AppContent() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 overflow-x-auto pt-2 pb-1.5 px-1 no-scrollbar">
+            <div className="flex items-center justify-between gap-3 overflow-x-auto pt-1 pb-3 no-scrollbar px-1">
               <div className="flex items-center gap-3">
                 <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest whitespace-nowrap">Quick filter</span>
                 <div className="flex gap-1.5">

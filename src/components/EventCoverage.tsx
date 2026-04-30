@@ -43,6 +43,14 @@ const SEASONS = [
   { id: "GD01", name: "GD01 Newtype Rising" }
 ];
 
+const cleanPlacement = (placement: string) => {
+  if (!placement) return "";
+  // Check if it's "Top X" and return just X, or handle "Winner", "1st", etc.
+  let p = placement.trim();
+  p = p.replace(/^Top\s+/i, '');
+  return p;
+};
+
 const getPlacementRank = (placement: string): number => {
   const p = placement.toLowerCase().trim();
   
@@ -257,23 +265,24 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
                   >
                     {/* Rank Section with Slanted Edge */}
                     <div className={cn(
-                      "w-12 sm:w-20 h-full flex items-center justify-center bg-gradient-to-br relative z-10",
+                      "w-12 sm:w-20 h-full flex items-center justify-center bg-gradient-to-br relative z-10 shrink-0",
                       getRankStyle(index)
                     )}>
-                      <span className="text-2xl sm:text-4xl font-black italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+                      <span className="text-xl sm:text-4xl font-black italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
                         {rank}
                       </span>
                       {/* The Slanted Edge */}
-                      <div className="absolute top-0 -right-3 bottom-0 w-6 bg-inherit z-[-1]" style={{ clipPath: 'polygon(0 0, 40% 0, 100% 100%, 0 100%)' }} />
+                      <div className="absolute top-0 -right-2 sm:-right-3 bottom-0 w-4 sm:w-6 bg-inherit z-[-1]" style={{ clipPath: 'polygon(0 0, 40% 0, 100% 100%, 0 100%)' }} />
                     </div>
 
                     {/* Content Section */}
-                    <div className="flex-1 flex items-center gap-3 sm:gap-5 px-4 sm:px-6">
+                    <div className="flex-1 flex items-center gap-2 sm:gap-5 px-1.5 sm:px-6 overflow-hidden">
                       {/* Deck Image */}
-                      <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shadow-sm flex-shrink-0 border border-stone-50 ml-1">
+                      <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shadow-sm flex-shrink-0 border border-stone-50 ml-0.5">
                         {deck.coverImageUrl ? (
                           <ProgressiveImage 
                             src={deck.coverImageUrl} 
+                            referrerPolicy="no-referrer"
                             imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                           />
                         ) : (
@@ -284,33 +293,27 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
                       </div>
 
                       {/* Text Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm sm:text-xl font-black text-stone-900 leading-tight uppercase tracking-tight truncate">
+                      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+                        <h3 className="text-[11px] sm:text-base font-black text-stone-900 leading-tight uppercase tracking-tight truncate">
                           {deck.deckName}
                         </h3>
-                        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 mt-0.5">
-                          <p className="text-[9px] sm:text-xs font-bold text-stone-400 capitalize">
+                        <div className="flex items-center gap-x-1.5 sm:gap-x-3 mt-0.5 overflow-hidden">
+                          <p className="text-[10px] sm:text-xs font-bold text-stone-400 capitalize truncate max-w-[70px] sm:max-w-[150px]">
                             By {deck.playerName}
                           </p>
-                          <span className="text-[9px] sm:text-xs font-black text-stone-900 bg-stone-100 px-1.5 py-0.5 rounded uppercase tracking-tight">
-                            {deck.placement}
-                          </span>
-                          <p className="text-[9px] sm:text-xs font-bold text-stone-300">
+                          <p className="text-[10px] sm:text-xs font-bold text-stone-300 shrink-0">
                             {new Date(deck.date).toLocaleDateString(undefined, { year: '2-digit', month: '2-digit', day: '2-digit' })}
                           </p>
                         </div>
-                        <p className="hidden sm:block text-[10px] font-bold text-stone-300 uppercase tracking-tight mt-0.5 truncate leading-none">
-                          {deck.tournamentName || "Battle Bunker Locals"}
-                        </p>
                       </div>
 
                       {/* Color Squares (Horizontal Layout) */}
-                      <div className="flex items-center gap-1 sm:gap-1.5 ml-2">
+                      <div className="flex items-center gap-0.5 sm:gap-1.5 ml-auto shrink-0 pl-1 pr-2 sm:px-4">
                         {deckColors.map(color => (
                           <div 
                             key={color} 
                             className={cn(
-                              "w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-md shadow-inner border border-white/10",
+                              "w-3 h-3 sm:w-5 sm:h-5 rounded-sm sm:rounded-md shadow-inner border border-white/10 shrink-0",
                               getColorBg(color)
                             )} 
                           />
@@ -439,7 +442,7 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
                       <div className="bg-white rounded-[1.5rem] shadow-xl border border-stone-100 overflow-hidden transition-all select-none pointer-events-none">
                         <div className="relative aspect-[4/5]">
                           {deck.coverImageUrl ? (
-                            <ProgressiveImage src={deck.coverImageUrl} imageClassName="w-full h-full object-cover" />
+                            <ProgressiveImage src={deck.coverImageUrl} referrerPolicy="no-referrer" imageClassName="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-300">
                               <Layout size={32} />
@@ -467,7 +470,7 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
                           <p className="text-[7px] font-black text-stone-400 uppercase tracking-widest mb-0.5 line-clamp-1">
                             {deck.season} • {deck.playerName}
                           </p>
-                          <p className="text-[9px] font-bold text-stone-600 line-clamp-1">{deck.placement}</p>
+                          <p className="text-[9px] font-bold text-stone-600 line-clamp-1">{cleanPlacement(deck.placement)}</p>
                         </div>
                       </div>
                     </motion.div>
@@ -491,26 +494,19 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
         </div>
 
         {/* Improved Season Tabs with Backgrounds */}
-        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
+        <div className="flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-1">
           {SEASONS.map(season => (
             <button 
               key={season.id}
               onClick={() => setSelectedSeason(season.id)}
               className={cn(
-                "relative h-10 px-4 rounded-xl overflow-hidden flex items-center justify-center transition-all shadow-sm active:scale-95 group flex-shrink-0 min-w-[120px]",
+                "h-10 px-6 rounded-full flex items-center justify-center transition-all active:scale-95 flex-shrink-0 min-w-[120px] font-black text-[10px] uppercase tracking-widest border",
                 selectedSeason === season.id 
-                  ? "ring-1 ring-[#141414] ring-offset-1" 
-                  : "hover:ring-1 hover:ring-stone-200"
+                  ? "bg-stone-900 text-white border-stone-900 shadow-md" 
+                  : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
               )}
             >
-              <div className="absolute inset-0 z-0">
-                <ProgressiveImage 
-                  src={`https://images.gundam-tcg.com/cards/${season.id}-001.png`} 
-                  imageClassName="w-full h-full object-cover blur-[2px] opacity-40 group-hover:scale-110 transition-transform duration-500" 
-                />
-                <div className="absolute inset-0 bg-stone-900/40 group-hover:bg-stone-900/20 transition-colors" />
-              </div>
-              <span className="relative z-10 text-white font-black text-xs uppercase tracking-tight drop-shadow-sm">{season.name}</span>
+              {season.name}
             </button>
           ))}
         </div>
@@ -519,21 +515,10 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
           {/* All tournament decklist container */}
           <div 
             onClick={() => setSubView('all')}
-            className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden group active:scale-[0.98]"
+            className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden group active:scale-[0.98] py-5 px-6 flex items-center justify-between"
           >
-            <div className="flex items-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 p-2 bg-stone-50 flex-shrink-0">
-                <div className="w-full h-full rounded-xl overflow-hidden shadow-sm">
-                  <ProgressiveImage 
-                    src="https://images.gundam-tcg.com/cards/GD04-001.png" 
-                    imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                  />
-                </div>
-              </div>
-              <div className="flex-1 px-6 py-2">
-                <h3 className="text-sm sm:text-base font-black text-stone-900 group-hover:text-stone-700 transition-colors uppercase tracking-tight">All tournament decklist</h3>
-              </div>
-            </div>
+            <h3 className="text-sm sm:text-base font-black text-stone-900 group-hover:text-stone-700 transition-colors uppercase tracking-tight">All tournament decklist</h3>
+            <ArrowRight size={18} className="text-stone-300 group-hover:text-stone-500 transition-colors" />
           </div>
 
           {/* Individual Organized Events */}
@@ -544,24 +529,12 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
                 setFocusedEvent(event);
                 setSubView('event');
               }}
-              className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden group active:scale-[0.98]"
+              className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden group active:scale-[0.98] py-5 px-6 flex items-center justify-between"
             >
-              <div className="flex items-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 p-2 bg-stone-50 flex-shrink-0">
-                  <div className="w-full h-full rounded-xl overflow-hidden shadow-sm relative">
-                    <ProgressiveImage 
-                      src="https://images.gundam-tcg.com/cards/GD01-001.png" 
-                      imageClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-60" 
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-stone-900/10">
-                      <Trophy className="text-white drop-shadow-lg" size={20} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 px-6 py-2">
-                  <h3 className="text-sm sm:text-base font-black text-stone-900 group-hover:text-stone-700 transition-colors uppercase tracking-tight">{event.name}</h3>
-                </div>
+              <div className="flex-1 min-w-0 pr-4">
+                <h3 className="text-sm sm:text-base font-black text-stone-900 group-hover:text-stone-700 transition-colors uppercase tracking-tight truncate">{event.name}</h3>
               </div>
+              <ArrowRight size={18} className="text-stone-300 group-hover:text-stone-500 transition-colors shrink-0" />
             </div>
           ))}
         </div>
@@ -652,6 +625,7 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-sm border border-stone-100 bg-stone-50">
                 <ProgressiveImage 
                   src={item.card.imageUrl} 
+                  referrerPolicy="no-referrer"
                   imageClassName="w-full h-full object-cover" 
                 />
                 <div className="absolute top-1.5 right-1.5 min-w-[20px] h-5 px-1 rounded-md bg-stone-900/90 backdrop-blur-sm text-white flex items-center justify-center text-[9px] font-black shadow-lg">
@@ -684,7 +658,7 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
           <ChevronLeft size={24} />
         </button>
         
-        <h2 className="text-sm font-black tracking-tight text-stone-900 uppercase truncate px-2">
+        <h2 className="text-xs sm:text-sm font-black tracking-tight text-stone-900 uppercase truncate px-2 text-center flex-1">
           {submission.deckName}
         </h2>
 
@@ -732,7 +706,7 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
             <span>{new Date(submission.date).toLocaleDateString()}</span>
           </div>
           <p className="text-sm font-black text-stone-900 uppercase tracking-tight">
-            {submission.placement} <span className="text-stone-300 font-bold mx-1">/</span> <span className="text-stone-400 lowercase italic">by {submission.playerName}</span>
+            Rank {cleanPlacement(submission.placement)} <span className="text-stone-300 font-bold mx-1">/</span> <span className="text-stone-400 lowercase italic">by {submission.playerName}</span>
           </p>
         </div>
 
@@ -763,6 +737,7 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
             >
               <ProgressiveImage 
                 src={selectedCard.imageUrl} 
+                referrerPolicy="no-referrer"
                 imageClassName="w-full h-full object-contain" 
               />
               <button 
