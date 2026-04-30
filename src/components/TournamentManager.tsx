@@ -205,7 +205,8 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, s
     const matchesSearch = s.deckName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          s.playerName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSeason = seasonFilter === "All" || s.season === seasonFilter;
-    return matchesSearch && matchesSeason;
+    const isPending = s.status === 'pending';
+    return matchesSearch && matchesSeason && isPending;
   });
 
   const seasons = ["GD01", "GD02", "GD03", "GD04"];
@@ -580,6 +581,15 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, s
                   </div>
                 </div>
               ))}
+              {filteredSubmissions.length === 0 && (
+                <div className="text-center py-20 px-6">
+                  <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} className="text-stone-300" />
+                  </div>
+                  <h3 className="font-bold text-stone-900 mb-1">Inbox cleared!</h3>
+                  <p className="text-sm text-stone-500">There are no pending submissions at the moment.</p>
+                </div>
+              )}
             </div>
           )}
         </main>

@@ -316,7 +316,7 @@ export async function getCardPrice(
   forceRefresh = false, 
   artType: ArtVariantType = "Base art"
 ): Promise<string | null> {
-  // DISABLING PRICE FETCHING TEMPORARILY DUE TO YUYU-TEI 403 ERRORS
+  // DISABLING PRICE FETCHING TEMPORARILY AS REQUESTED
   return null;
 
   // Check cache first unless forcing refresh
