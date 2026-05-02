@@ -26,6 +26,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ArrowRight,
   Trophy,
   History,
   Calendar,
@@ -818,6 +819,65 @@ function AppContent() {
   }, []);
 
   const [selectedCard, setSelectedCard] = useState<(GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType }) | null>(null);
+  const [cardDetailTab, setCardDetailTab] = useState<'info' | 'meta'>('info');
+  const [approvedSubmissions, setApprovedSubmissions] = useState<DeckSubmission[]>([]);
+
+  // Approved Submissions Listener for Meta Analysis
+  useEffect(() => {
+    const q = query(
+      collection(db, 'deck_submissions'), 
+      where('status', '==', 'approved'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => doc.data() as DeckSubmission);
+      setApprovedSubmissions(data);
+    }, (error) => {
+      console.error("Approved submissions listener error:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCard) {
+      setCardDetailTab('info');
+    }
+  }, [selectedCard?.cardNumber]); // Use cardNumber as it's more stable across variants for the same card
+
+  const metaStats = useMemo(() => {
+    if (!selectedCard || approvedSubmissions.length === 0) return null;
+    
+    const CURRENT_SEASON = "GD04";
+    
+    // Filter submissions that contain exactly this card number
+    const relevantSubmissions = approvedSubmissions.filter(s => 
+      s.deckItems.some(item => item.card.cardNumber === selectedCard.cardNumber)
+    );
+    
+    const seasonRelevantSubmissions = relevantSubmissions.filter(s => s.season === CURRENT_SEASON);
+    
+    // Popularity
+    let popularity: 'High' | 'Medium' | 'Low' | 'None' = 'None';
+    const winCount = seasonRelevantSubmissions.length;
+    if (winCount > 5) popularity = 'High';
+    else if (winCount >= 3) popularity = 'Medium';
+    else if (winCount >= 1) popularity = 'Low';
+    
+    // Avg count in deck (ratio between 0 to 4)
+    let avgCount = 0;
+    if (relevantSubmissions.length > 0) {
+      const total = relevantSubmissions.reduce((sum, s) => {
+        const item = s.deckItems.find(i => i.card.cardNumber === selectedCard.cardNumber);
+        return sum + (item?.count || 0);
+      }, 0);
+      avgCount = Number((total / relevantSubmissions.length).toFixed(1));
+    }
+    
+    // Recent winning decks that plays this card (top 3)
+    const recentDecks = relevantSubmissions.slice(0, 3);
+    
+    return { popularity, avgCount, recentDecks, currentSeason: CURRENT_SEASON };
+  }, [selectedCard, approvedSubmissions]);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<{ title: string, description: string, x: number, y: number, originalX: number } | null>(null);
   const cardFaq = useMemo(() => {
@@ -2083,7 +2143,8 @@ function AppContent() {
     colors: [] as string[],
     types: [] as string[],
     variants: [] as string[],
-    users: [] as string[]
+    users: [] as string[],
+    metaCards: [] as string[]
   });
   
   // Deck Management
@@ -2880,7 +2941,8 @@ function AppContent() {
       colors: [],
       types: [],
       variants: [],
-      users: []
+      users: [],
+      metaCards: []
     });
     setSearchQuery("");
   };
@@ -2939,7 +3001,28 @@ function AppContent() {
                             return true;
                           });
 
-      return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants && matchesUsers;
+      const matchesMeta = activeFilters.metaCards.length === 0 || 
+                         activeFilters.metaCards.some(m => {
+                           const CURRENT_SEASON = "GD04";
+                           // Note: approvedSubmissions is available in the component scope
+                           const relevantSubmissions = approvedSubmissions.filter(s => 
+                             s.deckItems.some(item => item.card.cardNumber === card.cardNumber)
+                           );
+
+                           if (m === 'Current season') {
+                             const seasonRelevant = relevantSubmissions.filter(s => s.season === CURRENT_SEASON);
+                             return seasonRelevant.length >= 1; // High, Med, or Low (at least 1 win)
+                           }
+                           
+                           if (m === 'Past season') {
+                             const pastRelevant = relevantSubmissions.filter(s => s.season !== CURRENT_SEASON);
+                             return pastRelevant.length >= 1;
+                           }
+
+                           return false;
+                         });
+
+      return matchesSearch && matchesSets && matchesRarities && matchesColors && matchesTypes && matchesVariants && matchesUsers && matchesMeta;
     }).sort((a, b) => {
       const direction = sortOption.direction === 'asc' ? 1 : -1;
       
@@ -4859,13 +4942,54 @@ function AppContent() {
                     </div>
                   </div>
 
-                  <CardPrice 
-                    cardNumber={selectedCard.cardNumber} 
-                    cardName={selectedCard.name} 
-                    artType={selectedArtType} 
-                    mode={priceMode}
-                    onModeChange={setPriceMode}
-                  />
+                  <div className="flex items-center gap-6 pt-1">
+                    <CardPrice 
+                      cardNumber={selectedCard.cardNumber} 
+                      cardName={selectedCard.name} 
+                      artType={selectedArtType} 
+                      mode={priceMode}
+                      onModeChange={setPriceMode}
+                    />
+
+                    {/* Artist Info */}
+                    {(() => {
+                      let currentArtist;
+                      if (selectedArtType === "Base art") {
+                        currentArtist = { name: selectedCard.baseArtist, link: selectedCard.baseArtistLink };
+                      } else if (selectedArtType === "Parallel") {
+                        currentArtist = { name: selectedCard.altArtist, link: selectedCard.altArtistLink };
+                      } else {
+                        const variant = selectedCard.variants?.find(v => v.type === selectedArtType);
+                        currentArtist = { name: variant?.artist, link: variant?.artistLink };
+                      }
+
+                      if (!currentArtist.name) return null;
+
+                      return (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="p-1 bg-amber-50 rounded-lg text-amber-600">
+                            <Palette size={12} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[7px] font-black uppercase text-stone-400 leading-none mb-0.5">Artist</span>
+                            {currentArtist.link ? (
+                              <a 
+                                href={currentArtist.link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-bold text-[#141414] hover:text-amber-600 flex items-center gap-1 transition-colors"
+                              >
+                                {currentArtist.name}
+                                <ExternalLink size={8} className="opacity-50" />
+                              </a>
+                            ) : (
+                              <span className="text-[10px] font-bold text-[#141414]">{currentArtist.name}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
 
                   {/* Where to get it */}
                   {(() => {
@@ -4904,96 +5028,184 @@ function AppContent() {
                     );
                   })()}
 
-                  {/* Artist Info */}
-                  {(() => {
-                    let currentArtist;
-                    if (selectedArtType === "Base art") {
-                      currentArtist = { name: selectedCard.baseArtist, link: selectedCard.baseArtistLink };
-                    } else if (selectedArtType === "Parallel") {
-                      currentArtist = { name: selectedCard.altArtist, link: selectedCard.altArtistLink };
-                    } else {
-                      const variant = selectedCard.variants?.find(v => v.type === selectedArtType);
-                      currentArtist = { name: variant?.artist, link: variant?.artistLink };
-                    }
+                  {/* Info / Meta Tab Toggle */}
+                  <div className="flex p-1 bg-stone-100 rounded-xl gap-1 mt-2">
+                    <button
+                      onClick={() => setCardDetailTab('info')}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                        cardDetailTab === 'info' 
+                          ? "bg-white text-stone-900 shadow-sm" 
+                          : "text-stone-400 hover:text-stone-600"
+                      )}
+                    >
+                      Card info
+                    </button>
+                    <button
+                      onClick={() => setCardDetailTab('meta')}
+                      className={cn(
+                        "flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2",
+                        cardDetailTab === 'meta' 
+                          ? "bg-white text-stone-900 shadow-sm" 
+                          : "text-stone-400 hover:text-stone-600"
+                      )}
+                    >
+                      Card meta analysis
+                      <Sparkles size={10} className={cn(cardDetailTab === 'meta' ? "text-amber-500" : "text-stone-300")} />
+                    </button>
+                  </div>
+                </div>
 
-                    if (!currentArtist.name) return null;
-
-                    return (
-                      <div className="flex items-center gap-2 py-1">
-                        <div className="p-1.5 bg-amber-50 rounded-lg text-amber-600">
-                          <Palette size={14} />
+                <AnimatePresence mode="wait">
+                  {cardDetailTab === 'info' ? (
+                    <motion.div 
+                      key="info-content"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-4"
+                    >
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center border border-stone-100">
+                          <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Cost</p>
+                          <p className="text-xl font-black text-[#141414]">{selectedCard.cost}</p>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-black uppercase text-stone-400 leading-none mb-0.5">Artist</span>
-                          {currentArtist.link ? (
-                            <a 
-                              href={currentArtist.link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs font-bold text-[#141414] hover:text-amber-600 flex items-center gap-1 transition-colors"
-                            >
-                              {currentArtist.name}
-                              <ExternalLink size={10} className="opacity-50" />
-                            </a>
+                        <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center border border-stone-100">
+                          <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Lv.</p>
+                          <p className="text-xl font-black text-[#141414]">{selectedCard.level || '-'}</p>
+                        </div>
+                        <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center border border-stone-100">
+                          <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">AP</p>
+                          <p className="text-xl font-black text-red-600">{selectedCard.ap || '-'}</p>
+                        </div>
+                        <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center border border-stone-100">
+                          <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">HP</p>
+                          <p className="text-xl font-black text-blue-600">{selectedCard.hp || '-'}</p>
+                        </div>
+                      </div>
+
+                      {selectedCard.traits && selectedCard.traits.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                            <Tag size={14} /> Traits
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedCard.traits.map(trait => (
+                              <button 
+                                key={trait} 
+                                onClick={() => {
+                                  setSearchQuery(trait);
+                                  setSelectedCard(null);
+                                  setCurrentTab('cards');
+                                }}
+                                className="px-3 py-1.5 bg-stone-100 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200 rounded-full text-[11px] font-black text-stone-600 border border-stone-200 transition-all active:scale-95"
+                              >
+                                {trait}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                          <Info size={14} /> Ability
+                        </h4>
+                        <div className="bg-white p-6 rounded-3xl border border-stone-200 text-base leading-relaxed whitespace-pre-wrap shadow-sm">
+                          {renderAbilityText(selectedCard.ability)}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="meta-content"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-6"
+                    >
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-center items-center text-center">
+                          <p className="text-[8px] font-black text-stone-400 uppercase tracking-[0.2em] mb-2 leading-tight">
+                            Current season<br/>popularity
+                          </p>
+                          <div className={cn(
+                            "px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest",
+                            metaStats?.popularity === 'High' ? "bg-emerald-100 text-emerald-700" :
+                            metaStats?.popularity === 'Medium' ? "bg-blue-100 text-blue-700" :
+                            metaStats?.popularity === 'Low' ? "bg-amber-100 text-amber-700" :
+                            "bg-stone-100 text-stone-500"
+                          )}>
+                            {metaStats?.popularity || 'None'}
+                          </div>
+                          <p className="mt-2 text-[8px] font-bold text-stone-300 uppercase tracking-tighter">Season {metaStats?.currentSeason}</p>
+                        </div>
+                        
+                        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-col justify-center items-center text-center">
+                          <p className="text-[8px] font-black text-stone-400 uppercase tracking-[0.2em] mb-2">
+                            Avg. card in<br/>a deck
+                          </p>
+                          <div className="text-3xl font-black text-stone-900 leading-none">
+                            {metaStats?.avgCount || '0'}<span className="text-xs text-stone-300 ml-1">/ 4</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                          <Trophy size={14} className="text-amber-500" /> Recent winning decks
+                        </h4>
+                        
+                        <div className="space-y-2">
+                          {metaStats?.recentDecks && metaStats.recentDecks.length > 0 ? (
+                            metaStats.recentDecks.map((deck, idx) => (
+                              <button
+                                key={deck.id || idx}
+                                onClick={() => {
+                                  setSelectedTournamentDeck(deck);
+                                  setSelectedCard(null);
+                                  setCurrentTab('coverage');
+                                }}
+                                className="w-full bg-white border border-stone-200 rounded-2xl p-3 flex items-center gap-3 hover:bg-stone-50 transition-all group shadow-sm active:scale-[0.98]"
+                              >
+                                <div className="w-10 h-10 bg-stone-100 rounded-lg overflow-hidden shrink-0 border border-stone-100">
+                                  {deck.coverImageUrl ? (
+                                    <img src={deck.coverImageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-stone-300">
+                                      <Layout size={16} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 text-left min-w-0">
+                                  <h5 className="text-[11px] font-black text-stone-900 uppercase tracking-tight truncate group-hover:text-amber-600 transition-colors">
+                                    {deck.deckName}
+                                  </h5>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest truncate">{deck.playerName}</span>
+                                    {deck.placement && (
+                                      <>
+                                        <span className="w-0.5 h-0.5 rounded-full bg-stone-200" />
+                                        <span className="text-[8px] font-black text-amber-500 uppercase">{deck.placement}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                <ArrowRight size={14} className="text-stone-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+                              </button>
+                            ))
                           ) : (
-                            <span className="text-xs font-bold text-[#141414]">{currentArtist.name}</span>
+                            <div className="py-8 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+                              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">No winning decks recorded</p>
+                            </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })()}
-                </div>
-
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Cost</p>
-                    <p className="text-xl font-black text-[#141414]">{selectedCard.cost}</p>
-                  </div>
-                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">Lv.</p>
-                    <p className="text-xl font-black text-[#141414]">{selectedCard.level || '-'}</p>
-                  </div>
-                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">AP</p>
-                    <p className="text-xl font-black text-red-600">{selectedCard.ap || '-'}</p>
-                  </div>
-                  <div className="bg-[#FAF9F6] p-2.5 rounded-xl text-center">
-                    <p className="text-[8px] text-stone-400 uppercase font-black tracking-widest mb-1">HP</p>
-                    <p className="text-xl font-black text-blue-600">{selectedCard.hp || '-'}</p>
-                  </div>
-                </div>
-
-                {selectedCard.traits && selectedCard.traits.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                      <Tag size={14} /> Traits
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedCard.traits.map(trait => (
-                        <button 
-                          key={trait} 
-                          onClick={() => {
-                            setSearchQuery(trait);
-                            setSelectedCard(null);
-                            setCurrentTab('cards');
-                          }}
-                          className="px-3 py-1.5 bg-stone-100 hover:bg-amber-100 hover:text-amber-700 hover:border-amber-200 rounded-full text-[11px] font-black text-stone-600 border border-stone-200 transition-all active:scale-95"
-                        >
-                          {trait}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                    <Info size={14} /> Ability
-                  </h4>
-                  <div className="bg-white p-6 rounded-3xl border border-stone-200 text-base leading-relaxed whitespace-pre-wrap">
-                    {renderAbilityText(selectedCard.ability)}
-                  </div>
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {linkedCards.length > 0 && (
                   <div className="space-y-3">
@@ -5591,6 +5803,29 @@ function AppContent() {
                   </div>
                 </div>
 
+                {/* Meta Cards */}
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                    Meta cards <Sparkles size={10} className="text-amber-500" />
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {['Current season', 'Past season'].map((m) => (
+                      <button 
+                        key={m}
+                        onClick={() => toggleFilter('metaCards', m)}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-xs font-bold transition-all border shrink-0",
+                          activeFilters.metaCards.includes(m)
+                            ? "bg-[#141414] text-white border-[#141414]"
+                            : "bg-[#FAF9F6] text-stone-600 border-stone-100 hover:border-stone-200"
+                        )}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Sets */}
                 <div className="space-y-3">
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Sets</h3>
@@ -5897,7 +6132,8 @@ function AppContent() {
                   colors: [],
                   types: [],
                   variants: [],
-                  users: []
+                  users: [],
+                  metaCards: []
                 });
                 setCurrentTab('cards');
               }}
