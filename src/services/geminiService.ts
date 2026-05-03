@@ -1,7 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { GundamCard, ArtVariantType, ALL_SETS } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Removed direct GoogleGenAI import and initialization for security
+// const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Cache for card prices to speed up repeated lookups
 const priceCache: Record<string, { price: string; timestamp: number }> = {};
@@ -70,25 +70,13 @@ async function callWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T
 
 export async function analyzeCardImage(base64Image: string): Promise<Partial<GundamCard> | null> {
   try {
-    const response = await callWithRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          parts: [
-            {
-              text: "Analyze this Gundam TCG card and extract all its details. Be extremely precise with alphanumeric codes, names, and abilities. Look at the bottom corners for the card number."
-            },
-            {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64Image
-              }
-            }
-          ]
-        }
-      ],
-      config: {
-        systemInstruction: `You are a Gundam TCG expert researcher. Your task is to extract every detail from a card image with 100% accuracy. 
+    const response = await callWithRetry(async () => {
+      const res = await fetch("/api/gemini/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base64Image,
+          systemInstruction: `You are a Gundam TCG expert researcher. Your task is to extract every detail from a card image with 100% accuracy. 
         
         CRITICAL: If the card text is in Japanese, translate the card name, abilities, and traits to natural-sounding English.
         
@@ -113,13 +101,14 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
         - zones: An array of strings representing the card's zones. Choose from: "Earth", "Space".
         - set: The set code. Choose from these valid sets: ${ALL_SETS.join(", ")}.
         
-        Return ONLY a JSON object.`,
-        responseMimeType: "application/json"
-      }
-    }));
+        Return ONLY a JSON object.`
+        })
+      });
+      if (!res.ok) throw new Error(`API Error: ${res.status}`);
+      return await res.json();
+    });
 
-    const text = response.text?.trim() || "{}";
-    return JSON.parse(text);
+    return response;
   } catch (error) {
     console.error("Error analyzing card image:", error);
     return null;
@@ -128,31 +117,13 @@ export async function analyzeCardImage(base64Image: string): Promise<Partial<Gun
 
 export async function identifyCard(base64Image: string, cards: GundamCard[]): Promise<IdentifiedCard | null> {
   try {
-    const response = await callWithRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          parts: [
-            {
-              text: `Identify and analyze this Gundam TCG card.
-              
-              YOUR GOAL: 
-              1. Extract exact Card Number (e.g., ST01-001, GD01-044).
-              2. Translate Card Name, abilities, and traits to English.
-              3. Identify version ('base' or 'alt').
-              4. Extract ALL other fields (color, cost, level, ap, hp, type, rarity, set, ability) in case it's not in the database.`
-            },
-            {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64Image
-              }
-            }
-          ]
-        }
-      ],
-      config: {
-        systemInstruction: `You are a world-class Gundam TCG identifier. You excel at reading small text and translating Japanese card text to natural English.
+    const response = await callWithRetry(async () => {
+      const res = await fetch("/api/gemini/identify-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base64Image,
+          systemInstruction: `You are a world-class Gundam TCG identifier. You excel at reading small text and translating Japanese card text to natural English.
         
         Return a JSON object with these fields:
         - name: string (English)
@@ -161,40 +132,41 @@ export async function identifyCard(base64Image: string, cards: GundamCard[]): Pr
         - fullDetails: Object containing ALL fields found in a GundamCard (set, type, color, rarity, cost, level, ap, hp, ability, traits, zones)
         
         Valid sets: ${ALL_SETS.join(", ")}.`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            cardNumber: { type: Type.STRING },
-            version: { 
-              type: Type.STRING,
-              enum: ["base", "alt"]
-            },
-            fullDetails: {
-              type: Type.OBJECT,
-              properties: {
-                set: { type: Type.STRING },
-                type: { type: Type.ARRAY, items: { type: Type.STRING } },
-                color: { type: Type.STRING },
-                rarity: { type: Type.STRING },
-                cost: { type: Type.NUMBER },
-                level: { type: Type.NUMBER },
-                ap: { type: Type.NUMBER },
-                hp: { type: Type.NUMBER },
-                ability: { type: Type.STRING },
-                traits: { type: Type.ARRAY, items: { type: Type.STRING } },
-                zones: { type: Type.ARRAY, items: { type: Type.STRING } }
+          responseSchema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              cardNumber: { type: "string" },
+              version: { 
+                type: "string",
+                enum: ["base", "alt"]
+              },
+              fullDetails: {
+                type: "object",
+                properties: {
+                  set: { type: "string" },
+                  type: { type: "array", items: { type: "string" } },
+                  color: { type: "string" },
+                  rarity: { type: "string" },
+                  cost: { type: "number" },
+                  level: { type: "number" },
+                  ap: { type: "number" },
+                  hp: { type: "number" },
+                  ability: { type: "string" },
+                  traits: { type: "array", items: { type: "string" } },
+                  zones: { type: "array", items: { type: "string" } }
+                }
               }
-            }
-          },
-          required: ["name", "cardNumber", "version"]
-        }
-      }
-    }));
+            },
+            required: ["name", "cardNumber", "version"]
+          }
+        })
+      });
+      if (!res.ok) throw new Error(`API Error: ${res.status}`);
+      return await res.json();
+    });
 
-    const text = response.text?.trim() || "{}";
-    const result = JSON.parse(text);
+    const result = response;
     
     if (!result.cardNumber && !result.name) return null;
 
@@ -294,7 +266,7 @@ export function getCachedPrice(cardNumber: string, cardName: string, artType: Ar
 // Queue for price fetching to prevent rate limiting
 const priceQueue: (() => Promise<void>)[] = [];
 let activeRequests = 0;
-const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_CONCURRENT_REQUESTS = 1;
 
 async function processQueue() {
   if (activeRequests >= MAX_CONCURRENT_REQUESTS || priceQueue.length === 0) return;
@@ -303,8 +275,8 @@ async function processQueue() {
   if (nextRequest) {
     activeRequests++;
     await nextRequest();
-    // Add a small delay after each request to be polite to the server
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Add a delay after each request to be polite to the server
+    await new Promise(resolve => setTimeout(resolve, 1500));
     activeRequests--;
     processQueue();
   }
@@ -316,7 +288,7 @@ export async function getCardPrice(
   forceRefresh = false, 
   artType: ArtVariantType = "Base art"
 ): Promise<string | null> {
-  // DISABLING PRICE FETCHING TEMPORARILY AS REQUESTED
+  // DISABLING PRICE FETCHING TEMPORARILY AS REQUESTED TO LET YYT COOL DOWN
   return null;
 
   // Check cache first unless forcing refresh
@@ -329,10 +301,17 @@ export async function getCardPrice(
   }
 
   return new Promise((resolve) => {
-    const request = async () => {
+    const request = async (retries = 2) => {
       try {
-        const response = await fetch(`/api/yuyutei-price?cardNumber=${encodeURIComponent(cardNumber)}&artType=${encodeURIComponent(artType)}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        const response = await fetch(`/api/yuyutei-price?cardNumber=${encodeURIComponent(cardNumber)}&artType=${encodeURIComponent(artType)}`, {
+          signal: controller.signal
+        });
         
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           let errorMsg = `Status ${response.status}`;
           try {
@@ -341,6 +320,13 @@ export async function getCardPrice(
           } catch (e) {
             errorMsg = response.statusText || errorMsg;
           }
+          
+          if (response.status === 429 && retries > 0) {
+            console.warn(`[Price Fetch] Client 429, retrying for ${cardNumber}...`);
+            await new Promise(r => setTimeout(r, 2000));
+            return request(retries - 1);
+          }
+
           if (!errorMsg || errorMsg === "undefined") errorMsg = `Status ${response.status}`;
           throw new Error(`Failed to fetch price: ${errorMsg}`);
         }
@@ -359,7 +345,12 @@ export async function getCardPrice(
         } else {
           resolve(null);
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (retries > 0 && (error.name === 'AbortError' || error.message?.includes('Failed to fetch'))) {
+          console.warn(`[Price Fetch] Network error/timeout for ${cardNumber}, retrying...`, error.message);
+          await new Promise(r => setTimeout(r, 1000));
+          return request(retries - 1);
+        }
         console.error("Error fetching card price:", error);
         resolve(null);
       }

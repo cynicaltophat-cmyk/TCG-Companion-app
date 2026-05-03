@@ -33,7 +33,9 @@ import {
   Trophy,
   FileJson,
   Download,
+  Link2,
   Flag,
+  Tag,
   MessageSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -60,12 +62,14 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [traitsInput, setTraitsInput] = useState("");
+  const [lastEditingId, setLastEditingId] = useState<string | null>(null);
   const [traitSuggestions, setTraitSuggestions] = useState<string[]>([]);
   const [showTraitSuggestions, setShowTraitSuggestions] = useState(false);
   const [linkSuggestions, setLinkSuggestions] = useState<string[]>([]);
   const [showLinkSuggestions, setShowLinkSuggestions] = useState(false);
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [showOnlyFlagged, setShowOnlyFlagged] = useState(false);
+  const [activeArtTab, setActiveArtTab] = useState<string | number>('Base art');
 
   useEffect(() => {
     console.log("Initializing AdminCardManager listener...");
@@ -110,10 +114,24 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
       const card = cards.find(c => c.id === initialCardId);
       if (card) {
         setEditingCard(card);
+        setTraitsInput(card.traits?.join(', ') || '');
+        setLastEditingId(card.id);
+        setActiveArtTab('Base art');
         setShowForm(true);
       }
     }
   }, [initialCardId, cards]);
+
+  // Sync traits input when editing card changes
+  useEffect(() => {
+    if (editingCard?.id && editingCard.id !== lastEditingId) {
+      setTraitsInput(editingCard.traits?.join(', ') || '');
+      setLastEditingId(editingCard.id);
+    } else if (!editingCard?.id && lastEditingId !== null) {
+      setTraitsInput("");
+      setLastEditingId(null);
+    }
+  }, [editingCard?.id, lastEditingId]);
 
   const importST02Cards = async () => {
     const st02Cards: GundamCard[] = [
@@ -819,6 +837,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                 faq: []
               });
               setTraitsInput("");
+              setActiveArtTab('Base art');
               setHasUnsavedChanges(false);
               setShowForm(true);
               mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1152,11 +1171,20 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
 
                   {/* Line 3: Traits, Linked Card Name */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1 relative">
-                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Traits (comma separated)</label>
+                    <div className="space-y-1 relative p-4 bg-amber-50/20 border border-amber-100/50 rounded-2xl transition-all hover:bg-amber-50/40 group/traits">
+                      <label className="text-[10px] font-black uppercase text-amber-600/60 leading-tight flex items-center gap-1.5">
+                        <Tag size={10} />
+                        Traits (comma separated)
+                      </label>
                       <input 
                         type="text" 
                         value={traitsInput} 
+                        onFocus={() => {
+                          if (traitsInput.trim().length === 0) {
+                            setTraitSuggestions(allUniqueTraits.slice(0, 5));
+                            setShowTraitSuggestions(true);
+                          }
+                        }}
                         onChange={e => {
                           const val = e.target.value;
                           setTraitsInput(val);
@@ -1167,16 +1195,17 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                           // Handle suggestions
                           const parts = val.split(',');
                           const currentPart = parts[parts.length - 1].trim();
-                          if (currentPart.length >= 2) {
+                          if (currentPart.length >= 1) {
                             const filtered = allUniqueTraits.filter(t => 
                               t.toLowerCase().includes(currentPart.toLowerCase()) && 
                               !traits.includes(t)
-                            ).slice(0, 5);
+                            ).slice(0, 8);
                             setTraitSuggestions(filtered);
                             setShowTraitSuggestions(filtered.length > 0);
                           } else {
-                            setTraitSuggestions([]);
-                            setShowTraitSuggestions(false);
+                            // Show top traits if empty part but focus is active
+                            setTraitSuggestions(allUniqueTraits.slice(0, 5));
+                            setShowTraitSuggestions(true);
                           }
                         }}
                         onBlur={() => {
@@ -1184,25 +1213,42 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                           setTimeout(() => setShowTraitSuggestions(false), 200);
                         }}
                         placeholder="e.g. Mobile Suit, Zeon, Char Aznable"
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white/50 border border-amber-200/50 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500 focus:bg-white transition-all placeholder:text-stone-300"
                       />
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {editingCard.traits?.map((trait, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black uppercase rounded-full border border-amber-200">
+                            {trait}
+                          </span>
+                        ))}
+                      </div>
                       {showTraitSuggestions && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute z-50 bottom-full left-4 right-4 mb-2 bg-white border border-stone-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 max-h-48 overflow-y-auto">
+                          <div className="px-3 py-2 bg-stone-50 border-b border-stone-100">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">Suggestions</span>
+                          </div>
                           {traitSuggestions.map((suggestion, idx) => (
                             <button
                               key={idx}
                               type="button"
                               onClick={() => {
                                 const parts = traitsInput.split(',').map(s => s.trim());
-                                parts[parts.length - 1] = suggestion;
-                                const newVal = parts.join(', ') + ', ';
+                                // If last part is partial, replace it, else append
+                                const lastPart = parts[parts.length - 1];
+                                if (suggestion.toLowerCase().includes(lastPart.toLowerCase()) && lastPart.length > 0) {
+                                  parts[parts.length - 1] = suggestion;
+                                } else {
+                                  parts.push(suggestion);
+                                }
+                                
+                                const newVal = parts.filter(Boolean).join(', ') + ', ';
                                 setTraitsInput(newVal);
                                 const traits = newVal.split(',').map(s => s.trim()).filter(Boolean);
                                 setEditingCard(prev => prev ? {...prev, traits} : null);
                                 setTraitSuggestions([]);
                                 setShowTraitSuggestions(false);
                               }}
-                              className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between"
+                              className="w-full px-4 py-2.5 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between border-b border-stone-50 last:border-none"
                             >
                               {suggestion}
                               <Plus size={10} className="text-amber-400" />
@@ -1211,8 +1257,11 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                         </div>
                       )}
                     </div>
-                    <div className="space-y-1 relative">
-                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight">Linked Card Name (e.g. Amuro Ray)</label>
+                    <div className="space-y-1 relative p-4 bg-stone-50/20 border border-stone-100/50 rounded-2xl transition-all hover:bg-stone-50/40 group/link">
+                      <label className="text-[10px] font-black uppercase text-stone-400 leading-tight flex items-center gap-1.5 group-hover/link:text-stone-500 transition-colors">
+                        <Link2 size={10} />
+                        Linked Card Name (e.g. Amuro Ray)
+                      </label>
                       <input 
                         type="text" 
                         value={editingCard.link || ''} 
@@ -1235,10 +1284,13 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                         onBlur={() => {
                           setTimeout(() => setShowLinkSuggestions(false), 200);
                         }}
-                        className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white/50 border border-stone-200/50 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all placeholder:text-stone-300"
                       />
                       {showLinkSuggestions && (
-                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="absolute z-50 bottom-full left-4 right-4 mb-2 bg-white border border-stone-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                          <div className="px-3 py-2 bg-stone-50 border-b border-stone-100">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-stone-400">Suggestions</span>
+                          </div>
                           {linkSuggestions.map((suggestion, idx) => (
                             <button
                               key={idx}
@@ -1248,10 +1300,10 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                                 setLinkSuggestions([]);
                                 setShowLinkSuggestions(false);
                               }}
-                              className="w-full px-4 py-2 text-left text-xs font-bold text-stone-600 hover:bg-amber-50 hover:text-amber-600 transition-colors flex items-center justify-between"
+                              className="w-full px-4 py-2.5 text-left text-xs font-bold text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-colors flex items-center justify-between border-b border-stone-50 last:border-none"
                             >
                               {suggestion}
-                              <Plus size={10} className="text-amber-400" />
+                              <Plus size={10} className="text-stone-400" />
                             </button>
                           ))}
                         </div>
@@ -1358,289 +1410,346 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
 
                 {/* Right Column: Images */}
                 <div className="space-y-6">
-                  {/* Base Art */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400">Base Art</label>
-                    <div className="flex gap-4 items-start">
-                      <div className="relative w-24 aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden border border-stone-200 group shrink-0">
-                        {editingCard.imageUrl ? (
-                          <img 
-                            src={editingCard.imageUrl} 
-                            alt="Base Art" 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-400">
-                            <ImageIcon size={20} strokeWidth={1} />
-                          </div>
+                  {/* Art Selections */}
+                  <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase text-stone-400">Card Art & Variants</label>
+                    <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl">
+                      <button 
+                        type="button"
+                        onClick={() => setActiveArtTab('Base art')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
+                          activeArtTab === 'Base art' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"
                         )}
-                        <label 
+                      >
+                        Base
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setActiveArtTab('Parallel')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
+                          activeArtTab === 'Parallel' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"
+                        )}
+                      >
+                        Parallel
+                      </button>
+                      {(editingCard.variants || []).map((v, i) => (
+                        <button 
+                          key={i}
+                          type="button"
+                          onClick={() => setActiveArtTab(i)}
                           className={cn(
-                            "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
-                            (!editingCard.cardNumber || uploading) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
+                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-1",
+                            activeArtTab === i ? "bg-white text-stone-900 shadow-sm" : "text-stone-400 hover:text-stone-600"
                           )}
                         >
-                          <Upload size={16} />
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*" 
-                            onChange={e => handleImageUpload(e, 'Base art')}
-                            disabled={uploading || !editingCard.cardNumber}
-                          />
-                        </label>
-                        {uploading && (
-                          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                            <Loader2 size={16} className="animate-spin text-amber-500" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <input 
-                          type="text" 
-                          value={editingCard.imageUrl} 
-                          onChange={e => {
-                            setEditingCard({...editingCard, imageUrl: e.target.value});
-                            setHasUnsavedChanges(true);
-                          }}
-                          placeholder="Image URL"
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input 
-                            type="text" 
-                            value={editingCard.baseArtist || ''} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, baseArtist: e.target.value});
-                              setHasUnsavedChanges(true);
+                          {v.type || `V${i + 1}`}
+                          <Trash2 
+                            size={8} 
+                            className="hover:text-red-500 transition-colors ml-1" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Delete this variant?")) {
+                                const newVariants = [...(editingCard.variants || [])];
+                                newVariants.splice(i, 1);
+                                setEditingCard({ ...editingCard, variants: newVariants });
+                                setActiveArtTab('Base art');
+                                setHasUnsavedChanges(true);
+                              }
                             }}
-                            placeholder="Artist Name"
-                            className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
                           />
-                          <input 
-                            type="text" 
-                            value={editingCard.baseArtistLink || ''} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, baseArtistLink: e.target.value});
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder="Artist Link"
-                            className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                          />
-                        </div>
-                        <p className="text-[9px] text-stone-400 italic">Click the preview or paste a URL to update.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Parallel Art */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400">Parallel Art (Optional)</label>
-                    <div className="flex gap-4 items-start">
-                      <div className="relative w-24 aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden border border-stone-200 group shrink-0">
-                        {editingCard.altImageUrl ? (
-                          <img 
-                            src={editingCard.altImageUrl} 
-                            alt="Parallel Art" 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-stone-400">
-                            <ImageIcon size={20} strokeWidth={1} />
-                          </div>
-                        )}
-                        <label 
-                          className={cn(
-                            "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
-                            (!editingCard.cardNumber || uploading) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
-                          )}
-                        >
-                          <Upload size={16} />
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*" 
-                            onChange={e => handleImageUpload(e, 'Parallel')}
-                            disabled={uploading || !editingCard.cardNumber}
-                          />
-                        </label>
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <input 
-                          type="text" 
-                          value={editingCard.altImageUrl || ''} 
-                          onChange={e => {
-                            setEditingCard({...editingCard, altImageUrl: e.target.value});
-                            setHasUnsavedChanges(true);
-                          }}
-                          placeholder="Parallel Art URL"
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input 
-                            type="text" 
-                            value={editingCard.altArtist || ''} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, altArtist: e.target.value});
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder="Artist Name"
-                            className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                          />
-                          <input 
-                            type="text" 
-                            value={editingCard.altArtistLink || ''} 
-                            onChange={e => {
-                              setEditingCard({...editingCard, altArtistLink: e.target.value});
-                              setHasUnsavedChanges(true);
-                            }}
-                            placeholder="Artist Link"
-                            className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional Variants */}
-                  <div className="space-y-4 pt-4 border-t border-stone-200">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-black uppercase text-stone-400">Additional Art Variants</label>
+                        </button>
+                      ))}
                       <button 
                         type="button"
                         onClick={() => {
                           const currentVariants = editingCard.variants || [];
+                          const newIndex = currentVariants.length;
                           setEditingCard({
                             ...editingCard,
                             variants: [...currentVariants, { type: '', imageUrl: '' }]
                           });
+                          setActiveArtTab(newIndex);
                           setHasUnsavedChanges(true);
                         }}
-                        className="flex items-center gap-1 px-2 py-1 bg-stone-100 hover:bg-stone-200 rounded-lg text-[10px] font-bold text-stone-600 transition-colors"
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-amber-500 hover:bg-white transition-all"
                       >
-                        <Plus size={12} />
-                        Add Variant
+                        <Plus size={14} />
                       </button>
                     </div>
+                  </div>
 
-                    <div className="space-y-6">
-                      {(editingCard.variants || []).map((variant, index) => (
-                        <div key={index} className="space-y-3 p-4 bg-stone-50/50 border border-stone-100 rounded-2xl relative group">
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              const newVariants = [...(editingCard.variants || [])];
-                              newVariants.splice(index, 1);
-                              setEditingCard({ ...editingCard, variants: newVariants });
-                              setHasUnsavedChanges(true);
-                            }}
-                            className="absolute top-2 right-2 p-1 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-black uppercase text-stone-400">Variant Name (e.g. Artist Handle)</label>
-                              <input 
-                                type="text" 
-                                value={variant.type} 
-                                onChange={e => {
-                                  const newVariants = [...(editingCard.variants || [])];
-                                  newVariants[index] = { ...newVariants[index], type: e.target.value };
-                                  setEditingCard({...editingCard, variants: newVariants});
-                                  setHasUnsavedChanges(true);
-                                }}
-                                placeholder="e.g. Galvin, Beta, Premium"
-                                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500 font-bold"
-                              />
+                  <div className="bg-white border border-stone-100 rounded-3xl p-4 shadow-sm min-h-[400px]">
+                    {activeArtTab === 'Base art' && (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="relative w-72 mx-auto aspect-[3/4] bg-stone-100 rounded-2xl overflow-hidden border border-stone-200 group shrink-0 shadow-lg">
+                          {editingCard.imageUrl ? (
+                            <img 
+                              src={editingCard.imageUrl} 
+                              alt="Base Art" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-2xl">
+                              <ImageIcon size={32} strokeWidth={1} />
+                              <span className="text-[10px] font-bold mt-2">No Image</span>
                             </div>
+                          )}
+                          <label 
+                            className={cn(
+                              "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
+                              (!editingCard.cardNumber || uploading) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
+                            )}
+                          >
+                            <Upload size={24} />
+                            <span className="text-xs font-bold mt-2">Upload Base Art</span>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={e => handleImageUpload(e, 'Base art')}
+                              disabled={uploading || !editingCard.cardNumber}
+                            />
+                          </label>
+                          {uploading && (
+                            <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                              <Loader2 size={24} className="animate-spin text-amber-500" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="w-72 mx-auto space-y-2 p-3 bg-stone-100/50 rounded-2xl border border-stone-200/50">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Image URL</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.imageUrl} 
+                              onChange={e => {
+                                setEditingCard({...editingCard, imageUrl: e.target.value});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="https://..."
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black uppercase text-stone-400">Artist Name</label>
+                              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Artist Name</label>
                               <input 
                                 type="text" 
-                                value={variant.artist || ''} 
+                                value={editingCard.baseArtist || ''} 
                                 onChange={e => {
-                                  const newVariants = [...(editingCard.variants || [])];
-                                  newVariants[index] = { ...newVariants[index], artist: e.target.value };
-                                  setEditingCard({...editingCard, variants: newVariants});
+                                  setEditingCard({...editingCard, baseArtist: e.target.value});
                                   setHasUnsavedChanges(true);
                                 }}
                                 placeholder="Artist Name"
-                                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
                               />
                             </div>
-                          </div>
-
-                          <div className="flex gap-4 items-start">
-                            <div className="relative w-24 aspect-[3/4] bg-stone-100 rounded-xl overflow-hidden border border-stone-200 group shrink-0">
-                              {variant.imageUrl ? (
-                                <img 
-                                  src={variant.imageUrl} 
-                                  alt={variant.type || 'Variant'} 
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-stone-400">
-                                  <ImageIcon size={20} strokeWidth={1} />
-                                </div>
-                              )}
-                              <label 
-                                className={cn(
-                                  "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
-                                  (!editingCard.cardNumber || uploading || !variant.type) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
-                                )}
-                              >
-                                <Upload size={16} />
-                                <input 
-                                  type="file" 
-                                  className="hidden" 
-                                  accept="image/*" 
-                                  onChange={e => handleImageUpload(e, variant.type)}
-                                  disabled={uploading || !editingCard.cardNumber || !variant.type}
-                                />
-                              </label>
-                            </div>
-                            <div className="flex-1 space-y-2">
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Artist Link</label>
                               <input 
                                 type="text" 
-                                value={variant.imageUrl || ''} 
+                                value={editingCard.baseArtistLink || ''} 
                                 onChange={e => {
-                                  const newVariants = [...(editingCard.variants || [])];
-                                  newVariants[index] = { ...newVariants[index], imageUrl: e.target.value };
-                                  setEditingCard({...editingCard, variants: newVariants});
+                                  setEditingCard({...editingCard, baseArtistLink: e.target.value});
                                   setHasUnsavedChanges(true);
                                 }}
-                                placeholder="Art URL"
-                                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
-                              />
-                              <input 
-                                type="text" 
-                                value={variant.artistLink || ''} 
-                                onChange={e => {
-                                  const newVariants = [...(editingCard.variants || [])];
-                                  newVariants[index] = { ...newVariants[index], artistLink: e.target.value };
-                                  setEditingCard({...editingCard, variants: newVariants});
-                                  setHasUnsavedChanges(true);
-                                }}
-                                placeholder="Artist Link (Portfolio/Social)"
-                                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
+                                placeholder="Social Link"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
                               />
                             </div>
                           </div>
                         </div>
-                      ))}
-                      {(editingCard.variants || []).length === 0 && (
-                        <p className="text-[10px] text-stone-400 italic text-center py-4">No additional variants added.</p>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {activeArtTab === 'Parallel' && (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="relative w-72 mx-auto aspect-[3/4] bg-stone-100 rounded-2xl overflow-hidden border border-stone-200 group shrink-0 shadow-lg">
+                          {editingCard.altImageUrl ? (
+                            <img 
+                              src={editingCard.altImageUrl} 
+                              alt="Parallel Art" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-2xl">
+                              <ImageIcon size={32} strokeWidth={1} />
+                              <span className="text-[10px] font-bold mt-2">No Image</span>
+                            </div>
+                          )}
+                          <label 
+                            className={cn(
+                              "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
+                              (!editingCard.cardNumber || uploading) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
+                            )}
+                          >
+                            <Upload size={24} />
+                            <span className="text-xs font-bold mt-2">Upload Parallel Art</span>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={e => handleImageUpload(e, 'Parallel')}
+                              disabled={uploading || !editingCard.cardNumber}
+                            />
+                          </label>
+                        </div>
+                        <div className="w-72 mx-auto space-y-2 p-3 bg-stone-100/50 rounded-2xl border border-stone-200/50">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Parallel Image URL</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.altImageUrl || ''} 
+                              onChange={e => {
+                                setEditingCard({...editingCard, altImageUrl: e.target.value});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Parallel Art URL"
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Artist Name</label>
+                              <input 
+                                type="text" 
+                                value={editingCard.altArtist || ''} 
+                                onChange={e => {
+                                  setEditingCard({...editingCard, altArtist: e.target.value});
+                                  setHasUnsavedChanges(true);
+                                }}
+                                placeholder="Artist Name"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Artist Link</label>
+                              <input 
+                                type="text" 
+                                value={editingCard.altArtistLink || ''} 
+                                onChange={e => {
+                                  setEditingCard({...editingCard, altArtistLink: e.target.value});
+                                  setHasUnsavedChanges(true);
+                                }}
+                                placeholder="Social Link"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {typeof activeArtTab === 'number' && editingCard.variants?.[activeArtTab] && (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-stone-400">Variant Name</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.variants[activeArtTab].type} 
+                              onChange={e => {
+                                const newVariants = [...(editingCard.variants || [])];
+                                newVariants[activeArtTab] = { ...newVariants[activeArtTab], type: e.target.value };
+                                setEditingCard({...editingCard, variants: newVariants});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="e.g. Galvin"
+                              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500 font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-stone-400">Artist Name</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.variants[activeArtTab].artist || ''} 
+                              onChange={e => {
+                                const newVariants = [...(editingCard.variants || [])];
+                                newVariants[activeArtTab] = { ...newVariants[activeArtTab], artist: e.target.value };
+                                setEditingCard({...editingCard, variants: newVariants});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Artist Name"
+                              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="relative w-72 mx-auto aspect-[3/4] bg-stone-100 rounded-2xl overflow-hidden border border-stone-200 group shrink-0 shadow-lg">
+                          {editingCard.variants[activeArtTab].imageUrl ? (
+                            <img 
+                              src={editingCard.variants[activeArtTab].imageUrl} 
+                              alt={editingCard.variants[activeArtTab].type || 'Variant'} 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-stone-400 border-2 border-dashed border-stone-200 rounded-2xl">
+                              <ImageIcon size={32} strokeWidth={1} />
+                              <span className="text-[10px] font-bold mt-2">No Image</span>
+                            </div>
+                          )}
+                          <label 
+                            className={cn(
+                              "absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white",
+                              (!editingCard.cardNumber || uploading || !editingCard.variants[activeArtTab].type) && "cursor-not-allowed opacity-0 group-hover:opacity-0"
+                            )}
+                          >
+                            <Upload size={24} />
+                            <span className="text-xs font-bold mt-2">Upload Variant Art</span>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={e => handleImageUpload(e, editingCard.variants![activeArtTab as number].type)}
+                              disabled={uploading || !editingCard.cardNumber || !editingCard.variants[activeArtTab as number].type}
+                            />
+                          </label>
+                        </div>
+                        <div className="w-72 mx-auto space-y-2 p-3 bg-stone-100/50 rounded-2xl border border-stone-200/50">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Variant Art URL</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.variants[activeArtTab].imageUrl || ''} 
+                              onChange={e => {
+                                const newVariants = [...(editingCard.variants || [])];
+                                newVariants[activeArtTab as number] = { ...newVariants[activeArtTab as number], imageUrl: e.target.value };
+                                setEditingCard({...editingCard, variants: newVariants});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Art URL"
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-stone-400 tracking-widest pl-1">Artist Link</label>
+                            <input 
+                              type="text" 
+                              value={editingCard.variants[activeArtTab].artistLink || ''} 
+                              onChange={e => {
+                                const newVariants = [...(editingCard.variants || [])];
+                                newVariants[activeArtTab as number] = { ...newVariants[activeArtTab as number], artistLink: e.target.value };
+                                setEditingCard({...editingCard, variants: newVariants});
+                                setHasUnsavedChanges(true);
+                              }}
+                              placeholder="Social Link"
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1 text-[9px] focus:outline-none focus:border-amber-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </form>
+            </div>
+          </form>
           </div>
         )}
 
@@ -1749,6 +1858,7 @@ export const AdminCardManager: React.FC<AdminCardManagerProps> = ({ onClose, adm
                       onClick={() => {
                         setEditingCard(card);
                         setTraitsInput(card.traits?.join(', ') || '');
+                        setActiveArtTab('Base art');
                         setHasUnsavedChanges(false);
                         setShowForm(true);
                         mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });

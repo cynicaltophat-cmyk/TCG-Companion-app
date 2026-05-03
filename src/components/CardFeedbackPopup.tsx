@@ -78,6 +78,8 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestName, setGuestName] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,10 +92,11 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
     setError(null);
 
     try {
+      const user = auth.currentUser;
       const feedbackData: Omit<Feedback, 'id'> = {
-        uid: auth.currentUser?.uid || 'anonymous',
-        userEmail: auth.currentUser?.email || 'anonymous',
-        userName: auth.currentUser?.displayName || 'Anonymous',
+        uid: user?.uid || 'anonymous',
+        userEmail: user?.email || guestEmail.trim() || 'anonymous',
+        userName: user?.displayName || guestName.trim() || 'Anonymous',
         category: selectedCategory,
         message: message.trim(),
         cardId: card.id,
@@ -113,21 +116,24 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
       setTimeout(() => onClose(), 2000);
     } catch (err: any) {
       console.error('Error submitting feedback:', err);
-      // Try to parse the JSON error if it's from handleFirestoreError
       let displayError = 'Failed to submit feedback. Please try again.';
       try {
         const parsed = JSON.parse(err.message);
         if (parsed.error.includes('Missing or insufficient permissions')) {
-          displayError = 'Permission denied. Please make sure you are logged in or try again later.';
+          displayError = 'Submission failed due to security rules. Please check your inputs or try again later.';
+        } else {
+          displayError = parsed.error;
         }
       } catch (e) {
-        // Not a JSON error
+        if (err instanceof Error) displayError = err.message;
       }
       setError(displayError);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const user = auth.currentUser;
 
   return (
     <motion.div 
@@ -169,9 +175,34 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              {!user && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest pl-1">Your Name (Optional)</label>
+                    <input
+                      type="text"
+                      value={guestName}
+                      onChange={e => setGuestName(e.target.value)}
+                      placeholder="Anonymous"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest pl-1">Your Email (Optional)</label>
+                    <input
+                      type="email"
+                      value={guestEmail}
+                      onChange={e => setGuestEmail(e.target.value)}
+                      placeholder="email@example.com"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">What's the issue?</label>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest pl-1">What's the issue?</label>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map(cat => (
                     <button
@@ -192,18 +223,18 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Additional Details</label>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest pl-1">Additional Details</label>
                 <textarea
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   placeholder="Tell us more about the issue..."
-                  className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 h-32 resize-none leading-relaxed"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 h-28 resize-none leading-relaxed"
                 />
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-red-500 text-xs font-bold bg-red-50 p-3 rounded-xl border border-red-100">
-                  <AlertCircle size={14} />
+                <div className="flex items-center gap-2 text-red-500 text-[10px] font-bold bg-red-50 p-3 rounded-xl border border-red-100">
+                  <AlertCircle size={14} className="shrink-0" />
                   {error}
                 </div>
               )}
@@ -212,7 +243,7 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
                 type="submit"
                 disabled={isSubmitting || !selectedCategory}
                 className={cn(
-                  "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all",
+                  "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all mt-2",
                   isSubmitting || !selectedCategory
                     ? "bg-stone-100 text-stone-400 cursor-not-allowed"
                     : "bg-[#141414] text-white hover:bg-stone-800 shadow-lg active:scale-[0.98]"
@@ -235,5 +266,6 @@ export const CardFeedbackPopup: React.FC<CardFeedbackPopupProps> = ({ card, onCl
         </div>
       </motion.div>
     </motion.div>
+
   );
 };

@@ -56,7 +56,7 @@ service cloud.firestore {
     }
 
     function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+      return fields.hasAll(request.resource.data.keys());
     }
 
     // ===============================================================

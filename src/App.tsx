@@ -2134,7 +2134,6 @@ function AppContent() {
     if (multiUploadInputRef.current) multiUploadInputRef.current.value = '';
   };
   
-  const [isExactCardColor, setIsExactCardColor] = useState(false);
   
   // Filter State
   const [activeFilters, setActiveFilters] = useState({
@@ -2218,6 +2217,7 @@ function AppContent() {
   const [showDeckModeNotification, setShowDeckModeNotification] = useState(false);
   const [openedEditorFromList, setOpenedEditorFromList] = useState(false);
   const [deckListAutoCreate, setDeckListAutoCreate] = useState(false);
+  const [deckListActiveFolderId, setDeckListActiveFolderId] = useState<string | null>(null);
   const [showDeckSelector, setShowDeckSelector] = useState(false);
   const [printingDeck, setPrintingDeck] = useState<Deck | null>(null);
   const [expandedCardIds, setExpandedCardIds] = useState<string[]>([]);
@@ -2896,15 +2896,47 @@ function AppContent() {
   const activeDeck = decks.find(d => d.id === activeDeckId);
   const displayDeckSize = activeDeck ? activeDeck.items.reduce((s, i) => s + i.count, 0) : 0;
 
-  // Prefetch prices for cards in all decks - disabled as requested
+  // Prefetch prices for cards in all decks - temporarily disabled for Yuyu-tei cooldown
   /* useEffect(() => {
+    let isMounted = true;
+    const itemsToFetch: { cardNumber: string, name: string, artType: ArtVariantType }[] = [];
+    
+    // Collect all unique cards across all decks
+    const seen = new Set<string>();
     decks.forEach(deck => {
       deck.items.forEach(item => {
-        if (!getCachedPrice(item.card.cardNumber, item.card.name, item.artType)) {
-          getCardPrice(item.card.cardNumber, item.card.name, false, item.artType);
+        const key = `${item.card.cardNumber}_${item.artType}`;
+        if (!seen.has(key) && !getCachedPrice(item.card.cardNumber, item.card.name, item.artType)) {
+          seen.add(key);
+          itemsToFetch.push({ 
+            cardNumber: item.card.cardNumber, 
+            name: item.card.name, 
+            artType: item.artType 
+          });
         }
       });
     });
+
+    const fetchSequentially = async () => {
+      for (const item of itemsToFetch) {
+        if (!isMounted) break;
+        try {
+          await getCardPrice(item.cardNumber, item.name, false, item.artType);
+          // Wait 3000ms between requests to be very gentle on Yuyu-tei and stay within server queue limits
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        } catch (e) {
+          console.warn(`[Prefetch] Failed for ${item.cardNumber}:`, e);
+          // Longer wait on error
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    };
+
+    if (itemsToFetch.length > 0) {
+      fetchSequentially();
+    }
+
+    return () => { isMounted = false; };
   }, [decks]); */
 
   const uniqueSets = ALL_SETS;
@@ -2977,11 +3009,7 @@ function AppContent() {
       const matchesSets = activeFilters.sets.length === 0 || 
                          activeFilters.sets.some(s => normalize(s) === normalize(card.set));
       const matchesRarities = activeFilters.rarities.length === 0 || activeFilters.rarities.includes(card.rarity);
-      const matchesColors = activeFilters.colors.length === 0 || (
-        isExactCardColor 
-          ? (activeFilters.colors.length === 1 && activeFilters.colors[0] === card.color)
-          : activeFilters.colors.includes(card.color)
-      );
+      const matchesColors = activeFilters.colors.length === 0 || activeFilters.colors.includes(card.color);
       const matchesTypes = activeFilters.types.length === 0 || activeFilters.types.some(t => card.type.includes(t as any));
       const matchesVariants = activeFilters.variants.length === 0 || 
                              activeFilters.variants.some(v => {
@@ -3064,7 +3092,7 @@ function AppContent() {
       if (indexA !== indexB) return (indexA - indexB) * direction;
       return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true }) * direction;
     });
-  }, [combinedCards, debouncedSearchQuery, activeFilters, sortOption, isExactCardColor]);
+  }, [combinedCards, debouncedSearchQuery, activeFilters, sortOption]);
 
   const gridData = useMemo(() => {
     const result: (GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType })[] = [];
@@ -3539,18 +3567,6 @@ function AppContent() {
                 </div>
               </div>
 
-              <button 
-                onClick={() => setIsExactCardColor(!isExactCardColor)}
-                className="flex items-center gap-2 group shrink-0"
-              >
-                <div className={cn(
-                  "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
-                  isExactCardColor ? "bg-[#141414] border-[#141414]" : "bg-white border-stone-300 group-hover:border-stone-400"
-                )}>
-                  {isExactCardColor && <Check size={10} className="text-white stroke-[3]" />}
-                </div>
-                <span className="text-[8px] font-bold text-stone-400 group-hover:text-stone-600 transition-colors uppercase tracking-tight">Exact color match</span>
-              </button>
             </div>
           </div>
         </header>
@@ -3853,41 +3869,42 @@ function AppContent() {
                     </button>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
-                <button 
-                  onClick={() => {
-                    const btn = document.getElementById('clear-cache-btn');
-                    const label = document.getElementById('clear-cache-label');
-                    if (btn?.dataset.confirming === 'true') {
-                      clearPriceCache();
-                      showToast("Price cache cleared!");
-                      if (btn) btn.dataset.confirming = 'false';
-                      if (label) label.innerText = 'Clear Price Cache';
-                    } else {
-                      if (btn) btn.dataset.confirming = 'true';
-                      if (label) label.innerText = 'Click again to confirm';
-                      setTimeout(() => {
-                        if (btn) btn.dataset.confirming = 'false';
-                        if (label) label.innerText = 'Clear Price Cache';
-                      }, 3000);
-                    }
-                  }}
-                  id="clear-cache-btn"
-                  data-confirming="false"
-                  className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-stone-100 text-stone-500 group-hover:text-amber-600 rounded-lg flex items-center justify-center transition-colors">
-                      <Trash2 size={18} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-[#141414]" id="clear-cache-label">Clear Price Cache</p>
-                      <p className="text-[10px] text-stone-500 font-medium">Reset YYT price storage</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
+                  {/* Clear Price Cache temporarily hidden */}
+                  {/* <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
+                    <button 
+                      onClick={() => {
+                        const btn = document.getElementById('clear-cache-btn');
+                        const label = document.getElementById('clear-cache-label');
+                        if (btn?.dataset.confirming === 'true') {
+                          clearPriceCache();
+                          showToast("Price cache cleared!");
+                          if (btn) btn.dataset.confirming = 'false';
+                          if (label) label.innerText = 'Clear Price Cache';
+                        } else {
+                          if (btn) btn.dataset.confirming = 'true';
+                          if (label) label.innerText = 'Click again to confirm';
+                          setTimeout(() => {
+                            if (btn) btn.dataset.confirming = 'false';
+                            if (label) label.innerText = 'Clear Price Cache';
+                          }, 3000);
+                        }
+                      }}
+                      id="clear-cache-btn"
+                      data-confirming="false"
+                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-stone-100 text-stone-500 group-hover:text-amber-600 rounded-lg flex items-center justify-center transition-colors">
+                          <Trash2 size={18} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-[#141414]" id="clear-cache-label">Clear Price Cache</p>
+                          <p className="text-[10px] text-stone-500 font-medium">Reset YYT price storage</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div> */}
 
               <button 
                 onClick={() => {
@@ -3953,7 +3970,8 @@ function AppContent() {
                 {cardsLoading ? "..." : filteredCards.length} Cards Found
               </p>
               
-              <div className="flex items-center gap-2">
+              {/* Price mode temporarily disabled */}
+              {/* <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setShowPriceFaq(true)}
                   className="text-stone-400 hover:text-stone-600 transition-colors p-1"
@@ -3976,7 +3994,7 @@ function AppContent() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
         </div>
 
@@ -5555,6 +5573,8 @@ function AppContent() {
               setCurrentTab('cards');
             }}
             autoStartCreate={deckListAutoCreate}
+            activeFolderId={deckListActiveFolderId}
+            onActiveFolderChange={setDeckListActiveFolderId}
           />
         )}
       </AnimatePresence>
