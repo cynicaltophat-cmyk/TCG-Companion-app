@@ -36,8 +36,6 @@ interface DeckListProps {
   onMoveToFolder: (deckId: string, folderId: string | null) => void;
   onClose: () => void;
   autoStartCreate?: boolean;
-  activeFolderId: string | null;
-  onActiveFolderChange: (folderId: string | null) => void;
 }
 
 import { ProgressiveImage } from './ProgressiveImage';
@@ -140,9 +138,7 @@ export const DeckList: React.FC<DeckListProps> = ({
   onRenameFolder,
   onMoveToFolder,
   onClose,
-  autoStartCreate = false,
-  activeFolderId,
-  onActiveFolderChange
+  autoStartCreate = false
 }) => {
   const [isCreating, setIsCreating] = useState(autoStartCreate);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -158,6 +154,8 @@ export const DeckList: React.FC<DeckListProps> = ({
   const [coverPickerDeckId, setCoverPickerDeckId] = useState<string | null>(null);
   const [moveDeckId, setMoveDeckId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null); // null means "All Decks" or Root
 
   // Filtering State
   const [searchQuery, setSearchQuery] = useState("");
@@ -484,7 +482,7 @@ export const DeckList: React.FC<DeckListProps> = ({
           {/* Folders Bar - Now inside scrolling container */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             <button 
-              onClick={() => onActiveFolderChange(null)}
+              onClick={() => setActiveFolderId(null)}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight shrink-0",
                 activeFolderId === null 
@@ -495,7 +493,7 @@ export const DeckList: React.FC<DeckListProps> = ({
               All Decks
             </button>
             <button 
-              onClick={() => onActiveFolderChange('unassigned')}
+              onClick={() => setActiveFolderId('unassigned')}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight shrink-0",
                 activeFolderId === 'unassigned' 
@@ -509,7 +507,7 @@ export const DeckList: React.FC<DeckListProps> = ({
             {folders.map(folder => (
               <div key={folder.id} className="relative group shrink-0">
                 <div 
-                  onClick={() => onActiveFolderChange(activeFolderId === folder.id ? null : folder.id)}
+                  onClick={() => setActiveFolderId(activeFolderId === folder.id ? null : folder.id)}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap text-xs font-black uppercase tracking-tight cursor-pointer",
                     activeFolderId === folder.id 

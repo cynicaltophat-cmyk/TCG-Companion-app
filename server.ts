@@ -12,36 +12,21 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // IMPORTANT: Trust the proxy provided by the AI Studio environment
-  // This allows express-rate-limit to correctly identify user IPs
-  app.set('trust proxy', 1);
-
   // Rate Limiting
   const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 2000, // Increased to accommodate high-volume prefetching
-    standardHeaders: true, 
-    legacyHeaders: false, 
+    limit: 100, // Limit each IP to 100 requests per `window`
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: "Too many requests from this IP, please try again after 15 minutes",
-    // Use the standardized key generator
-    keyGenerator: (req) => {
-      const forwarded = req.headers['x-forwarded-for'];
-      if (Array.isArray(forwarded)) return forwarded[0];
-      return forwarded || req.ip || 'unknown';
-    }
   });
 
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 1000, // Increased to 1000 to allow smooth prefetching of card prices
+    limit: 5, // Limit each IP to 5 requests per `window` (Auth/Sensitive routes)
     standardHeaders: true,
     legacyHeaders: false,
-    message: "Too many attempts on API routes, please try again after 15 minutes",
-    keyGenerator: (req) => {
-      const forwarded = req.headers['x-forwarded-for'];
-      if (Array.isArray(forwarded)) return forwarded[0];
-      return forwarded || req.ip || 'unknown';
-    }
+    message: "Too many attempts on sensitive routes, please try again after 15 minutes",
   });
 
   // Apply the global rate limiter to all requests

@@ -33,10 +33,7 @@ interface DeckSubmissionFormProps {
 }
 
 const SEASONS = [
-  { id: "GD04", name: "GD04 - Phantom Aria" },
-  { id: "GD03", name: "GD03 - Steel Requiem" },
-  { id: "GD02", name: "GD02 - Clan unity" },
-  { id: "GD01", name: "GD01 - Newtype Rising" }
+  { id: "GD04", name: "GD04 - Phantom Aria" }
 ];
 
 const EVENT_TYPES: EventType[] = ["Shop Battle", "Newtype challenge", "Organized Event"];
