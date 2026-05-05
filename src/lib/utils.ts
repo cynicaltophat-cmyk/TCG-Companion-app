@@ -15,20 +15,3 @@ export function getColorBg(color: string) {
     default: return 'bg-stone-200';
   }
 }
-
-export type PriceDisplayMode = 'JPY' | 'SGD120';
-
-export function formatPrice(price: string | null, mode: PriceDisplayMode) {
-  if (!price) return null;
-  if (mode === 'JPY') return price;
-  
-  const yenValue = parseInt(price.replace(/[¥,]/g, ''));
-  if (isNaN(yenValue)) return null;
-  
-  return `S$${(yenValue / 120).toFixed(2)}`;
-}
-
-export function formatCurrency(yenValue: number, mode: PriceDisplayMode) {
-  if (mode === 'JPY') return `¥${yenValue.toLocaleString()}`;
-  return `S$${(yenValue / 120).toFixed(2)}`;
-}

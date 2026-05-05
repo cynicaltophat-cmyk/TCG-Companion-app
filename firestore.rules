@@ -122,14 +122,6 @@ service cloud.firestore {
              data.createdAt is int;
     }
 
-    function isValidProduct(data) {
-      return data.id is string &&
-             data.name is string &&
-             data.category in ['Starter Deck', 'Booster box', 'Other'] &&
-             data.imageUrl is string &&
-             data.releaseDate is string &&
-             data.msrp is string;
-    }
 
     function isValidTournamentEvent(data) {
       return hasOnlyAllowedFields(['id', 'name', 'season', 'date', 'type']) &&
@@ -180,11 +172,6 @@ service cloud.firestore {
       allow write: if isAdmin(); // Only admins can manage cards
     }
 
-    match /products/{productId} {
-      allow read: if true; // Products are public
-      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
-      allow delete: if isAdmin();
-    }
 
     match /tournament_events/{eventId} {
       allow read: if true;

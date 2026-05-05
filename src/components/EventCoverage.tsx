@@ -26,7 +26,9 @@ import {
   Clock,
   X,
   MoreHorizontal,
-  Copy
+  Copy,
+  Download,
+  Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ProgressiveImage } from './ProgressiveImage';
@@ -555,10 +557,13 @@ export const EventCoverage: React.FC<EventCoverageProps> = ({ onSelectSubmission
   );
 };
 
-export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClose: () => void }> = ({ submission, onClose }) => {
+export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClose: () => void; onDuplicateDeck?: (deck: any) => void }> = ({ submission, onClose, onDuplicateDeck }) => {
   const [selectedCard, setSelectedCard] = useState<GundamCard | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportText, setExportText] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const deckItems = submission.deckItems;
   const units = deckItems.filter(i => i.card.type.includes('Unit'));
@@ -567,6 +572,26 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
   const bases = deckItems.filter(i => i.card.type.includes('Base'));
 
   const handleDuplicate = async () => {
+    if (onDuplicateDeck) {
+      setDuplicating(true);
+      try {
+        const deckToDuplicate = {
+          id: submission.id,
+          name: submission.deckName,
+          items: submission.deckItems,
+          coverImageUrl: submission.coverImageUrl,
+          lastModified: Date.now()
+        };
+        await onDuplicateDeck(deckToDuplicate);
+        setShowMenu(false);
+      } catch (err) {
+        console.error("Error duplicating deck:", err);
+      } finally {
+        setDuplicating(false);
+      }
+      return;
+    }
+
     if (!auth.currentUser) {
       alert("Please sign in to duplicate decks.");
       return;
@@ -680,10 +705,22 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
                   <button 
                     onClick={handleDuplicate}
                     disabled={duplicating}
-                    className="w-full px-5 py-4 text-left text-sm font-black text-stone-900 uppercase tracking-tight hover:bg-stone-50 flex items-center gap-3 transition-colors disabled:opacity-50"
+                    className="w-full px-5 py-4 text-left text-sm font-black text-stone-900 uppercase tracking-tight hover:bg-stone-50 flex items-center gap-3 transition-colors disabled:opacity-50 border-b border-stone-50"
                   >
                     <Copy size={16} className="text-stone-400" />
                     {duplicating ? 'Duplicating...' : 'Duplicate Deck'}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const text = deckItems.map(i => `${i.count} ${i.card.cardNumber} ${i.card.name}`).join('\n');
+                      setExportText(text);
+                      setIsExportModalOpen(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-5 py-4 text-left text-sm font-black text-stone-900 uppercase tracking-tight hover:bg-stone-50 flex items-center gap-3 transition-colors"
+                  >
+                    <Download size={16} className="text-stone-400" />
+                    Export as Text
                   </button>
                 </motion.div>
               </>
@@ -744,6 +781,69 @@ export const TournamentDeckDetail: React.FC<{ submission: DeckSubmission; onClos
               >
                 <X size={20} />
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Export Deck Modal */}
+      <AnimatePresence>
+        {isExportModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsExportModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl z-[210]"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black uppercase tracking-tight">Export Deck</h3>
+                  <button 
+                    onClick={() => setIsExportModalOpen(false)}
+                    className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">
+                  Copy your deck list below to share it.
+                </p>
+
+                <textarea
+                  readOnly
+                  value={exportText}
+                  className="w-full h-48 p-4 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-mono focus:outline-none resize-none"
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsExportModalOpen(false)}
+                    className="flex-1 py-3 bg-stone-100 text-stone-600 rounded-xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(exportText);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="flex-1 py-3 bg-stone-900 text-white rounded-xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-black/20 flex items-center justify-center gap-2"
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                    {copied ? 'Copied!' : 'Copy text'}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

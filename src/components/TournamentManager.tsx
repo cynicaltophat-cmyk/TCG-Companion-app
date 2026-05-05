@@ -100,7 +100,8 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, s
       name: editingEvent.name,
       season: editingEvent.season,
       date: editingEvent.date,
-      type: 'Organized Event'
+      type: 'Organized Event',
+      totalPlayers: editingEvent.totalPlayers
     };
 
     try {
@@ -472,6 +473,12 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, s
                       <Calendar size={10} />
                       {new Date(event.date).toLocaleDateString()}
                     </span>
+                    {event.totalPlayers && (
+                      <span className="px-2 py-1 bg-stone-100 rounded-lg text-[10px] font-bold text-stone-500 flex items-center gap-1">
+                        <User size={10} />
+                        {event.totalPlayers} Players
+                      </span>
+                    )}
                   </div>
                   <div className="mt-4 pt-4 border-t border-stone-50 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
@@ -853,6 +860,16 @@ export const TournamentManager: React.FC<TournamentManagerProps> = ({ onClose, s
                     type="date"
                     value={editingEvent?.date || ""}
                     onChange={(e) => setEditingEvent(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full px-4 py-3 bg-stone-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-stone-200"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest pl-1">Total Players</label>
+                  <input 
+                    type="number"
+                    placeholder="e.g. 128"
+                    value={editingEvent?.totalPlayers || ""}
+                    onChange={(e) => setEditingEvent(prev => ({ ...prev, totalPlayers: parseInt(e.target.value) || 0 }))}
                     className="w-full px-4 py-3 bg-stone-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-stone-200"
                   />
                 </div>

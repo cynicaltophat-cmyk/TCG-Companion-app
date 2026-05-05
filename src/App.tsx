@@ -44,7 +44,6 @@ import {
   Clock,
   CheckCircle,
   Circle,
-  ShoppingBag,
   Trash2,
   Edit2,
   ShieldCheck,
@@ -52,23 +51,19 @@ import {
   Zap,
   Bookmark,
   Upload,
-  Package,
   Share2,
   Copy
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, Product, CardType, DeckSubmission, DeckFolder } from './types';
+import { GundamCard, ArtVariantType, ALL_SETS, Deck, DeckItem, Feedback, FeedbackCategory, CardType, DeckSubmission, DeckFolder } from './types';
 import { AdminCardManager } from './components/AdminCardManager';
 import { CardFeedbackPopup } from './components/CardFeedbackPopup';
-import { identifyCard, IdentifiedCard, getCardPrice, getCachedPrice, clearPriceCache } from './services/geminiService';
-import { cn, PriceDisplayMode, formatPrice, getColorBg } from './lib/utils';
+import { identifyCard, IdentifiedCard } from './services/geminiService';
+import { cn, getColorBg } from './lib/utils';
 import { DeckEditor, DeckEditorHandle } from './components/DeckEditor';
 import { QuickSetup } from './components/QuickSetup';
 import { DeckList } from './components/DeckList';
 import { ProxyPrinter } from './components/ProxyPrinter';
-import { ProductList } from './components/products/ProductList';
-import { ProductDetails } from './components/products/ProductDetails';
-import { ProductManager } from './components/products/ProductManager';
 import { EventCoverage, TournamentDeckDetail } from './components/EventCoverage';
 import { TournamentManager } from './components/TournamentManager';
 import { DeckSubmissionForm } from './components/DeckSubmissionForm';
@@ -145,76 +140,6 @@ const TYPES = ["Base", "Unit", "Pilot", "Command"];
 
 // --- Components ---
 
-const MiniPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode }) => {
-  const [price, setPrice] = useState<string | null>(() => getCachedPrice(cardNumber, cardName, artType));
-  const [loading, setLoading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hasFetched = useRef(false);
-
-  useEffect(() => {
-    const cached = getCachedPrice(cardNumber, cardName, artType);
-    if (cached) {
-      setPrice(cached);
-      hasFetched.current = true;
-    }
-  }, [cardNumber, cardName, artType]);
-
-  const fetchPrice = async () => {
-    if (loading || hasFetched.current) return;
-    setLoading(true);
-    const result = await getCardPrice(cardNumber, cardName, false, artType);
-    setPrice(result);
-    setLoading(false);
-    hasFetched.current = true;
-  };
-
-  useEffect(() => {
-    if (hasFetched.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchPrice();
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1, rootMargin: '100px' }
-    );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [cardNumber, cardName, artType]);
-
-  const displayPrice = formatPrice(price, mode);
-
-  return (
-    <div ref={containerRef} className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 h-[16px] overflow-hidden">
-      {loading ? (
-        <div className="flex items-center gap-1 text-stone-400 animate-pulse h-full">
-          <Loader2 size={10} className="animate-spin" />
-          <span>Loading...</span>
-        </div>
-      ) : price ? (
-        <span className="h-full flex items-center">{displayPrice || 'N/A'}</span>
-      ) : (
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            fetchPrice();
-          }}
-          className="text-[10px] font-bold text-stone-400 hover:text-amber-600 transition-colors flex items-center gap-1 h-full"
-        >
-          <RefreshCw size={10} />
-          Retry
-        </button>
-      )}
-    </div>
-  );
-});
-
 const CardBadge = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <span className={cn("px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider", className)}>
     {children}
@@ -242,80 +167,6 @@ const RarityTag = ({ rarity }: { rarity: GundamCard['rarity'] }) => {
   return <CardBadge className={rarities[rarity]}>{rarity}</CardBadge>;
 };
 
-const CardPrice = React.memo(({ cardNumber, cardName, artType = "Base art", mode, onModeChange }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode, onModeChange: (mode: PriceDisplayMode) => void }) => {
-  const [price, setPrice] = useState<string | null>(getCachedPrice(cardNumber, cardName, artType));
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const cached = getCachedPrice(cardNumber, cardName, artType);
-    if (cached) {
-      setPrice(cached);
-      setLoading(false);
-      return;
-    }
-
-    if (cardNumber.startsWith('GD04-')) {
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-    const fetchPrice = async () => {
-      setLoading(true);
-      try {
-        const fetched = await getCardPrice(cardNumber, cardName, false, artType);
-        if (isMounted) setPrice(fetched);
-      } catch (e) {
-        console.error("Price fetch error:", e);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    fetchPrice();
-    return () => { isMounted = false; };
-  }, [cardNumber, cardName, artType]);
-
-  const displayPrice = price ? formatPrice(price, mode) : null;
-
-  return (
-    <div className="flex items-center gap-3 pt-1">
-      <div className="flex items-center gap-2">
-        {loading ? (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full">
-            <Loader2 size={10} className="animate-spin text-stone-400" />
-            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Checking...</span>
-          </div>
-        ) : displayPrice ? (
-          <button 
-            onClick={() => onModeChange(mode === 'JPY' ? 'SGD120' : 'JPY')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-full transition-all shadow-sm active:scale-95 group border border-amber-600/20"
-          >
-            <span className="text-xs font-black">{displayPrice}</span>
-            <span className="text-[8px] opacity-60 font-black">
-              {mode === 'JPY' ? 'JPY' : 'SGD/YYT120'}
-            </span>
-          </button>
-        ) : (
-          <div className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-            Price N/A
-          </div>
-        )}
-      </div>
-      
-      <a 
-        href={`https://yuyu-tei.jp/sell/gcg/s/search?search_word=${cardNumber}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-[10px] font-black text-amber-600 hover:text-amber-700 transition-colors uppercase tracking-wider group"
-      >
-        Yu-yu-tei
-        <ExternalLink size={10} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-      </a>
-    </div>
-  );
-});
-
 const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ...props }: any, ref: any) => (
   <div
     ref={ref}
@@ -330,52 +181,6 @@ const ListContainer = React.forwardRef(({ style, children, isDeckBuilderMode, ..
   </div>
 ));
 
-const PricePreview = React.memo(({ cardNumber, cardName, artType = "Base art", mode }: { cardNumber: string, cardName: string, artType?: ArtVariantType, mode: PriceDisplayMode }) => {
-  const [price, setPrice] = useState<string | null>(getCachedPrice(cardNumber, cardName, artType));
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const cached = getCachedPrice(cardNumber, cardName, artType);
-    if (cached) {
-      setPrice(cached);
-      setLoading(false);
-      return;
-    }
-
-    if (cardNumber.startsWith('GD04-')) {
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-    setLoading(true);
-    getCardPrice(cardNumber, cardName, false, artType).then(fetched => {
-      if (isMounted) {
-        setPrice(fetched);
-        setLoading(false);
-      }
-    });
-    return () => { isMounted = false; };
-  }, [cardNumber, cardName, artType]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-stone-50 rounded-md border border-stone-100 animate-pulse transition-all">
-        <span className="text-[7px] font-bold text-stone-400 uppercase tracking-tighter whitespace-nowrap">Fetching price...</span>
-      </div>
-    );
-  }
-
-  const displayPrice = price ? formatPrice(price, mode) : null;
-  if (!displayPrice) return null;
-
-  return (
-    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md border border-amber-200 animate-in fade-in zoom-in duration-300">
-      <span className="text-[9px] font-black text-amber-700">{displayPrice}</span>
-    </div>
-  );
-});
-
 const GridItem = React.memo(({ 
   card, 
   onSelect, 
@@ -386,8 +191,9 @@ const GridItem = React.memo(({
   onAddToDeck, 
   onRemoveFromDeck, 
   onUpdateDeckCount,
-  priceMode,
-  isBookmarked
+  isBookmarked,
+  price,
+  showPrice
 }: { 
   card: any, 
   onSelect: (card: any) => void, 
@@ -398,8 +204,9 @@ const GridItem = React.memo(({
   onAddToDeck: (card: any, artType: ArtVariantType) => void,
   onRemoveFromDeck: (cardId: string, artType: ArtVariantType) => void,
   onUpdateDeckCount: (cardId: string, artType: ArtVariantType, delta: number) => void,
-  priceMode: PriceDisplayMode,
-  isBookmarked: boolean
+  isBookmarked: boolean,
+  price?: string,
+  showPrice?: boolean
 }) => {
   const deckItem = activeDeck?.items.find(i => i.card.id === (card.parentId || card.id) && i.artType === (card.variantType || "Base art"));
   const count = deckItem ? deckItem.count : 0;
@@ -502,21 +309,22 @@ const GridItem = React.memo(({
           <div className="flex items-start justify-between mb-0.5">
             <h3 className="font-bold text-[10px] leading-tight line-clamp-1 h-[14px] text-[#141414]">{card.name}</h3>
           </div>
-          <div className="flex items-center gap-2 mb-1">
-            <ColorTag color={card.color} />
-            <span className="text-[8px] font-mono text-stone-400">{card.cardNumber}</span>
+          <div className="flex flex-col gap-0.5 mb-1">
+            <div className="flex items-center gap-2">
+              <ColorTag color={card.color} />
+              <span className="text-[8px] font-mono text-stone-400">{card.cardNumber}</span>
+            </div>
+            {showPrice && price && (
+              <span className="w-fit text-[10px] font-black text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-200 italic shadow-sm">
+                ¥{Number(price).toLocaleString()}
+              </span>
+            )}
           </div>
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 overflow-hidden">
               <RarityTag rarity={card.rarity} />
-              <PricePreview 
-                cardNumber={card.cardNumber} 
-                cardName={card.name} 
-                artType={card.variantType || "Base art"} 
-                mode={priceMode} 
-              />
               {isBookmarked && (
                 <Bookmark size={10} className="text-amber-500 fill-amber-500" />
               )}
@@ -527,6 +335,7 @@ const GridItem = React.memo(({
     </div>
   );
 });
+
 
 // --- Feedback Form ---
 
@@ -819,6 +628,7 @@ function AppContent() {
 
   const [selectedCard, setSelectedCard] = useState<(GundamCard & { isVariant?: boolean; parentId?: string; variantType?: ArtVariantType }) | null>(null);
   const [cardDetailTab, setCardDetailTab] = useState<'info' | 'meta'>('info');
+  const [winningDecksFilter, setWinningDecksFilter] = useState<'recent' | 'top'>('recent');
   const [approvedSubmissions, setApprovedSubmissions] = useState<DeckSubmission[]>([]);
 
   // Approved Submissions Listener for Meta Analysis
@@ -875,7 +685,26 @@ function AppContent() {
     // Recent winning decks that plays this card (top 3)
     const recentDecks = relevantSubmissions.slice(0, 3);
     
-    return { popularity, avgCount, recentDecks, currentSeason: CURRENT_SEASON };
+    // Top 3 placement decks
+    const getPlacementRank = (placement: string) => {
+      const p = (placement || '').toLowerCase();
+      if (p === 'winner' || p === '1st') return 1;
+      if (p === '2nd') return 2;
+      if (p === 'finalist') return 2;
+      if (p === 'top 4') return 4;
+      if (p === 'top 8') return 8;
+      if (p === 'top 16') return 16;
+      if (p === 'top 32') return 32;
+      const match = p.match(/(\d+)/);
+      if (match) return parseInt(match[1]);
+      return 999;
+    };
+
+    const topDecks = [...relevantSubmissions]
+      .sort((a, b) => getPlacementRank(a.placement || '') - getPlacementRank(b.placement || ''))
+      .slice(0, 3);
+    
+    return { popularity, avgCount, recentDecks, topDecks, currentSeason: CURRENT_SEASON };
   }, [selectedCard, approvedSubmissions]);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<{ title: string, description: string, x: number, y: number, originalX: number } | null>(null);
@@ -1074,8 +903,6 @@ function AppContent() {
     return () => debouncedSetSearch.cancel();
   }, [searchQuery, debouncedSetSearch]);
 
-  const [priceMode, setPriceMode] = useState<PriceDisplayMode>('JPY');
-  const [showPriceFaq, setShowPriceFaq] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState("");
   const [scanSeconds, setScanSeconds] = useState(0);
@@ -1109,16 +936,43 @@ function AppContent() {
   const [isQuickSetupOpen, setIsQuickSetupOpen] = useState(false);
   const [isQuickStartDeckPickerOpen, setIsQuickStartDeckPickerOpen] = useState(false);
   const [quickStartMode, setQuickStartMode] = useState<'play' | 'stats' | null>(null);
-  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'product-list' | 'product-details' | 'coverage' | 'submit-deck'>('cards');
+  const [currentTab, setCurrentTab] = useState<'cards' | 'decks' | 'scan' | 'quick-start' | 'profile' | 'coverage' | 'submit-deck'>('cards');
   const [submissionDeck, setSubmissionDeck] = useState<Deck | null>(null);
   const [selectedTournamentDeck, setSelectedTournamentDeck] = useState<DeckSubmission | null>(null);
   const [showTournamentManager, setShowTournamentManager] = useState(false);
   const [sortOption, setSortOption] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'default', direction: 'asc' });
   const [showSortModal, setShowSortModal] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showProductManager, setShowProductManager] = useState(false);
+  const [prices, setPrices] = useState<Record<string, { price: string, url: string }>>({});
+  const [priceMode, setPriceMode] = useState(true);
+  const [pricesLoading, setPricesLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+
+  // Price fetching logic
+  useEffect(() => {
+    const fetchPrices = async () => {
+      if (pricesLoading) return;
+      setPricesLoading(true);
+      try {
+        const response = await fetch('/api/prices');
+        if (response.ok) {
+          const data = await response.json();
+          setPrices(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch market prices:", error);
+      } finally {
+        setPricesLoading(false);
+      }
+    };
+
+    fetchPrices();
+    // Refresh prices every 30 minutes
+    const interval = setInterval(fetchPrices, 1000 * 60 * 30);
+    return () => clearInterval(interval);
+  }, []);
+
+  const [showLoginGate, setShowLoginGate] = useState(false);
+  const [loginGatePassword, setLoginGatePassword] = useState('');
 
   const isAdmin = useMemo(() => {
     if (!user) return false;
@@ -1845,17 +1699,7 @@ function AppContent() {
     };
   }, [isAdmin, user]);
 
-  // Products Listener
-  useEffect(() => {
-    const q = query(collection(db, 'products'), orderBy('order', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
-      setProducts(data);
-    }, (error) => {
-      console.error("Products listener error:", error);
-    });
-    return () => unsubscribe();
-  }, []);
+  // Listeners
 
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -2421,6 +2265,11 @@ function AppContent() {
       setDecks(updatedDecks);
       localStorage.setItem('guest_decks', JSON.stringify(updatedDecks));
       setActiveDeckId(deckId);
+      setIsDeckEditorOpen(true);
+      setIsDeckBuilderMode(true);
+      setCurrentTab('decks');
+      setSelectedTournamentDeck(null);
+      showToast("Successfully duplicated deck");
       return;
     }
 
@@ -2428,6 +2277,11 @@ function AppContent() {
     try {
       await setDoc(doc(db, 'decks', deckId), deckWithUid);
       setActiveDeckId(deckId);
+      setIsDeckEditorOpen(true);
+      setIsDeckBuilderMode(true);
+      setCurrentTab('decks');
+      setSelectedTournamentDeck(null);
+      showToast("Successfully duplicated deck");
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `decks/${deckId}`, user);
     }
@@ -2875,17 +2729,6 @@ function AppContent() {
   const activeDeck = decks.find(d => d.id === activeDeckId);
   const displayDeckSize = activeDeck ? activeDeck.items.reduce((s, i) => s + i.count, 0) : 0;
 
-  // Prefetch prices for cards in all decks - disabled as requested
-  /* useEffect(() => {
-    decks.forEach(deck => {
-      deck.items.forEach(item => {
-        if (!getCachedPrice(item.card.cardNumber, item.card.name, item.artType)) {
-          getCardPrice(item.card.cardNumber, item.card.name, false, item.artType);
-        }
-      });
-    });
-  }, [decks]); */
-
   const uniqueSets = ALL_SETS;
   
   // Derived state for selectedCard count in active deck
@@ -3017,13 +2860,13 @@ function AppContent() {
       if (sortOption.key === 'id') return a.cardNumber.localeCompare(b.cardNumber, undefined, { numeric: true }) * direction;
       if (sortOption.key === 'color') return a.color.localeCompare(b.color) * direction;
       if (sortOption.key === 'price') {
-        const priceAStr = getCachedPrice(a.cardNumber, a.name, "Base art");
-        const priceBStr = getCachedPrice(b.cardNumber, b.name, "Base art");
-        const parsePrice = (p: string | null) => {
-          if (!p) return 0;
-          return parseFloat(p.replace(/[^0-9.]/g, '')) || 0;
+        const getPrice = (card: GundamCard) => {
+          const setPrices = prices[card.set];
+          if (!setPrices) return 0;
+          const price = setPrices[card.cardNumber];
+          return price ? parseInt(price) : 0;
         };
-        return (parsePrice(priceAStr) - parsePrice(priceBStr)) * direction;
+        return (getPrice(a) - getPrice(b)) * direction;
       }
 
       // Default sort (Set -> ID) where direction governs Set order
@@ -3395,6 +3238,8 @@ function AppContent() {
     <GridItem 
       key={card.id}
       card={card}
+      price={prices[card.cardNumber.toUpperCase()]?.price}
+      showPrice={priceMode}
       onSelect={(c) => {
         setSelectedCard(c);
         setSelectedArtType(c.variantType || "Base art");
@@ -3412,10 +3257,9 @@ function AppContent() {
       }}
       onRemoveFromDeck={(id, art) => activeDeckId && removeFromDeck(activeDeckId, id, art)}
       onUpdateDeckCount={(id, art, delta) => activeDeckId && updateDeckCount(activeDeckId, id, art, delta)}
-      priceMode={priceMode}
       isBookmarked={bookmarks.includes(card.id)}
     />
-  ), [isDeckBuilderMode, activeDeck, activeDeckId, addToDeck, removeFromDeck, updateDeckCount, priceMode, expandedCardIds, toggleExpanded, combinedCards, bookmarks]);
+  ), [isDeckBuilderMode, activeDeck, activeDeckId, addToDeck, removeFromDeck, updateDeckCount, expandedCardIds, toggleExpanded, combinedCards, bookmarks]);
 
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-amber-200">
@@ -3558,65 +3402,13 @@ function AppContent() {
                   </div>
                   <ChevronRight size={20} className="text-white/30" />
                 </button>
-
-                <button 
-                  onClick={() => {
-                    if (!isAdmin) {
-                      showToast("Feature is in work in progress!");
-                      return;
-                    }
-                    setCurrentTab('scan');
-                    setIsScanning(true);
-                  }}
-                  className={cn(
-                    "w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group transition-all",
-                    isAdmin ? "active:scale-95 hover:bg-stone-50" : "opacity-75 cursor-not-allowed filter grayscale"
-                  )}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center transition-transform",
-                      isAdmin ? "bg-stone-50 text-stone-600 group-hover:scale-110" : "bg-stone-100 text-stone-500"
-                    )}>
-                      <Scan size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="block font-bold text-sm text-[#141414]">Card Scanner</span>
-                        {!isAdmin && (
-                          <span className="px-1.5 py-0.5 bg-stone-100 text-stone-500 text-[8px] font-black uppercase tracking-widest rounded border border-stone-200">Admin Only</span>
-                        )}
-                      </div>
-                      <p className="block text-[10px] text-stone-400 font-medium">Identify cards instantly</p>
-                    </div>
-                  </div>
-                  {isAdmin && <ChevronRight size={20} className="text-stone-300" />}
-                </button>
-
-                <button 
-                  onClick={() => {
-                    setCurrentTab('product-list');
-                  }}
-                  className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between group active:scale-95 transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-stone-50 rounded-xl flex items-center justify-center text-stone-600 group-hover:scale-110 transition-transform">
-                      <ListIcon size={20} />
-                    </div>
-                    <div className="text-left">
-                      <span className="block font-bold text-sm text-[#141414]">Product list</span>
-                      <span className="block text-[10px] text-stone-400 font-medium">Browse sets and starter decks</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={20} className="text-stone-300" />
-                </button>
               </div>
             </div>
 
             <div className="bg-amber-50 rounded-3xl p-6 border border-amber-100 space-y-2">
               <h3 className="text-sm font-black text-amber-800 uppercase tracking-wider">Pro Tip</h3>
               <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                Use the Card Scanner to quickly add cards to your deck by enabling "Continuous Scan" in the scanner settings.
+                Tap the Scan icon in the footer to quickly identify cards and add them to your deck.
               </p>
             </div>
           </div>
@@ -3762,24 +3554,6 @@ function AppContent() {
 
                   <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
                     <button 
-                      onClick={() => setShowProductManager(true)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-stone-100 text-stone-500 rounded-lg flex items-center justify-center">
-                          <Package size={18} />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-black text-[#141414]">Product Management</p>
-                          <p className="text-[10px] text-stone-500 font-medium">Add or edit set listings</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-stone-400" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-                    <button 
                       onClick={() => setShowTournamentManager(true)}
                       className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors"
                     >
@@ -3816,52 +3590,16 @@ function AppContent() {
                     </button>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden mt-4">
-                <button 
-                  onClick={() => {
-                    const btn = document.getElementById('clear-cache-btn');
-                    const label = document.getElementById('clear-cache-label');
-                    if (btn?.dataset.confirming === 'true') {
-                      clearPriceCache();
-                      showToast("Price cache cleared!");
-                      if (btn) btn.dataset.confirming = 'false';
-                      if (label) label.innerText = 'Clear Price Cache';
-                    } else {
-                      if (btn) btn.dataset.confirming = 'true';
-                      if (label) label.innerText = 'Click again to confirm';
-                      setTimeout(() => {
-                        if (btn) btn.dataset.confirming = 'false';
-                        if (label) label.innerText = 'Clear Price Cache';
-                      }, 3000);
-                    }
-                  }}
-                  id="clear-cache-btn"
-                  data-confirming="false"
-                  className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-stone-100 text-stone-500 group-hover:text-amber-600 rounded-lg flex items-center justify-center transition-colors">
-                      <Trash2 size={18} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-[#141414]" id="clear-cache-label">Clear Price Cache</p>
-                      <p className="text-[10px] text-stone-500 font-medium">Reset YYT price storage</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-stone-400 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-
-              <button 
-                onClick={() => {
-                  logout();
-                  setCurrentTab('cards');
-                }}
-                className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-3 border border-red-100 active:scale-95 transition-all hover:bg-red-100"
-              >
-                <LogOut size={20} />
-                Log out
-              </button>
+                  <button 
+                    onClick={() => {
+                      logout();
+                      setCurrentTab('cards');
+                    }}
+                    className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-3 border border-red-100 active:scale-95 transition-all hover:bg-red-100 mt-4"
+                  >
+                    <LogOut size={20} />
+                    Log out
+                  </button>
             </div>
           </div>
         </div>
@@ -3915,31 +3653,6 @@ function AppContent() {
               <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
                 {cardsLoading ? "..." : filteredCards.length} Cards Found
               </p>
-              
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setShowPriceFaq(true)}
-                  className="text-stone-400 hover:text-stone-600 transition-colors p-1"
-                >
-                  <HelpCircle size={14} />
-                </button>
-                <div className="flex bg-white border border-stone-200 rounded-xl p-0.5 shadow-sm">
-                  {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setPriceMode(m)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-tight transition-all uppercase whitespace-nowrap",
-                        priceMode === m 
-                          ? "bg-[#141414] text-white shadow-sm" 
-                          : "text-stone-400 hover:text-stone-600 hover:bg-stone-50"
-                      )}
-                    >
-                      {m === 'JPY' ? 'JPY' : 'SGD/YYT120'}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
         </div>
 
@@ -4160,7 +3873,6 @@ function AppContent() {
                 setShowFeedback(false);
                 setShowAdminPanel(false);
                 setShowTournamentManager(false);
-                setShowProductManager(false);
                 setShowDeckList(false);
                 setIsScanning(false);
               }}
@@ -4205,7 +3917,6 @@ function AppContent() {
                   setShowFeedback(false);
                   setShowAdminPanel(false);
                   setShowTournamentManager(false);
-                  setShowProductManager(false);
                 } else if (isDeckBuilderMode && activeDeckId) {
                   setIsDeckEditorOpen(true);
                   setShowDeckList(false);
@@ -4213,7 +3924,6 @@ function AppContent() {
                   setShowFeedback(false);
                   setShowAdminPanel(false);
                   setShowTournamentManager(false);
-                  setShowProductManager(false);
                 } else {
                   setShowDeckList(true);
                   setIsDeckEditorOpen(false);
@@ -4221,7 +3931,6 @@ function AppContent() {
                   setShowFeedback(false);
                   setShowAdminPanel(false);
                   setShowTournamentManager(false);
-                  setShowProductManager(false);
                 }
 
                 setIsScanning(false);
@@ -4269,7 +3978,6 @@ function AppContent() {
                 setShowFeedback(false);
                 setShowAdminPanel(false);
                 setShowTournamentManager(false);
-                setShowProductManager(false);
                 setShowDeckList(false);
                 setIsScanning(false);
               }}
@@ -4311,7 +4019,6 @@ function AppContent() {
                 setShowFeedback(false);
                 setShowAdminPanel(false);
                 setShowTournamentManager(false);
-                setShowProductManager(false);
                 setShowDeckList(false);
                 setIsScanning(false);
               }}
@@ -4357,7 +4064,6 @@ function AppContent() {
                 setShowFeedback(false);
                 setShowAdminPanel(false);
                 setShowTournamentManager(false);
-                setShowProductManager(false);
                 setIsScanning(true);
                 setShowDeckList(false);
               }}
@@ -4393,13 +4099,12 @@ function AppContent() {
                   setShowFeedback(false);
                   setShowAdminPanel(false);
                   setShowTournamentManager(false);
-                  setShowProductManager(false);
                   setIsScanning(false);
                   setShowDeckList(false);
                   setIsDeckEditorOpen(false);
                   if (currentTab === 'scan') setIsScanning(false);
                 } else {
-                  login();
+                  setShowLoginGate(true);
                 }
               }}
               className="flex flex-col items-center gap-0 group transition-all active:scale-95"
@@ -4896,24 +4601,31 @@ function AppContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
-                    <p className="text-stone-400 font-mono text-xs font-bold uppercase tracking-widest">{selectedCard.cardNumber} • {selectedCard.set}</p>
-                    
-                    <div className="flex items-center gap-2">
-                      <RarityTag rarity={selectedCard.rarity} />
-                      <ColorTag color={selectedCard.color} />
+                  <div className="space-y-1.5">
+                    <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
+                      <p className="text-stone-400 font-mono text-xs font-bold uppercase tracking-widest">{selectedCard.cardNumber} • {selectedCard.set}</p>
+                      
+                      <div className="flex items-center flex-wrap gap-2">
+                        <RarityTag rarity={selectedCard.rarity} />
+                        <ColorTag color={selectedCard.color} />
+                      </div>
                     </div>
+
+                    {priceMode && prices[selectedCard.cardNumber.toUpperCase()] && (
+                      <a 
+                        href={prices[selectedCard.cardNumber.toUpperCase()].url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded text-[10px] font-black italic shadow-sm hover:bg-yellow-100 hover:border-yellow-300 transition-all animate-in fade-in slide-in-from-left-2 duration-300 group"
+                      >
+                        <Zap size={10} className="fill-yellow-500 text-yellow-500" />
+                        <span>YYT Price: ¥{Number(prices[selectedCard.cardNumber.toUpperCase()].price).toLocaleString()}</span>
+                        <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </a>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-6 pt-1">
-                    <CardPrice 
-                      cardNumber={selectedCard.cardNumber} 
-                      cardName={selectedCard.name} 
-                      artType={selectedArtType} 
-                      mode={priceMode}
-                      onModeChange={setPriceMode}
-                    />
-
                     {/* Artist Info */}
                     {(() => {
                       let currentArtist;
@@ -4933,63 +4645,11 @@ function AppContent() {
                           <div className="p-1 bg-amber-50 rounded-lg text-amber-600">
                             <Palette size={12} />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-black uppercase text-stone-400 leading-none mb-0.5">Artist</span>
-                            {currentArtist.link ? (
-                              <a 
-                                href={currentArtist.link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-[10px] font-bold text-[#141414] hover:text-amber-600 flex items-center gap-1 transition-colors"
-                              >
-                                {currentArtist.name}
-                                <ExternalLink size={8} className="opacity-50" />
-                              </a>
-                            ) : (
-                              <span className="text-[10px] font-bold text-[#141414]">{currentArtist.name}</span>
-                            )}
-                          </div>
+                          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">{currentArtist.name}</span>
                         </div>
                       );
                     })()}
                   </div>
-
-                  {/* Where to get it */}
-                  {(() => {
-                    const product = products.find(p => p.id === selectedCard.set);
-                    if (!product) return null;
-
-                    return (
-                      <div className="space-y-2 pt-2">
-                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                          <ShoppingBag size={14} /> Where to get it
-                        </h4>
-                        <button 
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setCurrentTab('product-details');
-                            setSelectedCard(null);
-                          }}
-                          className="w-full flex items-center justify-between p-3 bg-white border border-stone-200 rounded-2xl hover:bg-stone-50 transition-all group overflow-hidden relative shadow-sm"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 aspect-[3/4] bg-stone-100 rounded-lg overflow-hidden border border-stone-100 shrink-0">
-                              <img src={product.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
-                            </div>
-                            <div className="text-left">
-                              <p className="text-[11px] font-black text-[#141414] uppercase tracking-tight">
-                                {product.id} {product.name.toLowerCase().startsWith(product.id.toLowerCase()) 
-                                  ? product.name.replace(new RegExp(`^${product.id}\\s*[-\\s]*`, 'i'), '')
-                                  : product.name}
-                              </p>
-                              <p className="text-[9px] font-bold text-stone-400 capitalize">{product.category}</p>
-                            </div>
-                          </div>
-                          <ChevronRight size={16} className="text-stone-300 group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all" />
-                        </button>
-                      </div>
-                    );
-                  })()}
 
                   {/* Info / Meta Tab Toggle */}
                   <div className="flex p-1 bg-stone-100 rounded-xl gap-1 mt-2">
@@ -5117,53 +4777,78 @@ function AppContent() {
                       </div>
 
                       <div className="space-y-4">
-                        <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                          <Trophy size={14} className="text-amber-500" /> Recent winning decks
-                        </h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
+                            <Trophy size={14} className="text-amber-500" /> Winning decks
+                          </h4>
+                          <div className="flex bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                             <button 
+                               onClick={() => setWinningDecksFilter('recent')} 
+                               className={cn(
+                                 "px-2 py-1 text-[9px] font-black uppercase tracking-tighter rounded-md transition-all", 
+                                 winningDecksFilter === 'recent' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400"
+                               )}
+                             >
+                               Recent 3
+                             </button>
+                             <button 
+                               onClick={() => setWinningDecksFilter('top')} 
+                               className={cn(
+                                 "px-2 py-1 text-[9px] font-black uppercase tracking-tighter rounded-md transition-all", 
+                                 winningDecksFilter === 'top' ? "bg-white text-stone-900 shadow-sm" : "text-stone-400"
+                               )}
+                             >
+                               Top 3
+                             </button>
+                          </div>
+                        </div>
                         
                         <div className="space-y-2">
-                          {metaStats?.recentDecks && metaStats.recentDecks.length > 0 ? (
-                            metaStats.recentDecks.map((deck, idx) => (
-                              <button
-                                key={deck.id || idx}
-                                onClick={() => {
-                                  setSelectedTournamentDeck(deck);
-                                  setSelectedCard(null);
-                                  setCurrentTab('coverage');
-                                }}
-                                className="w-full bg-white border border-stone-200 rounded-2xl p-3 flex items-center gap-3 hover:bg-stone-50 transition-all group shadow-sm active:scale-[0.98]"
-                              >
-                                <div className="w-10 h-10 bg-stone-100 rounded-lg overflow-hidden shrink-0 border border-stone-100">
-                                  {deck.coverImageUrl ? (
-                                    <img src={deck.coverImageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-stone-300">
-                                      <Layout size={16} />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 text-left min-w-0">
-                                  <h5 className="text-[11px] font-black text-stone-900 uppercase tracking-tight truncate group-hover:text-amber-600 transition-colors">
-                                    {deck.deckName}
-                                  </h5>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest truncate">{deck.playerName}</span>
-                                    {deck.placement && (
-                                      <>
-                                        <span className="w-0.5 h-0.5 rounded-full bg-stone-200" />
-                                        <span className="text-[8px] font-black text-amber-500 uppercase">{deck.placement}</span>
-                                      </>
+                          {(() => {
+                            const decksToShow = winningDecksFilter === 'recent' ? metaStats?.recentDecks : metaStats?.topDecks;
+                            return decksToShow && decksToShow.length > 0 ? (
+                              decksToShow.map((deck, idx) => (
+                                <button
+                                  key={deck.id || idx}
+                                  onClick={() => {
+                                    setSelectedTournamentDeck(deck);
+                                    setSelectedCard(null);
+                                    setCurrentTab('coverage');
+                                  }}
+                                  className="w-full bg-white border border-stone-200 rounded-2xl p-3 flex items-center gap-3 hover:bg-stone-50 transition-all group shadow-sm active:scale-[0.98]"
+                                >
+                                  <div className="w-10 h-10 bg-stone-100 rounded-lg overflow-hidden shrink-0 border border-stone-100">
+                                    {deck.coverImageUrl ? (
+                                      <img src={deck.coverImageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-stone-300">
+                                        <Layout size={16} />
+                                      </div>
                                     )}
                                   </div>
-                                </div>
-                                <ArrowRight size={14} className="text-stone-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
-                              </button>
-                            ))
-                          ) : (
-                            <div className="py-8 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200">
-                              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">No winning decks recorded</p>
-                            </div>
-                          )}
+                                  <div className="flex-1 text-left min-w-0">
+                                    <h5 className="text-[11px] font-black text-stone-900 uppercase tracking-tight truncate group-hover:text-amber-600 transition-colors">
+                                      {deck.deckName}
+                                    </h5>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[8px] font-bold text-stone-400 uppercase tracking-widest truncate">{deck.playerName}</span>
+                                      {deck.placement && (
+                                        <>
+                                          <span className="w-0.5 h-0.5 rounded-full bg-stone-200" />
+                                          <span className="text-[8px] font-black text-amber-500 uppercase">{deck.placement}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <ArrowRight size={14} className="text-stone-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all" />
+                                </button>
+                              ))
+                            ) : (
+                              <div className="py-8 text-center bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+                                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">No winning decks recorded</p>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </motion.div>
@@ -5312,7 +4997,7 @@ function AppContent() {
                   { id: 'color', label: 'Color' },
                   { id: 'ap', label: 'AP' },
                   { id: 'hp', label: 'HP' },
-                  { id: 'price', label: 'Price ($)' }
+                  { id: 'price', label: 'Price (¥)' }
                 ].map((option) => {
                   const isActive = sortOption.key === option.id;
                   return (
@@ -5639,7 +5324,6 @@ function AppContent() {
             visible={isDeckBuilderMode ? deckBuilderView === 'editor' : currentTab === 'decks'}
             initialTab={isDeckInPlayMode ? 'play' : 'cards'}
             allCards={combinedCards}
-            allProducts={products}
             onUpdateCount={updateDeckCount}
             onRemove={removeFromDeck}
             onPreviewCard={(card) => setSelectedCard(card)}
@@ -5652,20 +5336,6 @@ function AppContent() {
               setDeckBuilderView('list');
             }}
             isDeckBuilderMode={isDeckBuilderMode}
-            onViewProduct={(product) => {
-              setSelectedProduct(product);
-              setCurrentTab('product-details'); // Change tab immediately
-              setIsDeckEditorOpen(false);
-              setShowDeckList(false); // Close the underlying deck list if it was open
-              setIsDeckBuilderMode(false); // Exit deck builder mode
-            }}
-            onViewProductList={() => {
-              setCurrentTab('product-list');
-              setIsDeckEditorOpen(false);
-              setShowDeckList(false);
-              setIsDeckBuilderMode(false); // Exit deck builder mode
-            }}
-            getCardPrice={getCardPrice}
             onClose={() => {
               if (isDeckBuilderMode) {
                 setIsDeckBuilderMode(false);
@@ -5685,9 +5355,6 @@ function AppContent() {
                 setShowDeckList(false);
               }
             }}
-            getCachedPrice={getCachedPrice}
-            priceMode={priceMode}
-            onPriceModeChange={setPriceMode}
             onPlayModeChange={setIsDeckInPlayMode}
             onRenameDeck={renameDeck}
             userName={user?.displayName || undefined}
@@ -5881,6 +5548,51 @@ function AppContent() {
                   </div>
                 </div>
 
+                {/* Price Display */}
+                <div className="space-y-3">
+                  <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Market Prices</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setPriceMode(!priceMode)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1.5",
+                        priceMode
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/10"
+                          : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
+                      )}
+                    >
+                      <Zap size={12} className={cn(priceMode && "fill-white")} />
+                      {priceMode ? "Hide Prices" : "Show Prices"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (pricesLoading) return;
+                        setPricesLoading(true);
+                        try {
+                          await fetch('/api/clear-cache', { method: 'POST' });
+                          setPrices({});
+                          showToast("YYT Cache cleared. Syncing started...");
+                        } catch (error) {
+                          showToast("Failed to clear cache");
+                        } finally {
+                          setPricesLoading(false);
+                        }
+                      }}
+                      disabled={pricesLoading}
+                      className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1.5 bg-white text-stone-500 border-stone-200 hover:border-red-400 hover:text-red-500 disabled:opacity-50"
+                    >
+                      <Trash2 size={12} />
+                      Clear YYT Cache
+                    </button>
+                    {pricesLoading && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-100 bg-emerald-50 text-emerald-600 text-[10px] font-bold animate-pulse">
+                        <Loader2 size={12} className="animate-spin" />
+                        Syncing...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Art Variant */}
                 <div className="space-y-3 pb-4">
                   <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Art Variant</h3>
@@ -5933,14 +5645,6 @@ function AppContent() {
           adminFeedback={adminFeedback}
           onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
           initialCardId={initialCardIdForManager}
-        />
-      )}
-
-      {/* Product Manager */}
-      {showProductManager && isAdmin && (
-        <ProductManager 
-          onClose={() => setShowProductManager(false)} 
-          allCards={combinedCards}
         />
       )}
 
@@ -6006,7 +5710,6 @@ function AppContent() {
         )}
       </AnimatePresence>
 
-      {/* Product Views */}
       <AnimatePresence mode="wait">
         {currentTab === 'coverage' && (
           <motion.div
@@ -6023,6 +5726,7 @@ function AppContent() {
               <TournamentDeckDetail 
                 submission={selectedTournamentDeck} 
                 onClose={() => setSelectedTournamentDeck(null)} 
+                onDuplicateDeck={duplicateDeck}
               />
             )}
           </motion.div>
@@ -6052,57 +5756,6 @@ function AppContent() {
             />
           </motion.div>
         )}
-
-        {currentTab === 'product-list' && (
-          <motion.div
-            key="product-list"
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-white flex flex-col overflow-y-auto"
-          >
-            <ProductList 
-              products={products}
-              onSelectProduct={(p) => {
-                setSelectedProduct(p);
-                setCurrentTab('product-details');
-              }}
-              onBack={() => setCurrentTab('quick-start')}
-            />
-          </motion.div>
-        )}
-
-        {currentTab === 'product-details' && selectedProduct && (
-          <motion.div
-            key={`product-details-${selectedProduct.id}`}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-white flex flex-col overflow-y-auto"
-          >
-            <ProductDetails 
-              product={selectedProduct}
-              allCards={combinedCards}
-              onBack={() => setCurrentTab('product-list')}
-              onSelectCard={(card) => {
-                setSelectedCard(card);
-                setSelectedArtType("Base art");
-                setSwipeDirection(0);
-              }}
-              onViewAll={(setId) => {
-                setSearchQuery("");
-                setActiveFilters({
-                  sets: [setId],
-                  rarities: [],
-                  colors: [],
-                  types: [],
-                  variants: [],
-                  users: [],
-                  metaCards: []
-                });
-                setCurrentTab('cards');
-              }}
-            />
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* Card Feedback Popup */}
@@ -6115,7 +5768,90 @@ function AppContent() {
         )}
       </AnimatePresence>
 
-      <PriceFaqModal isOpen={showPriceFaq} onClose={() => setShowPriceFaq(false)} />
+      {/* Login Gate Popup */}
+      <AnimatePresence>
+        {showLoginGate && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+              onClick={() => {
+                setShowLoginGate(false);
+                setLoginGatePassword('');
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl p-8 border border-stone-100"
+            >
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="w-16 h-16 bg-[#141414] rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                  <LogIn size={32} className="text-white" />
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-[#141414]">Notice!</h3>
+                  <p className="text-stone-500 text-sm leading-relaxed">
+                    Most of the features are usable without logging into the app. 
+                    As the app is currently still experimental. We don't recommend registering your personal information with us just yet.
+                  </p>
+                </div>
+
+                <div className="w-full space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 ml-1">
+                      Enter password to unlock log in
+                    </label>
+                    <input
+                      type="password"
+                      value={loginGatePassword}
+                      onChange={(e) => setLoginGatePassword(e.target.value)}
+                      placeholder="•••••"
+                      className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-[#141414] focus:border-transparent outline-none transition-all text-center text-lg tracking-widest"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && loginGatePassword === '12345') {
+                          setShowLoginGate(false);
+                          setLoginGatePassword('');
+                          login();
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (loginGatePassword === '12345') {
+                        setShowLoginGate(false);
+                        setLoginGatePassword('');
+                        login();
+                      } else {
+                        showToast("Incorrect password");
+                      }
+                    }}
+                    className="w-full py-4 bg-[#141414] hover:bg-stone-800 text-white font-bold rounded-xl transition-all shadow-lg active:scale-[0.98]"
+                  >
+                    Continue to Login
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowLoginGate(false);
+                      setLoginGatePassword('');
+                    }}
+                    className="w-full py-2 text-stone-400 text-xs font-medium hover:text-stone-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Keyword Tooltip */}
       <AnimatePresence>
@@ -6168,59 +5904,3 @@ function AppContent() {
     </div>
   );
 }
-
-const PriceFaqModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative bg-white w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl border border-white/20"
-          >
-            <div className="p-8 space-y-6">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500">
-                  <HelpCircle size={32} />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black text-[#141414] uppercase tracking-tight">Currency Conversion</h3>
-                  <div className="h-0.5 w-12 bg-amber-500 mx-auto rounded-full" />
-                </div>
-              </div>
-              
-              <div className="space-y-4 text-stone-600 leading-relaxed text-center">
-                <p className="text-sm font-medium">
-                  Japanese Gundam card prices are typically referenced from <span className="font-bold text-[#141414]">Yuyutei</span>.
-                </p>
-                <p className="text-sm font-medium">
-                  While exchange rates between Japanese Yen and Singapore Dollars fluctuate, the local community commonly uses a simplified conversion of <span className="font-bold text-[#141414]">¥120 to SGD $1</span>.
-                </p>
-                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex flex-col items-center gap-1">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Formula Used</span>
-                  <span className="text-lg font-black text-amber-600 tracking-tight">SGD = YYT ÷ 120</span>
-                </div>
-              </div>
-
-              <button 
-                onClick={onClose}
-                className="w-full py-4 bg-[#141414] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-stone-800 transition-all shadow-lg active:scale-[0.98]"
-              >
-                Got it
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
-};

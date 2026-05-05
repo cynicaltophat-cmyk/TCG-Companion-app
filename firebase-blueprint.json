@@ -140,42 +140,6 @@
       },
       "required": ["uid", "cardId", "createdAt"]
     },
-    "Product": {
-      "title": "Product",
-      "description": "A TCG product listing.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "category": { "type": "string", "enum": ["Starter Deck", "Booster box", "Other"] },
-        "imageUrl": { "type": "string" },
-        "releaseDate": { "type": "string" },
-        "msrp": { "type": "string" },
-        "whereToBuy": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "url": { "type": "string" }
-            }
-          }
-        },
-        "featuredCards": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "cardId": { "type": "string" },
-              "count": { "type": "integer" }
-            }
-          }
-        },
-        "contents": { "type": "array", "items": { "type": "string" } },
-        "order": { "type": "integer", "description": "Sort order for display" }
-      },
-      "required": ["id", "name", "category", "imageUrl", "releaseDate", "msrp"]
-    },
     "TournamentEvent": {
       "title": "TournamentEvent",
       "description": "An organized tournament event.",
@@ -248,10 +212,6 @@
     "bookmarks/{bookmarkId}": {
       "schema": "Bookmark",
       "description": "User bookmarked cards"
-    },
-    "products/{productId}": {
-      "schema": "Product",
-      "description": "Product listings for the TCG"
     },
     "tournament_events/{eventId}": {
       "schema": "TournamentEvent",

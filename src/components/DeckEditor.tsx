@@ -21,6 +21,8 @@ import {
   Dices,
   Trophy,
   RotateCcw,
+  RefreshCw,
+  Loader2,
   History,
   Calendar,
   MapPin,
@@ -37,13 +39,12 @@ import {
   Palette,
   Image as ImageIcon,
   HelpCircle,
-  ExternalLink,
-  ShoppingCart
+  ExternalLink
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { DeckImageExport } from './DeckImageExport';
-import { GundamCard, ArtVariantType, Deck, DeckItem, Product } from '../types';
-import { cn, PriceDisplayMode, formatPrice, formatCurrency } from '../lib/utils';
+import { GundamCard, ArtVariantType, Deck, DeckItem } from '../types';
+import { cn } from '../lib/utils';
 import { ProgressiveImage } from './ProgressiveImage';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -54,9 +55,6 @@ interface DeckEditorProps {
   onRemove: (deckId: string, cardId: string, artType: ArtVariantType) => void;
   onPreviewCard: (card: GundamCard) => void;
   onClose: () => void;
-  getCachedPrice: (cardNumber: string, cardName: string, artType: ArtVariantType) => string | null;
-  priceMode: PriceDisplayMode;
-  onPriceModeChange: (mode: PriceDisplayMode) => void;
   onEnterBuilderMode: (types?: string[]) => void;
   onPlayModeChange?: (isPlay: boolean) => void;
   onDuplicateDeck?: (deck: Deck) => void;
@@ -65,11 +63,7 @@ interface DeckEditorProps {
   onRenameDeck?: (deckId: string, newName: string) => void;
   onSetCover?: (deckId: string, imageUrl: string) => void;
   onSubmitDeck?: (deck: Deck) => void;
-  onViewProduct?: (product: Product) => void;
-  onViewProductList?: () => void;
-  getCardPrice?: (cardNumber: string, cardName: string, forceRefresh?: boolean, artType?: ArtVariantType) => Promise<string | null>;
   allCards: GundamCard[];
-  allProducts: Product[];
   visible?: boolean;
   initialTab?: 'cards' | 'stats' | 'play';
   isDeckBuilderMode?: boolean;
@@ -195,9 +189,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   onRemove, 
   onPreviewCard,
   onClose,
-  getCachedPrice,
-  priceMode,
-  onPriceModeChange,
   onEnterBuilderMode,
   onPlayModeChange,
   onDuplicateDeck,
@@ -212,15 +203,10 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   isDeckBuilderMode = false,
   userName,
   userPhotoUrl,
-  allProducts,
-  onViewProduct,
-  onViewProductList,
-  getCardPrice,
   isPreviewMode = false,
   onTogglePreviewMode
 }, ref) => {
-  const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play' | 'product'>(initialTab as any || 'cards');
-  const [pricesVersion, setPricesVersion] = React.useState(0);
+  const [activeTab, setActiveTab] = React.useState<'cards' | 'stats' | 'play'>(initialTab as any || 'cards');
   const [showCoverPicker, setShowCoverPicker] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isEditingName, setIsEditingName] = React.useState(false);
@@ -466,26 +452,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
   const totalCards = deck.items.reduce((sum, item) => sum + item.count, 0);
   const isValidSize = totalCards === 50;
   
-  // Auto-refresh prices when Product tab is active
-  React.useEffect(() => {
-    if (activeTab === 'product' && getCardPrice) {
-      let isMounted = true;
-      const fetchPrices = async () => {
-        // Fetch all prices in the background
-        const promises = deck.items.map(async (item) => {
-          const p = await getCardPrice(item.card.cardNumber, item.card.name, false, item.artType);
-          if (isMounted && p) {
-            setPricesVersion(v => v + 1);
-          }
-          return p;
-        });
-        await Promise.all(promises);
-      };
-      fetchPrices();
-      return () => { isMounted = false; };
-    }
-  }, [activeTab, deck.items, getCardPrice]);
-
   React.useImperativeHandle(ref, () => ({
     requestClose: () => {
       if (activeTab === 'play') {
@@ -500,15 +466,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
     onPlayModeChange?.(activeTab === 'play');
   }, [activeTab, onPlayModeChange]);
 
-  const totalValue = deck.items.reduce((sum, item) => {
-    const priceStr = getCachedPrice(item.card.cardNumber, item.card.name, item.artType);
-    if (priceStr) {
-      const price = parseInt(priceStr.replace(/[¥,]/g, ''));
-      return sum + (isNaN(price) ? 0 : price * item.count);
-    }
-    return sum;
-  }, 0);
-  
   // Stats
   const parseStatValue = (val: any): number => {
     if (val === undefined || val === null) return 0;
@@ -767,8 +724,8 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                               <button 
                                 onClick={() => {
                                   setIsMenuOpen(false);
-                                  const text = deck.items.map(i => `${i.count}x ${i.card.cardNumber}`).join('\n');
-                                  setExportText(`// Main Deck\n${text}`);
+                                  const text = deck.items.map(i => `${i.count} ${i.card.cardNumber} ${i.card.name}`).join('\n');
+                                  setExportText(text);
                                   setIsExportModalOpen(true);
                                 }}
                                 className="w-full flex items-center gap-3 px-3 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
@@ -842,7 +799,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                                 onClick={() => {
                                   setIsMenuOpen(false);
                                   onDuplicateDeck?.(deck);
-                                  showToast("Successfully duplicated deck");
                                 }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 rounded-xl transition-colors"
                               >
@@ -911,15 +867,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 )}
               >
                 DECK INFO
-              </button>
-              <button 
-                onClick={() => setActiveTab('product')}
-                className={cn(
-                  "flex-1 h-full text-[8.5px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center",
-                  activeTab === 'product' ? "bg-white text-stone-900 shadow-lg ring-1 ring-black/5" : "text-white/60 hover:text-white"
-                )}
-              >
-                PRODUCT
               </button>
             </div>
           )}
@@ -1068,34 +1015,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                 </div>
               </div>
 
-              {/* Total Value & Price Switcher hidden as requested */}
-              {/* <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Total Deck Value</span>
-                  <span className="text-lg font-bold text-emerald-600">{formatCurrency(totalValue, priceMode)}</span>
-                </div>
-                
-                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Price Mode</span>
-                  <div className="flex bg-stone-100 border border-stone-200 rounded-lg p-0.5">
-                    {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => onPriceModeChange(m)}
-                        className={cn(
-                          "px-2 py-1 rounded-md text-[10px] font-bold transition-all",
-                          priceMode === m 
-                            ? "bg-[#141414] text-white" 
-                            : "text-stone-400 hover:text-stone-600"
-                        )}
-                      >
-                        {m === 'JPY' ? '¥' : 'YYT/120'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div> */}
-
               {/* Deck Size Warning */}
               {!isValidSize && totalCards > 0 && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
@@ -1105,185 +1024,6 @@ export const DeckEditor = React.forwardRef<DeckEditorHandle, DeckEditorProps>(({
                   </p>
                 </div>
               )}
-            </motion.section>
-          ) : activeTab === 'product' ? (
-            <motion.section 
-              key="product"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="p-4 lg:px-12 space-y-8 w-full"
-            >
-              {/* Total Cost Header */}
-              <div className="flex items-center justify-between pb-2 border-stone-200">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-bold text-stone-900 uppercase tracking-tight">Total cost:</span>
-                  <span className="text-sm font-black text-amber-500">
-                    {priceMode === 'SGD120' ? 'S$ ' : '¥'}
-                    {priceMode === 'SGD120' 
-                      ? (totalValue / 120).toFixed(2) 
-                      : totalValue.toLocaleString()}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <div className="flex bg-stone-100 border border-stone-200 rounded-lg p-0.5">
-                    {(['JPY', 'SGD120'] as PriceDisplayMode[]).map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => onPriceModeChange(m)}
-                        className={cn(
-                          "px-2 py-1 rounded-md text-[9px] font-black transition-all uppercase tracking-tighter",
-                          priceMode === m 
-                            ? "bg-[#141414] text-white shadow-sm" 
-                            : "text-stone-400 hover:text-stone-700"
-                        )}
-                      >
-                        {m === 'JPY' ? 'JPY' : 'SGD/YYT 120'}
-                      </button>
-                    ))}
-                  </div>
-                  <HelpCircle size={14} className="text-stone-300" />
-                </div>
-              </div>
-
-              {/* Grouped by Product/Set */}
-              <div className="space-y-10">
-                {Array.from(new Set(deck.items.map(item => item.card.set))).sort().map(setId => {
-                  const itemsInSet = deck.items.filter(item => item.card.set === setId);
-                  const baseProduct = allProducts.find(p => {
-                    const pId = p.id.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const sId = setId.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    return pId === sId || p.id === setId;
-                  });
-                  const setTotalCards = itemsInSet.reduce((sum, item) => sum + item.count, 0);
-                  const setTotalValue = itemsInSet.reduce((sum, item) => {
-                    const priceStr = getCachedPrice(item.card.cardNumber, item.card.name, item.artType);
-                    if (priceStr) {
-                      const price = parseInt(priceStr.replace(/[¥,]/g, ''));
-                      return sum + (isNaN(price) ? 0 : price * item.count);
-                    }
-                    return sum;
-                  }, 0);
-
-                  return (
-                    <div key={setId} className="space-y-4">
-                      {/* Section Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-xs font-black text-[#141414] leading-none">
-                              {setId} - {baseProduct?.name || 'Newtype rising'}
-                            </h3>
-                            <span className="text-[8px] font-bold text-stone-300 uppercase">{setTotalCards} cards</span>
-                            {!baseProduct && (
-                              <div className="w-5 h-5 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
-                                <AlertCircle size={10} />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <button 
-                          onClick={() => baseProduct && onViewProduct?.(baseProduct)}
-                          disabled={!baseProduct}
-                          className={cn(
-                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all",
-                            baseProduct 
-                              ? "bg-white border border-stone-200 text-stone-600 hover:border-stone-400 active:scale-95" 
-                              : "bg-white border border-stone-100 text-stone-300 cursor-not-allowed"
-                          )}
-                        >
-                          See product
-                          <ExternalLink size={10} />
-                        </button>
-                      </div>
-
-                      {/* Cards in this set */}
-                      <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-none snap-x">
-                        {itemsInSet.map((item, idx) => {
-                          const itemPriceStr = getCachedPrice(item.card.cardNumber, item.card.name, item.artType);
-                          const itemPrice = itemPriceStr ? parseInt(itemPriceStr.replace(/[¥,]/g, '')) : 0;
-                          const totalItemPriceYen = itemPrice * item.count;
-
-                          return (
-                            <div 
-                              key={`${item.card.id}-${idx}`} 
-                              className="shrink-0 w-24 snap-start cursor-pointer group"
-                              onClick={() => onPreviewCard(item.card)}
-                            >
-                              <div className="aspect-[2/3] bg-stone-100 rounded-xl overflow-hidden border border-stone-100 relative shadow-sm mb-2 group-hover:border-amber-400/50 transition-colors">
-                                <img 
-                                  src={
-                                    item.card.variants 
-                                      ? item.card.variants.find(v => v.type === item.artType)?.imageUrl || item.card.imageUrl
-                                      : (item.artType === "Parallel" && item.card.altImageUrl ? item.card.altImageUrl : item.card.imageUrl)
-                                  } 
-                                  alt="" 
-                                  className="w-full h-full object-cover" 
-                                  referrerPolicy="no-referrer" 
-                                />
-                                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-white/90 backdrop-blur-sm rounded-lg text-[9px] font-black shadow-sm">
-                                  x{item.count}
-                                </div>
-                              </div>
-                              <p className="text-[10px] font-black text-amber-500 uppercase tracking-tighter truncate leading-none">
-                                {priceMode === 'SGD120' ? 'S$' : '¥'}
-                                {priceMode === 'SGD120' 
-                                  ? (totalItemPriceYen / 120).toFixed(2) 
-                                  : totalItemPriceYen.toLocaleString()}
-                              </p>
-                              {item.count > 1 && (
-                                <p className="text-[7px] text-amber-500/70 font-bold uppercase tracking-widest mt-0.5">
-                                  Each: {priceMode === 'SGD120' ? 'S$' : '¥'}
-                                  {priceMode === 'SGD120' ? (itemPrice / 120).toFixed(2) : itemPrice.toLocaleString()}
-                                </p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Set Total Price Footer */}
-                      <div className="flex justify-start pt-1 border-t border-stone-100/50">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-[#141414] uppercase tracking-widest">Set Total:</span>
-                          <span className="text-xs font-black text-amber-500">
-                            {priceMode === 'SGD120' ? 'S$' : '¥'}
-                            {priceMode === 'SGD120' 
-                              ? (setTotalValue / 120).toFixed(2) 
-                              : setTotalValue.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* See All Products Section */}
-                <div className="pt-8 border-t border-stone-200 flex flex-col items-center gap-4">
-                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest text-center">
-                    Looking for something else?
-                  </p>
-                  <button 
-                    onClick={() => {
-                      onViewProductList?.();
-                    }}
-                    className="w-full p-4 bg-white border border-stone-200 rounded-2xl flex items-center justify-between px-6 group active:scale-95 transition-all shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
-                        <Package size={20} />
-                      </div>
-                      <div className="text-left">
-                        <span className="block font-bold text-sm text-[#141414]">See more products</span>
-                        <span className="block text-[10px] text-stone-400 font-medium tracking-tight">Browse our full catalog of sets</span>
-                      </div>
-                    </div>
-                    <ChevronRight size={20} className="text-stone-300 group-hover:text-amber-500 transition-colors" />
-                  </button>
-                </div>
-              </div>
             </motion.section>
           ) : activeTab === 'play' ? (
             <motion.section 
